@@ -6,15 +6,15 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from ._default_clients import DefaultAioHttpClient, DefaultAsyncHttpxClient
-    from .client import AsyncOnePinClient, OnePinClient
-    from .environment import OnePinClientEnvironment
+    from ._api import EventSource, aconnect_sse, connect_sse
+    from ._exceptions import SSEError
+    from ._models import ServerSentEvent
 _dynamic_imports: typing.Dict[str, str] = {
-    "AsyncOnePinClient": ".client",
-    "DefaultAioHttpClient": "._default_clients",
-    "DefaultAsyncHttpxClient": "._default_clients",
-    "OnePinClient": ".client",
-    "OnePinClientEnvironment": ".environment",
+    "EventSource": "._api",
+    "SSEError": "._exceptions",
+    "ServerSentEvent": "._models",
+    "aconnect_sse": "._api",
+    "connect_sse": "._api",
 }
 
 
@@ -39,10 +39,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = [
-    "AsyncOnePinClient",
-    "DefaultAioHttpClient",
-    "DefaultAsyncHttpxClient",
-    "OnePinClient",
-    "OnePinClientEnvironment",
-]
+__all__ = ["EventSource", "SSEError", "ServerSentEvent", "aconnect_sse", "connect_sse"]
