@@ -66,7 +66,16 @@ packages = ["src/onepin"]
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+extend-exclude = [
+    # Fern-generated SDK is not subject to project style rules. Ruff's exclude
+    # is path-prefix only, so CI explicitly runs `ruff check src/onepin/_cli`
+    # to lint the hand-rolled CLI subpackage that lives under the same root.
+    "src/onepin",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = "-q --strict-markers"
+# Restrict collection to top-level tests/ — Fern-generated SDK ships its own
+# tests under src/onepin/tests/ with markers we don't register.
+testpaths = ["tests"]
