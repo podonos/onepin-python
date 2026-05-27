@@ -15,9 +15,29 @@ from pathlib import Path, PosixPath, WindowsPath
 from typing import Any, Dict, Optional
 
 
-def _credentials_path() -> Path:
+def _home_path() -> Path:
+    """Resolve the CLI home directory in a testable, cross-platform way."""
     path_cls = WindowsPath if sys.platform == "win32" else PosixPath
-    return path_cls(os.path.expanduser("~")) / ".onepin" / "credentials"
+
+    home = os.environ.get("HOME")
+    if home:
+        return path_cls(home)
+
+    if sys.platform == "win32":
+        user_profile = os.environ.get("USERPROFILE")
+        if user_profile:
+            return path_cls(user_profile)
+
+        home_drive = os.environ.get("HOMEDRIVE")
+        home_path = os.environ.get("HOMEPATH")
+        if home_drive and home_path:
+            return path_cls(home_drive + home_path)
+
+    return Path.home()
+
+
+def _credentials_path() -> Path:
+    return _home_path() / ".onepin" / "credentials"
 
 
 def _load_toml(path: Path) -> Dict[str, Any]:
