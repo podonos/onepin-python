@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "onepin"
+version = "0.1.0"
+description = "OnePin Python SDK + CLI"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "Podonos", email = "kj@podonos.com" }]
+
+dependencies = [
+    "httpx>=0.27,<1.0",
+    "typer>=0.12,<1.0",
+    "rich>=13",
+    "pydantic>=2.7,<3.0",
+    "tomli; python_version<\"3.11\"",
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+
+[project.scripts]
+onepin = "onepin._cli.main:app"
+
+[project.urls]
+Documentation = "https://docs.onepin.ai"
+Source = "https://github.com/podonos/onepin-python"
+Issues = "https://github.com/podonos/onepin-python/issues"
+Changelog = "https://github.com/podonos/onepin-python/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio",
+    "pytest-cov",
+    "respx>=0.22",
+    "ruff>=0.6",
+    "diff-cover>=8",
+    "build",
+    "twine",
+    "trove-classifiers",
+    "check-wheel-contents",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/onepin"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/onepin/py.typed" = "onepin/py.typed"
+"src/onepin/_cli/py.typed" = "onepin/_cli/py.typed"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "-q --strict-markers"

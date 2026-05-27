@@ -1,0 +1,86 @@
+name: Publish
+on:
+  push:
+    tags: ['v*.*.*']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install build twine trove-classifiers check-wheel-contents
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - run: check-wheel-contents dist/*.whl
+      - run: |
+          python -c "
+          from trove_classifiers import classifiers
+          import tomllib, pathlib
+          data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
+          for c in data['project'].get('classifiers', []):
+              assert c in classifiers, f'Unknown classifier: {c}'
+          print('All classifiers valid.')
+          "
+      - run: uv run pytest tests/build/test_dist_contents.py || pip install build && python -m pytest tests/build/test_dist_contents.py
+      - id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with: { name: dist, path: dist/* }
+  smoke-install:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - run: pip install dist/*.whl && onepin --version
+      - run: pip install --no-binary onepin dist/onepin-*.tar.gz && onepin --version
+  test-pypi:
+    needs: smoke-install
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions: { id-token: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+  testpypi-smoke:
+    needs: test-pypi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: |
+          pip install \
+            --index-url https://test.pypi.org/simple/ \
+            --extra-index-url https://pypi.org/simple/ \
+            onepin==${{ needs.build.outputs.version }} \
+            && onepin --version
+  pypi:
+    needs: testpypi-smoke
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions: { id-token: write, contents: write, attestations: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Verify provenance attestation
+        run: gh attestation verify dist/*.whl --owner podonos
+        env:
+          GH_TOKEN: ${{ github.token }}
+  notify-failure:
+    if: failure()
+    needs: [build, smoke-install, test-pypi, testpypi-smoke, pypi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {"text":"Publish failed for ${{ github.ref_name }} in ${{ github.repository }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_ONEPIN_SDK }}
