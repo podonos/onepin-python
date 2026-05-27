@@ -2,18 +2,11 @@
 
 from __future__ import annotations
 
-from importlib.metadata import PackageNotFoundError, version as _pkg_version
-
 import click
 import typer
 
-from onepin._cli import _state
+from onepin._cli import __version__, _state
 from onepin._cli.commands import _registry
-
-try:
-    __version__ = _pkg_version("onepin")
-except PackageNotFoundError:  # editable install pre-build
-    __version__ = "0.0.0+local"
 
 app = typer.Typer(
     name="onepin",

@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 
-from onepin import __version__
+from onepin._cli import __version__
 
 
 class OnePinHTTPError(Exception):
