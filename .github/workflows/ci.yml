@@ -17,9 +17,11 @@ jobs:
         with: { python-version: '${{ matrix.python }}' }
       - run: pip install uv
       - run: uv sync --all-extras
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run pytest -q --cov=onepin --cov-report=xml --cov-fail-under=80
+      # Lint scope: hand-rolled code only. `src/onepin/` (except `_cli/`) is
+      # Fern-generated and not subject to project style rules.
+      - run: uv run ruff check src/onepin/_cli tests
+      - run: uv run ruff format --check src/onepin/_cli tests
+      - run: uv run pytest -q --cov=onepin._cli --cov-report=xml --cov-fail-under=80
       - name: Diff coverage
         if: github.event_name == 'pull_request'
         run: uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=90
