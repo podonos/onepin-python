@@ -13,6 +13,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # diff-cover needs to see origin/main to compute PR diff coverage
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with: { python-version: '${{ matrix.python }}' }
       - run: pip install uv
