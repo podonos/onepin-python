@@ -1,4 +1,5 @@
 """Template commands. Implementation pending first Fern SDK regen."""
+
 from __future__ import annotations
 
 import sys

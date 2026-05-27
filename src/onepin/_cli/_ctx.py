@@ -2,6 +2,7 @@
 
 Pending Fern SDK regen -- raises NotImplementedError until client.py exists.
 """
+
 from __future__ import annotations
 
 from typing import Any

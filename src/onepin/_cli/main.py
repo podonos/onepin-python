@@ -1,14 +1,18 @@
 """OnePin CLI entry point -- `onepin = "onepin._cli.main:app"`."""
+
 from __future__ import annotations
 
+import click
 import typer
 
 from onepin import __version__
+from onepin._cli import _state
 from onepin._cli.commands import _registry
 
 app = typer.Typer(
     name="onepin",
     help="OnePin Python SDK CLI.",
+    invoke_without_command=True,
     no_args_is_help=True,
     rich_markup_mode="markdown",
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -21,8 +25,16 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+def _root_option_callback(name: str, value: object) -> object:
+    ctx = click.get_current_context(silent=True)
+    _state.root_options[name] = value
+    _state.root_options[f"{name}_source"] = ctx.get_parameter_source(name) if ctx is not None else None
+    return value
+
+
 @app.callback()
 def _main(
+    ctx: typer.Context,
     version: bool = typer.Option(
         None,
         "--version",
@@ -30,15 +42,40 @@ def _main(
         is_eager=True,
         help="Show version and exit.",
     ),
-    api_key: str | None = typer.Option(None, "--api-key", envvar="ONEPIN_API_KEY"),
-    base_url: str | None = typer.Option(None, "--base-url", envvar="ONEPIN_BASE_URL"),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        envvar="ONEPIN_API_KEY",
+        callback=lambda value: _root_option_callback("api_key", value),
+        is_eager=True,
+    ),
+    base_url: str | None = typer.Option(
+        None,
+        "--base-url",
+        envvar="ONEPIN_BASE_URL",
+        callback=lambda value: _root_option_callback("base_url", value),
+        is_eager=True,
+    ),
     workspace: str | None = typer.Option(None, "--workspace"),
-    json_output: bool = typer.Option(False, "--json", help="Emit JSON instead of rich tables."),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit JSON instead of rich tables.",
+        callback=lambda value: _root_option_callback("json_output", value),
+        is_eager=True,
+    ),
     no_color: bool = typer.Option(False, "--no-color", help="Disable ANSI coloring."),
     verbose: bool = typer.Option(False, "-v", "--verbose"),
     debug: bool = typer.Option(False, "--debug"),
 ) -> None:
     """OnePin CLI -- control workflows, voices, templates, and uploads from your terminal."""
+    _state.root_options = {
+        "api_key": api_key,
+        "api_key_source": ctx.get_parameter_source("api_key"),
+        "base_url": base_url,
+        "base_url_source": ctx.get_parameter_source("base_url"),
+        "json_output": json_output,
+    }
 
 
 _registry.register(app)

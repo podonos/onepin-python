@@ -1,7 +1,7 @@
 """Tests for `onepin voices` commands. Pending Fern SDK regen."""
+
 from __future__ import annotations
 
-import pytest
 from typer.testing import CliRunner
 
 from onepin._cli.main import app

@@ -3,6 +3,7 @@
 Honors NO_COLOR env var (W3C spec) and non-TTY detection.
 Errors always go to stderr; --json stdout is clean data only.
 """
+
 from __future__ import annotations
 
 import json

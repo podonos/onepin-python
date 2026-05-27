@@ -1,7 +1,7 @@
 """Tests for `onepin templates` commands. Pending Fern SDK regen."""
+
 from __future__ import annotations
 
-import pytest
 from typer.testing import CliRunner
 
 from onepin._cli.main import app
@@ -27,5 +27,7 @@ class TestTemplatesStubs:
         assert result.exit_code == 1
 
     def test_run_with_name_exits_1(self, tmp_home) -> None:
-        result = runner.invoke(app, ["templates", "run", "tmpl-00000000-0000-0000-0000-000000000001", "--name", "My Workflow"])
+        result = runner.invoke(
+            app, ["templates", "run", "tmpl-00000000-0000-0000-0000-000000000001", "--name", "My Workflow"]
+        )
         assert result.exit_code == 1

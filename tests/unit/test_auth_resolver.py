@@ -1,13 +1,12 @@
 """Tests for credential resolution priority chain."""
+
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-from onepin._cli.auth.resolver import ResolvedCredentials, resolve_credentials
+from onepin._cli.auth.resolver import resolve_credentials
 
 
 class TestResolveCredentials:
@@ -21,7 +20,9 @@ class TestResolveCredentials:
         # Write a credentials file
         creds_dir = tmp_home / ".onepin"
         creds_dir.mkdir(mode=0o700)
-        (creds_dir / "credentials").write_text('[default]\napi_key = "op_live_file"\nbase_url = "https://api.onepin.ai"\n')
+        (creds_dir / "credentials").write_text(
+            '[default]\napi_key = "op_live_file"\nbase_url = "https://api.onepin.ai"\n'
+        )
 
         monkeypatch.setenv("ONEPIN_API_KEY", "op_live_env")
         result = resolve_credentials()
@@ -32,7 +33,9 @@ class TestResolveCredentials:
         monkeypatch.delenv("ONEPIN_API_KEY", raising=False)
         creds_dir = tmp_home / ".onepin"
         creds_dir.mkdir(mode=0o700)
-        (creds_dir / "credentials").write_text('[default]\napi_key = "op_live_file"\nbase_url = "https://api.onepin.ai"\n')
+        (creds_dir / "credentials").write_text(
+            '[default]\napi_key = "op_live_file"\nbase_url = "https://api.onepin.ai"\n'
+        )
 
         result = resolve_credentials()
         assert result.api_key == "op_live_file"
@@ -77,6 +80,8 @@ class TestResolveCredentials:
         monkeypatch.delenv("ONEPIN_API_KEY", raising=False)
         creds_dir = tmp_home / ".onepin"
         creds_dir.mkdir(mode=0o700)
-        (creds_dir / "credentials").write_text('[default]\napi_key = "op_live_file"\nbase_url = "https://api.onepin.ai"\n')
+        (creds_dir / "credentials").write_text(
+            '[default]\napi_key = "op_live_file"\nbase_url = "https://api.onepin.ai"\n'
+        )
         result = resolve_credentials()
         assert result.source == "file"

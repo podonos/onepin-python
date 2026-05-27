@@ -4,9 +4,9 @@ These tests verify the CLI error surface contract. Full error handling
 (429 rate limit, 500 server error, etc.) is tested once OnePinClient
 is available after the first Fern SDK regen.
 """
+
 from __future__ import annotations
 
-import pytest
 from typer.testing import CliRunner
 
 from onepin._cli.main import app

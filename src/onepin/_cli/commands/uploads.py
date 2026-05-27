@@ -1,8 +1,8 @@
 """Upload commands (3-step presigned flow). Implementation pending first Fern SDK regen."""
+
 from __future__ import annotations
 
 import sys
-from typing import Optional
 
 import typer
 

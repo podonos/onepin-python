@@ -5,17 +5,19 @@ Writes are hand-formatted TOML -- avoids the ``tomli_w`` dependency.
 
 Malformed TOML on read raises SystemExit(1) -- fail fast, no silent skip.
 """
+
 from __future__ import annotations
 
 import os
 import stat
 import sys
-from pathlib import Path
+from pathlib import Path, PosixPath, WindowsPath
 from typing import Any, Dict, Optional
 
 
 def _credentials_path() -> Path:
-    return Path.home() / ".onepin" / "credentials"
+    path_cls = WindowsPath if sys.platform == "win32" else PosixPath
+    return path_cls(os.path.expanduser("~")) / ".onepin" / "credentials"
 
 
 def _load_toml(path: Path) -> Dict[str, Any]:

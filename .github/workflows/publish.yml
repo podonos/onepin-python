@@ -78,9 +78,16 @@ jobs:
     needs: [build, smoke-install, test-pypi, testpypi-smoke, pypi]
     runs-on: ubuntu-latest
     steps:
-      - uses: slackapi/slack-github-action@v1
+      - name: Notify Slack
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1
         with:
           payload: |
             {"text":"Publish failed for ${{ github.ref_name }} in ${{ github.repository }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_ONEPIN_SDK }}
+      - name: Skip Slack notification
+        if: env.SLACK_WEBHOOK_URL == ''
+        run: echo "SLACK_WEBHOOK_ONEPIN_SDK is not configured; skipping Slack notification."
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_ONEPIN_SDK }}

@@ -1,4 +1,5 @@
 """Wire subcommands into the root Typer app."""
+
 from __future__ import annotations
 
 import typer

@@ -5,6 +5,7 @@ podonos/onepin-sdks; CLI is hand-rolled atop the generated client.
 Until the first Fern regen lands, the public client classes are not
 yet available -- only the CLI module is usable.
 """
+
 from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version as _pkg_version

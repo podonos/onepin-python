@@ -1,11 +1,8 @@
 """Tests for the render module."""
+
 from __future__ import annotations
 
 import json
-import os
-from io import StringIO
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -33,7 +30,9 @@ class TestRenderJson:
 
 
 class TestRenderTable:
-    def test_three_rows_with_expected_columns(self, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_three_rows_with_expected_columns(
+        self, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("NO_COLOR", "1")
         data = [
             {"id": "wf-001", "name": "Alpha"},

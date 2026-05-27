@@ -8,6 +8,7 @@ Priority chain (highest wins):
 
 Malformed TOML file raises hard error -- no silent fallback per project policy.
 """
+
 from __future__ import annotations
 
 import os

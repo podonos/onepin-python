@@ -1,4 +1,5 @@
 """Test fixtures: tmp HOME, respx, sample envelopes."""
+
 from __future__ import annotations
 
 import os
