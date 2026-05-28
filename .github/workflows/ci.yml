@@ -54,9 +54,9 @@ jobs:
           payload: |
             {"text":"CI failed in ${{ github.repository }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_ONEPIN_SDK }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       - name: Skip Slack notification
         if: env.SLACK_WEBHOOK_URL == ''
-        run: echo "SLACK_WEBHOOK_ONEPIN_SDK is not configured; skipping Slack notification."
+        run: echo "SLACK_WEBHOOK_URL is not configured; skipping Slack notification."
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_ONEPIN_SDK }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

@@ -23,6 +23,5 @@ def build_client(creds: ResolvedCredentials) -> Any:
         NotImplementedError: Until the first Fern SDK regen lands.
     """
     raise NotImplementedError(
-        "OnePinClient is not yet available -- Fern SDK regen has not run yet. "
-        "See podonos/onepin-sdks for the Fern configuration."
+        "OnePinClient is not yet available -- the generated SDK has not been produced for this checkout."
     )
