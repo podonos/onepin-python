@@ -7,7 +7,7 @@
     "package_name": "onepin",
     "flat_layout": false
   },
-  "originGitCommit": "babfb180c9f10bd3e41e7f774d958819ad52e34e",
+  "originGitCommit": "e1c34510a5fc1ce4f7f35c76d021512c3b34242e",
   "originGitCommitIsDirty": false,
   "invokedBy": "ci",
   "ciProvider": "github"
