@@ -86,7 +86,9 @@ jobs:
         with: { name: dist, path: dist }
       - uses: pypa/gh-action-pypi-publish@release/v1
       - name: Verify provenance attestation
-        run: gh attestation verify dist/*.whl --owner podonos
+        # Repo-scoped query: org-level endpoint returns 404 even when the
+        # attestation exists on the repo. `--repo` resolves correctly.
+        run: gh attestation verify dist/*.whl --repo podonos/onepin-python
         env:
           GH_TOKEN: ${{ github.token }}
   notify-failure:
