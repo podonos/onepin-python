@@ -1,0 +1,42 @@
+version: 2
+updates:
+  # GitHub Actions used by the CI / release / publish workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - chore
+    commit-message:
+      prefix: chore
+      include: scope
+
+  # Python runtime + dev dependencies (managed via pyproject.toml + uv).
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
+    # Group minor + patch bumps so we don't get one PR per dependency.
+    groups:
+      runtime:
+        applies-to: version-updates
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      dev:
+        applies-to: version-updates
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
