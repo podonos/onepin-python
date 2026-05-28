@@ -51,3 +51,8 @@ htmlcov/
 .env.*
 !.env.example
 *.credentials
+
+# Local agent tooling artifacts (oh-my-claudecode, ruvector)
+.omc/
+agentdb.rvf
+agentdb.rvf.lock
