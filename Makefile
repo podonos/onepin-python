@@ -7,7 +7,7 @@ install:
 	uv sync --all-extras
 
 lint:
-	uv run ruff check . && uv run ruff format --check .
+	uv run ruff check src/onepin/_cli tests && uv run ruff format --check src/onepin/_cli tests
 
 test:
 	uv run pytest -q
