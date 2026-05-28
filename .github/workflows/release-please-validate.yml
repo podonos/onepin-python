@@ -4,6 +4,8 @@ on:
     paths:
       - 'release-please-config.json'
       - '.release-please-manifest.json'
+permissions:
+  contents: read
 jobs:
   dry-run:
     runs-on: ubuntu-latest

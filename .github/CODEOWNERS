@@ -1,0 +1,25 @@
+# Code owners for onepin-python.
+#
+# These users are automatically requested for review on PRs touching the
+# matching paths. Branch protection rules may require their approval.
+#
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+
+# Default owner for everything not matched below.
+*                           @kj-podonos
+
+# Release automation, CI, and publishing pipeline.
+/.github/                   @kj-podonos
+/scripts/                   @kj-podonos
+/release-please-config.json @kj-podonos
+
+# Hand-rolled CLI.
+/src/onepin/_cli/           @kj-podonos
+/tests/                     @kj-podonos
+
+# Documentation surface.
+/README.md                  @kj-podonos
+/AGENTS.md                  @kj-podonos
+/CHANGELOG.md               @kj-podonos
+/RUNBOOK.md                 @kj-podonos
+/SECURITY.md                @kj-podonos
