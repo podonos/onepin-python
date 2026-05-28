@@ -34,7 +34,11 @@ jobs:
           "
       - run: python -m pytest tests/build/test_dist_contents.py
       - id: ver
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        # Strip everything up to + including the last "v" so both tag formats
+        # resolve to a clean PEP 440 version:
+        #   onepin-v0.2.0 -> 0.2.0
+        #   v0.2.0        -> 0.2.0
+        run: echo "version=${GITHUB_REF_NAME##*v}" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with: { name: dist, path: dist/* }
   smoke-install:
@@ -56,6 +60,10 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+          # Allow re-runs on the same tag: TestPyPI rejects identical-version
+          # re-uploads, but a retag (e.g. after fixing a workflow bug) shouldn't
+          # cause the whole publish chain to fail.
+          skip-existing: true
   testpypi-smoke:
     needs: [build, test-pypi]
     runs-on: ubuntu-latest
