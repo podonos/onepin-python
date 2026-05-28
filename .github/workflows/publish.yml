@@ -1,7 +1,15 @@
 name: Publish
 on:
   push:
-    tags: ['v*.*.*']
+    # Accept both formats: release-please default `onepin-v0.2.0` (component
+    # prefix on single-package repos) and the plain `v0.2.0` shape used after
+    # `include-component-in-tag: false` lands in release-please-config.json.
+    tags: ['v*.*.*', 'onepin-v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. onepin-v0.2.0)'
+        required: true
 jobs:
   build:
     runs-on: ubuntu-latest
