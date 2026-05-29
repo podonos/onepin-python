@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a problem with the onepin SDK or CLI
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please do **not** include API keys, credentials,
+        or other secrets in this report. For security vulnerabilities, see SECURITY.md
+        instead of opening a public issue.
+  - type: input
+    id: version
+    attributes:
+      label: onepin version
+      description: Output of `onepin --version` (or `pip show onepin`).
+      placeholder: "0.2.0"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: Output of `python --version`.
+      placeholder: "3.12.3"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 14.5 / Ubuntu 24.04 / Windows 11"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: A minimal command sequence or code snippet that reproduces the issue.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: |
+        Paste error output. Re-run with `--debug` for a full traceback.
+        Scrub any keys or tokens before pasting.
+      render: shell
+    validations:
+      required: false
