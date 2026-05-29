@@ -9,7 +9,7 @@ No Fern SDK dependency -- direct httpx calls only.
 from __future__ import annotations
 
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import httpx
 
@@ -123,4 +123,4 @@ def _call_whoami(key: str, base_url: str, timeout: float = 10.0) -> Dict[str, An
         )
 
     payload = response.json()
-    return payload["data"]
+    return cast(Dict[str, Any], payload["data"])
