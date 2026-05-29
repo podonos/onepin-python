@@ -34,19 +34,23 @@ jobs:
             exit 0
           fi
 
-          # jq --arg JSON-escapes every field, so titles with quotes/newlines are safe.
+          # jq --arg JSON-escapes every field (safe transport for quotes/newlines).
+          # Slack mrkdwn link grammar <url|label> is a SEPARATE layer: the label must
+          # HTML-entity-escape & < > or a title like "a > b" truncates the link.
           payload=$(jq -nc \
             --arg t "$PR_TITLE" \
             --arg u "$PR_URL" \
             --arg n "$PR_NUM" \
             --arg a "$PR_AUTHOR" \
             --arg r "$REPO" \
-            '{blocks: [
+            '($t | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;")) as $tt
+             | {blocks: [
               {type: "header", text: {type: "plain_text", text: ("🔀 New PR #" + $n), emoji: true}},
-              {type: "section", text: {type: "mrkdwn", text: ("*<" + $u + "|" + $t + ">*\nby `" + $a + "` in `" + $r + "`")}}
+              {type: "section", text: {type: "mrkdwn", text: ("*<" + $u + "|" + $tt + ">*\nby `" + $a + "` in `" + $r + "`")}}
             ]}')
 
-          code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$SLACK_WEBHOOK_URL" \
+          code=$(curl -sS --max-time 10 --retry 2 --retry-connrefused \
+            -o /dev/null -w '%{http_code}' -X POST "$SLACK_WEBHOOK_URL" \
             -H 'Content-Type: application/json' \
             -d "$payload")
           if [ "$code" != "200" ]; then
