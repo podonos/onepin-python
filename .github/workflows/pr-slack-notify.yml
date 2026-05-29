@@ -1,0 +1,54 @@
+name: PR Slack Notify
+
+# Posts a Slack card when a PR is opened / marked ready / reopened.
+# Public-repo safe: the only credential is the SLACK_WEBHOOK_URL secret, which lives in
+# repo Settings -> Secrets (never committed, redacted from logs, and not injected into fork
+# PRs). The destination channel is baked into that webhook URL, so no channel ID is in code.
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    # Skip drafts; only announce real PRs.
+    if: ${{ github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Post new-PR card to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Fork PRs receive no secrets -> URL is empty -> skip quietly (no error, no leak).
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "::notice::SLACK_WEBHOOK_URL not set (fork PR or unconfigured) -- skipping."
+            exit 0
+          fi
+
+          # jq --arg JSON-escapes every field, so titles with quotes/newlines are safe.
+          payload=$(jq -nc \
+            --arg t "$PR_TITLE" \
+            --arg u "$PR_URL" \
+            --arg n "$PR_NUM" \
+            --arg a "$PR_AUTHOR" \
+            --arg r "$REPO" \
+            '{blocks: [
+              {type: "header", text: {type: "plain_text", text: ("🔀 New PR #" + $n), emoji: true}},
+              {type: "section", text: {type: "mrkdwn", text: ("*<" + $u + "|" + $t + ">*\nby `" + $a + "` in `" + $r + "`")}}
+            ]}')
+
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d "$payload")
+          if [ "$code" != "200" ]; then
+            echo "::warning::Slack webhook returned HTTP $code"
+          fi
