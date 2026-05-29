@@ -5,6 +5,7 @@
       "release-type": "python",
       "package-name": "onepin",
       "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
       "include-v-in-tag": true,
       "include-component-in-tag": false
     }
