@@ -35,6 +35,8 @@ Global flags:
 --api-key     Override stored credentials (env: ONEPIN_API_KEY)
 --base-url    Override API base URL (env: ONEPIN_BASE_URL)
 --json        Emit machine-readable JSON instead of rich tables
+--no-color    Disable ANSI coloring
+-v/--verbose  Log HTTP requests/responses to stderr
 ```
 
 ## SDK usage

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import click
 import typer
 
@@ -68,12 +70,20 @@ def _main(
     debug: bool = typer.Option(False, "--debug"),
 ) -> None:
     """OnePin CLI -- control workflows, voices, templates, and uploads from your terminal."""
+    if no_color:
+        os.environ["NO_COLOR"] = "1"
     _state.root_options = {
         "api_key": api_key,
         "api_key_source": ctx.get_parameter_source("api_key"),
         "base_url": base_url,
         "base_url_source": ctx.get_parameter_source("base_url"),
+        "workspace": workspace,
         "json_output": json_output,
+        "no_color": no_color,
+        # --debug implies --verbose (per the documented flag contract). Full
+        # tracebacks are wired with the API command layer.
+        "verbose": verbose or debug,
+        "debug": debug,
     }
 
 
