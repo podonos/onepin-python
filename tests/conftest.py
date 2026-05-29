@@ -8,6 +8,18 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_cli_state():
+    """Isolate process-local CLI state + the NO_COLOR env var between tests."""
+    from onepin._cli import _state
+
+    _state.root_options = {}
+    os.environ.pop("NO_COLOR", None)
+    yield
+    _state.root_options = {}
+    os.environ.pop("NO_COLOR", None)
+
+
 @pytest.fixture
 def tmp_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("HOME", str(tmp_path))

@@ -13,7 +13,15 @@ from typing import Any, Dict, List, Optional
 
 
 def _use_color() -> bool:
-    """Return True if ANSI color should be used."""
+    """Return True if ANSI color should be used.
+
+    Honors the ``--no-color`` flag (captured in root state), then the W3C
+    ``NO_COLOR`` env var, then TTY detection.
+    """
+    from onepin._cli import _state
+
+    if _state.root_options.get("no_color"):
+        return False
     if os.environ.get("NO_COLOR"):
         return False
     if not sys.stdout.isatty():
