@@ -49,6 +49,7 @@ dev = [
     "pytest-cov",
     "respx>=0.22",
     "ruff>=0.6",
+    "mypy>=1.11",
     "diff-cover>=8",
     "build",
     "twine",
@@ -72,6 +73,24 @@ extend-exclude = [
     # to lint the hand-rolled CLI subpackage that lives under the same root.
     "src/onepin",
 ]
+
+[tool.mypy]
+strict = true
+# Typer/click register commands via decorators mypy reads as untyped; strict's
+# untyped-decorator check is noise here, not a real type gap.
+disallow_untyped_decorators = false
+
+# The Fern-generated SDK (everything under src/onepin/ except _cli/) is not gated
+# by our type checks. Follow imports for inference, but never report its errors.
+[[tool.mypy.overrides]]
+module = [
+    "onepin.core.*",
+    "onepin.client",
+    "onepin.environment",
+    "onepin._default_clients",
+]
+follow_imports = "skip"
+ignore_errors = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

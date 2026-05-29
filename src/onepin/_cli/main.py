@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import click
 import typer
 
@@ -31,6 +33,15 @@ def _root_option_callback(name: str, value: object) -> object:
     return value
 
 
+def _no_color_callback(value: bool) -> bool:
+    # NO_COLOR is the one signal Rich, Click, and Typer all honor (W3C). Set it eagerly
+    # so it lands before help/usage/error rendering -- otherwise --no-color only reaches
+    # our own render.py output, not library-rendered text. Tests reset it (conftest).
+    if value:
+        os.environ["NO_COLOR"] = "1"
+    return value
+
+
 @app.callback()
 def _main(
     ctx: typer.Context,
@@ -55,7 +66,7 @@ def _main(
         callback=lambda value: _root_option_callback("base_url", value),
         is_eager=True,
     ),
-    workspace: str | None = typer.Option(None, "--workspace"),
+    workspace: str | None = typer.Option(None, "--workspace", hidden=True),
     json_output: bool = typer.Option(
         False,
         "--json",
@@ -63,9 +74,15 @@ def _main(
         callback=lambda value: _root_option_callback("json_output", value),
         is_eager=True,
     ),
-    no_color: bool = typer.Option(False, "--no-color", help="Disable ANSI coloring."),
-    verbose: bool = typer.Option(False, "-v", "--verbose"),
-    debug: bool = typer.Option(False, "--debug"),
+    no_color: bool = typer.Option(
+        False,
+        "--no-color",
+        help="Disable ANSI coloring.",
+        is_eager=True,
+        callback=_no_color_callback,
+    ),
+    verbose: bool = typer.Option(False, "-v", "--verbose", help="Log HTTP requests/responses to stderr."),
+    debug: bool = typer.Option(False, "--debug", help="Verbose logging; full tracebacks land with the API commands."),
 ) -> None:
     """OnePin CLI -- control workflows, voices, templates, and uploads from your terminal."""
     _state.root_options = {
@@ -73,7 +90,13 @@ def _main(
         "api_key_source": ctx.get_parameter_source("api_key"),
         "base_url": base_url,
         "base_url_source": ctx.get_parameter_source("base_url"),
+        "workspace": workspace,
         "json_output": json_output,
+        "no_color": no_color,
+        # --debug implies --verbose (per the documented flag contract). Full
+        # tracebacks are wired with the API command layer.
+        "verbose": verbose or debug,
+        "debug": debug,
     }
 
 

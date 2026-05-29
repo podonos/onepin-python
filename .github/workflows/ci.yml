@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13"]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
@@ -26,6 +26,7 @@ jobs:
       # Fern-generated and not subject to project style rules.
       - run: uv run ruff check src/onepin/_cli tests
       - run: uv run ruff format --check src/onepin/_cli tests
+      - run: uv run mypy -p onepin._cli
       - run: uv run pytest -q --cov=onepin._cli --cov-report=xml --cov-fail-under=80
       - name: Diff coverage
         if: github.event_name == 'pull_request'

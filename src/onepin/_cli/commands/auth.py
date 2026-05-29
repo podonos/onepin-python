@@ -45,8 +45,9 @@ def login(
         raise typer.Exit(code=1)
 
     # Validate against /api/v1/auth/whoami
+    verbose = bool(_state.root_options.get("verbose", False))
     try:
-        data = _call_whoami(key, resolved_base_url)
+        data = _call_whoami(key, resolved_base_url, verbose=verbose)
     except OnePinAuthError:
         typer.echo(
             f"[INVALID_API_KEY] Key rejected. Generate one at {_DASHBOARD_URL}",
@@ -118,9 +119,10 @@ def whoami(ctx: typer.Context) -> None:
         raise typer.Exit(code=1)
 
     resolved_base_url = creds.base_url or _DEFAULT_BASE_URL
+    verbose = bool(_state.root_options.get("verbose", False))
 
     try:
-        data = _call_whoami(creds.api_key, resolved_base_url)
+        data = _call_whoami(creds.api_key, resolved_base_url, verbose=verbose)
     except OnePinAuthError as exc:
         rid = f", request_id={exc.request_id}" if exc.request_id else ""
         typer.echo(f"[INVALID_API_KEY] {exc.message}{rid}", err=True)

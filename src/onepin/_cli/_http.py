@@ -9,7 +9,7 @@ No Fern SDK dependency -- direct httpx calls only.
 from __future__ import annotations
 
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import httpx
 
@@ -58,13 +58,14 @@ def _user_agent() -> str:
     return f"onepin-python/{__version__} python/{major}.{minor}"
 
 
-def _call_whoami(key: str, base_url: str, timeout: float = 10.0) -> Dict[str, Any]:
+def _call_whoami(key: str, base_url: str, timeout: float = 10.0, *, verbose: bool = False) -> Dict[str, Any]:
     """Call GET /api/v1/auth/whoami and return the ``data`` field.
 
     Args:
         key: API key to authenticate with.
         base_url: Base URL of the OnePin API (no trailing slash).
         timeout: Request timeout in seconds.
+        verbose: If True, log the request and response status to stderr.
 
     Returns:
         Parsed ``data`` dict from the response envelope.
@@ -79,6 +80,8 @@ def _call_whoami(key: str, base_url: str, timeout: float = 10.0) -> Dict[str, An
         "Authorization": f"Bearer {key}",
         "User-Agent": _user_agent(),
     }
+    if verbose:
+        print(f"→ GET {url}", file=sys.stderr)
     try:
         with httpx.Client(timeout=timeout) as client:
             response = client.get(url, headers=headers)
@@ -87,6 +90,9 @@ def _call_whoami(key: str, base_url: str, timeout: float = 10.0) -> Dict[str, An
             f"Could not reach {base_url}. Pass --verbose for details.",
             error_code="NETWORK_ERROR",
         ) from exc
+
+    if verbose:
+        print(f"← {response.status_code} {response.reason_phrase}", file=sys.stderr)
 
     # Try to extract envelope fields for richer errors
     request_id: Optional[str] = None
@@ -123,4 +129,4 @@ def _call_whoami(key: str, base_url: str, timeout: float = 10.0) -> Dict[str, An
         )
 
     payload = response.json()
-    return payload["data"]
+    return cast(Dict[str, Any], payload["data"])
