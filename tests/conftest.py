@@ -8,6 +8,16 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_cli_state():
+    """Isolate the process-local CLI state between tests (root_options is module-global)."""
+    from onepin._cli import _state
+
+    _state.root_options = {}
+    yield
+    _state.root_options = {}
+
+
 @pytest.fixture
 def tmp_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("HOME", str(tmp_path))

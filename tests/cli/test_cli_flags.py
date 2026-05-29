@@ -32,12 +32,16 @@ def test_all_subcommands_registered(tmp_home) -> None:
         assert name in result.output
 
 
-def test_no_color_sets_env(tmp_home, monkeypatch) -> None:
-    """--no-color takes effect (render honors NO_COLOR); previously dropped."""
+def test_no_color_disables_color(tmp_home, monkeypatch) -> None:
+    """--no-color disables color via captured state, with no global env mutation."""
     monkeypatch.delenv("NO_COLOR", raising=False)
+    from onepin._cli import _state, render
+
     result = runner.invoke(app, ["--no-color", "logout"])
     assert result.exit_code == 0
-    assert os.environ.get("NO_COLOR") == "1"
+    assert _state.root_options.get("no_color") is True
+    assert render._use_color() is False
+    assert "NO_COLOR" not in os.environ
 
 
 @respx.mock

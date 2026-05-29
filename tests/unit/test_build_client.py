@@ -27,8 +27,20 @@ def test_defaults_to_prod() -> None:
 
 
 def test_honors_custom_base_url() -> None:
-    """--base-url must reach the client, not be silently dropped to PROD."""
+    """--base-url must reach the client, not be silently dropped to PROD.
+
+    Asserts on ``client._client_wrapper`` (Fern-generated internals) — the only way to
+    verify wiring on the resource-less bare client; revisit with respx behavior
+    assertions once real command methods exist.
+    """
     client = build_client(
         ResolvedCredentials(api_key="op_live_abc", base_url="https://dev-api.onepin.ai", source="flag")
     )
     assert client._client_wrapper.get_environment().api == "https://dev-api.onepin.ai"
+
+
+def test_rejects_non_http_base_url() -> None:
+    """A file://-style base URL must be rejected, never receive the bearer token."""
+    creds = ResolvedCredentials(api_key="op_live_abc", base_url="file:///etc/passwd", source="flag")
+    with pytest.raises(OnePinAuthError):
+        build_client(creds)

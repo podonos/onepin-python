@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 
 import click
 import typer
@@ -57,7 +56,7 @@ def _main(
         callback=lambda value: _root_option_callback("base_url", value),
         is_eager=True,
     ),
-    workspace: str | None = typer.Option(None, "--workspace"),
+    workspace: str | None = typer.Option(None, "--workspace", hidden=True),
     json_output: bool = typer.Option(
         False,
         "--json",
@@ -66,12 +65,10 @@ def _main(
         is_eager=True,
     ),
     no_color: bool = typer.Option(False, "--no-color", help="Disable ANSI coloring."),
-    verbose: bool = typer.Option(False, "-v", "--verbose"),
-    debug: bool = typer.Option(False, "--debug"),
+    verbose: bool = typer.Option(False, "-v", "--verbose", help="Log HTTP requests/responses to stderr."),
+    debug: bool = typer.Option(False, "--debug", help="Verbose logging; full tracebacks land with the API commands."),
 ) -> None:
     """OnePin CLI -- control workflows, voices, templates, and uploads from your terminal."""
-    if no_color:
-        os.environ["NO_COLOR"] = "1"
     _state.root_options = {
         "api_key": api_key,
         "api_key_source": ctx.get_parameter_source("api_key"),
