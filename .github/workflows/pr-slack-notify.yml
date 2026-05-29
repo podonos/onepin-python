@@ -28,9 +28,14 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           REPO: ${{ github.repository }}
         run: |
-          # Fork PRs receive no secrets -> URL is empty -> skip quietly (no error, no leak).
+          # No secret -> skip quietly (no error, no leak). This intentionally covers:
+          #   - fork PRs: GitHub withholds secrets from forks.
+          #   - Dependabot PRs: they run against a separate secret store, so this secret is
+          #     empty there. Skipping is deliberate — we don't want a Slack card for every
+          #     weekly grouped dependency bump. To opt in, add a Dependabot-scoped secret of
+          #     the same name (`gh secret set SLACK_WEBHOOK_URL --app dependabot`); no code change.
           if [ -z "$SLACK_WEBHOOK_URL" ]; then
-            echo "::notice::SLACK_WEBHOOK_URL not set (fork PR or unconfigured) -- skipping."
+            echo "::notice::SLACK_WEBHOOK_URL not set (fork or Dependabot PR, or unconfigured) -- skipping."
             exit 0
           fi
 
