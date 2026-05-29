@@ -26,7 +26,11 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           PR_NUM: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          REPO: ${{ github.repository }}
+          PR_AVATAR: ${{ github.event.pull_request.user.avatar_url }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_ADD: ${{ github.event.pull_request.additions }}
+          PR_DEL: ${{ github.event.pull_request.deletions }}
         run: |
           # No secret -> skip quietly (no error, no leak). This intentionally covers:
           #   - fork PRs: GitHub withholds secrets from forks.
@@ -39,19 +43,36 @@ jobs:
             exit 0
           fi
 
-          # jq --arg JSON-escapes every field (safe transport for quotes/newlines).
-          # Slack mrkdwn link grammar <url|label> is a SEPARATE layer: the label must
-          # HTML-entity-escape & < > or a title like "a > b" truncates the link.
+          # Labels are an array — read them from the event payload, not env.
+          LABELS=$(jq -r '[.pull_request.labels[].name] | join(", ")' "$GITHUB_EVENT_PATH")
+
+          # jq --arg JSON-escapes every field (safe transport). Slack mrkdwn is a SEPARATE
+          # layer: any value placed in mrkdwn must HTML-entity-escape & < > (the `esc` def)
+          # or a title/branch like "a > b" truncates the link. Untrusted PR fields arrive via
+          # env / the event file and are consumed as quoted shell vars (never interpolated
+          # into the script as a GitHub expression), so there's no injection.
           payload=$(jq -nc \
             --arg t "$PR_TITLE" \
             --arg u "$PR_URL" \
             --arg n "$PR_NUM" \
             --arg a "$PR_AUTHOR" \
-            --arg r "$REPO" \
-            '($t | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;")) as $tt
+            --arg av "$PR_AVATAR" \
+            --arg br "$PR_BRANCH" \
+            --arg ba "$PR_BASE" \
+            --arg add "$PR_ADD" \
+            --arg del "$PR_DEL" \
+            --arg labels "$LABELS" \
+            'def esc: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
+             ("by `" + ($a|esc) + "` · `" + ($br|esc) + " → " + ($ba|esc) + "` · `+" + $add + " -" + $del + "`"
+               + (if $labels == "" then "" else " · " + ($labels|esc) end)) as $meta
+             | ({type: "section", text: {type: "mrkdwn", text: ("*<" + $u + "|" + ($t|esc) + ">*\n" + $meta)}}
+                + (if $av == "" then {} else {accessory: {type: "image", image_url: $av, alt_text: ("@" + $a)}} end)) as $section
              | {blocks: [
               {type: "header", text: {type: "plain_text", text: ("🔀 New PR #" + $n), emoji: true}},
-              {type: "section", text: {type: "mrkdwn", text: ("*<" + $u + "|" + $tt + ">*\nby `" + $a + "` in `" + $r + "`")}}
+              $section,
+              {type: "actions", elements: [
+                {type: "button", text: {type: "plain_text", text: "View PR", emoji: true}, url: $u, style: "primary"}
+              ]}
             ]}')
 
           # GitHub's default shell is `bash --noprofile --norc -eo pipefail`: a non-zero curl
