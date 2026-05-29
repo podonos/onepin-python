@@ -32,16 +32,24 @@ def test_all_subcommands_registered(tmp_home) -> None:
         assert name in result.output
 
 
-def test_no_color_disables_color(tmp_home, monkeypatch) -> None:
-    """--no-color disables color via captured state, with no global env mutation."""
+def test_no_color_disables_color_and_propagates(tmp_home, monkeypatch) -> None:
+    """--no-color disables our render output AND sets NO_COLOR for Rich/Click/Typer help+errors."""
     monkeypatch.delenv("NO_COLOR", raising=False)
     from onepin._cli import _state, render
 
     result = runner.invoke(app, ["--no-color", "logout"])
     assert result.exit_code == 0
     assert _state.root_options.get("no_color") is True
+    assert os.environ.get("NO_COLOR") == "1"  # propagated to library-rendered output
     assert render._use_color() is False
-    assert "NO_COLOR" not in os.environ
+
+
+def test_no_color_applies_before_help(tmp_home, monkeypatch) -> None:
+    """--no-color is eager: NO_COLOR is set even when --help exits before the callback body runs."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    result = runner.invoke(app, ["--no-color", "--help"])
+    assert result.exit_code == 0
+    assert os.environ.get("NO_COLOR") == "1"
 
 
 @respx.mock

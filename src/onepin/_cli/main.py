@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 
 import click
 import typer
@@ -29,6 +30,15 @@ def _root_option_callback(name: str, value: object) -> object:
     ctx = click.get_current_context(silent=True)
     _state.root_options[name] = value
     _state.root_options[f"{name}_source"] = ctx.get_parameter_source(name) if ctx is not None else None
+    return value
+
+
+def _no_color_callback(value: bool) -> bool:
+    # NO_COLOR is the one signal Rich, Click, and Typer all honor (W3C). Set it eagerly
+    # so it lands before help/usage/error rendering -- otherwise --no-color only reaches
+    # our own render.py output, not library-rendered text. Tests reset it (conftest).
+    if value:
+        os.environ["NO_COLOR"] = "1"
     return value
 
 
@@ -64,7 +74,13 @@ def _main(
         callback=lambda value: _root_option_callback("json_output", value),
         is_eager=True,
     ),
-    no_color: bool = typer.Option(False, "--no-color", help="Disable ANSI coloring."),
+    no_color: bool = typer.Option(
+        False,
+        "--no-color",
+        help="Disable ANSI coloring.",
+        is_eager=True,
+        callback=_no_color_callback,
+    ),
     verbose: bool = typer.Option(False, "-v", "--verbose", help="Log HTTP requests/responses to stderr."),
     debug: bool = typer.Option(False, "--debug", help="Verbose logging; full tracebacks land with the API commands."),
 ) -> None:
