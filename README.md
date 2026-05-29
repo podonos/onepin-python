@@ -21,28 +21,20 @@ onepin login
 # Paste your key when prompted — saved to ~/.onepin/credentials (mode 0600)
 ```
 
-### Common commands
+### Commands
 
 ```bash
-onepin whoami                          # Show active auth source + workspace
-onepin workflows list                  # List workflows
-onepin workflows run <id> --watch      # Start a run and stream status
-onepin voices list                     # Browse available voices
-onepin templates list                  # Browse gallery templates
-onepin templates run <id>              # Clone a template and start a run
-onepin uploads create --file script.txt --category script
+onepin login       # Authenticate — paste your key when prompted
+onepin whoami      # Show the active auth source + workspace
+onepin logout      # Remove stored credentials
 ```
 
-Global flags available on every command:
+Global flags:
 
 ```
---api-key     Override stored credentials
---base-url    Override API base URL (useful for dev/staging)
---workspace   Target workspace UUID
+--api-key     Override stored credentials (env: ONEPIN_API_KEY)
+--base-url    Override API base URL (env: ONEPIN_BASE_URL)
 --json        Emit machine-readable JSON instead of rich tables
---no-color    Disable ANSI coloring
--v/--verbose  Log HTTP requests/responses to stderr
---debug       Verbose + full tracebacks on failure
 ```
 
 ## SDK usage
@@ -66,4 +58,4 @@ MIT — see [LICENSE](LICENSE).
 
 ## Status
 
-Pre-launch. First published release: v0.1.0 (pending TestPyPI rehearsal + production publish).
+Published on PyPI — latest: **v0.2.0**. See the [changelog](CHANGELOG.md).

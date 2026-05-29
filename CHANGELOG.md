@@ -15,13 +15,3 @@ All notable changes to this project will be documented in this file.
 * **ci:** decouple from Fern-overwritten __init__.py + scope pytest ([f034d45](https://github.com/podonos/onepin-python/commit/f034d456e3bd9d82597567897104e5422d510483))
 * **cli:** move __version__ to onepin._cli (avoid Fern __init__.py overwrite) ([09a778c](https://github.com/podonos/onepin-python/commit/09a778ca9baa3e7f30164ecfdd5dee15d8045932))
 * **cli:** respect HOME on Windows credentials path ([14e7519](https://github.com/podonos/onepin-python/commit/14e7519ae947d1a80651324cb9dc0399ba73c856))
-
-## [Unreleased]
-
-### Features
-
-- Initial scaffold: Typer CLI (`onepin`) with auth, workflows, voices, templates, uploads commands
-- `py.typed` PEP 561 marker for typed SDK consumers
-- Full CI matrix: Python 3.10–3.13 × Ubuntu/macOS/Windows
-- OIDC-based PyPI publish via trusted publisher (no token stored)
-- release-please bot manages version bumps and CHANGELOG
