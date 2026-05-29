@@ -6,6 +6,7 @@ on:
       - '.release-please-manifest.json'
 permissions:
   contents: read
+  pull-requests: read
 jobs:
   dry-run:
     runs-on: ubuntu-latest
