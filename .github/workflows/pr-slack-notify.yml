@@ -49,10 +49,14 @@ jobs:
               {type: "section", text: {type: "mrkdwn", text: ("*<" + $u + "|" + $tt + ">*\nby `" + $a + "` in `" + $r + "`")}}
             ]}')
 
+          # GitHub's default shell is `bash --noprofile --norc -eo pipefail`: a non-zero curl
+          # (timeout, DNS, network — likelier now with --retry) would abort the step under
+          # errexit BEFORE the warning below runs, reddening the PR check. `|| code="000"`
+          # keeps this notification-only job green and degrades to a logged warning instead.
           code=$(curl -sS --max-time 10 --retry 2 --retry-connrefused \
             -o /dev/null -w '%{http_code}' -X POST "$SLACK_WEBHOOK_URL" \
             -H 'Content-Type: application/json' \
-            -d "$payload")
+            -d "$payload") || code="000"
           if [ "$code" != "200" ]; then
-            echo "::warning::Slack webhook returned HTTP $code"
+            echo "::warning::Slack webhook POST failed or returned HTTP $code"
           fi
