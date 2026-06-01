@@ -47,7 +47,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: dist, path: dist }
       - run: pip install dist/*.whl && onepin --version
       - run: pip install --no-binary onepin dist/onepin-*.tar.gz && onepin --version
@@ -57,7 +57,7 @@ jobs:
     environment: testpypi
     permissions: { id-token: write }
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: dist, path: dist }
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -84,7 +84,7 @@ jobs:
     environment: pypi
     permissions: { id-token: write, contents: write, attestations: write }
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: dist, path: dist }
       - uses: pypa/gh-action-pypi-publish@release/v1
       - name: Verify provenance attestation
