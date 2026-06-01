@@ -13,4 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: googleapis/release-please-action@v4
-        with: { skip-github-release: true }
+        # Pure read-only validation: skip BOTH the release and the PR so the
+        # action never attempts a write (tree/branch creation) with the
+        # read-only token. Skipping only the release still builds the PR tree
+        # and fails with "Error adding to tree" under a read-only token.
+        with: { skip-github-release: true, skip-github-pull-request: true }
