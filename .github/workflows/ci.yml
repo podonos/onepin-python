@@ -18,7 +18,7 @@ jobs:
         with:
           # diff-cover needs to see origin/main to compute PR diff coverage
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with: { python-version: '${{ matrix.python }}' }
       - run: pip install uv
       - run: uv sync --all-extras
@@ -37,7 +37,7 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with: { python-version: '3.12' }
       - run: pip install build
       - run: python -m build
