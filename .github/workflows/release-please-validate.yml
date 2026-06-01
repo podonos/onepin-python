@@ -11,7 +11,7 @@ jobs:
   dry-run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: googleapis/release-please-action@v4
         # Pure read-only validation: skip BOTH the release and the PR so the
         # action never attempts a write (tree/branch creation) with the
