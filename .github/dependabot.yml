@@ -7,6 +7,9 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - chore
     commit-message:
       prefix: chore
       include: scope
@@ -18,6 +21,8 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    labels:
+      - dependencies
     commit-message:
       prefix: chore
       include: scope
