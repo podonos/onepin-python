@@ -64,6 +64,13 @@ packages = ["src/onepin"]
 "src/onepin/py.typed" = "onepin/py.typed"
 "src/onepin/_cli/py.typed" = "onepin/_cli/py.typed"
 
+[tool.check-wheel-contents]
+# W002 flags byte-identical files as "duplicates". The Fern-generated SDK ships many
+# empty package-marker `__init__.py` files (api_keys, billing, webhooks, workspace_*, ...)
+# which are legitimately identical — a benign false positive that fails `check-wheel-contents`
+# in the publish build. Ignore it; all other wheel-content checks still run.
+ignore = ["W002"]
+
 [tool.ruff]
 line-length = 120
 target-version = "py310"
