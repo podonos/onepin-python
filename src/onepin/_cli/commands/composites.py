@@ -245,23 +245,26 @@ def _atomic_write(dest: Path, content: bytes, *, force: bool) -> None:
     parent = dest.parent
 
     # When not --force, atomically claim the destination to prevent clobbering a file
-    # that appeared after the caller's existence pre-check.
-    reservation_fd: int | None = None
+    # that appeared after the caller's existence pre-check. Close the handle immediately:
+    # the empty placeholder remains as the guard, and os.replace() can overwrite it only
+    # when no handle is open (Windows raises WinError 5 / "Access is denied" otherwise).
+    reserved = False
     if not force:
         try:
-            reservation_fd = os.open(str(dest), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            fd = os.open(str(dest), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError as exc:
             raise CliError("FILE_EXISTS", f"{dest} already exists. Pass --force to overwrite.") from exc
         except (FileNotFoundError, NotADirectoryError) as exc:
             raise CliError("DOWNLOAD_FAILED", f"Destination directory does not exist: {parent}") from exc
         except OSError as exc:
             raise CliError("DOWNLOAD_FAILED", f"Could not write {dest}: {exc}") from exc
+        os.close(fd)
+        reserved = True
 
     try:
         fd, tmp_name = tempfile.mkstemp(dir=str(parent) if str(parent) else ".", prefix=".onepin-dl-")
     except (FileNotFoundError, NotADirectoryError) as exc:
-        if reservation_fd is not None:
-            os.close(reservation_fd)
+        if reserved:
             _try_unlink(dest)
         raise CliError("DOWNLOAD_FAILED", f"Destination directory does not exist: {parent}") from exc
     try:
@@ -270,15 +273,9 @@ def _atomic_write(dest: Path, content: bytes, *, force: bool) -> None:
         os.replace(tmp_name, dest)
     except OSError as exc:
         _try_unlink(tmp_name)
-        if reservation_fd is not None:
+        if reserved:
             _try_unlink(dest)
         raise CliError("DOWNLOAD_FAILED", f"Could not write {dest}: {exc}") from exc
-    finally:
-        if reservation_fd is not None:
-            try:
-                os.close(reservation_fd)
-            except OSError:
-                pass
 
 
 def _try_unlink(path: Path | str) -> None:
