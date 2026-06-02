@@ -10,8 +10,17 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _reset_cli_state():
-    """Isolate process-local CLI state + the NO_COLOR env var between tests."""
-    from onepin._cli import _state
+    """Isolate process-local CLI state + the NO_COLOR env var between tests.
+
+    Import is guarded: the build-artifact tests (``tests/build/``) run in the publish
+    workflow's build job, which installs only build tooling -- ``onepin`` is not importable
+    there. The state reset is a no-op in that environment.
+    """
+    try:
+        from onepin._cli import _state
+    except ModuleNotFoundError:
+        yield
+        return
 
     _state.root_options = {}
     os.environ.pop("NO_COLOR", None)
