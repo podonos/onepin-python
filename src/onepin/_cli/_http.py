@@ -58,6 +58,61 @@ def _user_agent() -> str:
     return f"onepin-python/{__version__} python/{major}.{minor}"
 
 
+def _parse_error_envelope(body: object) -> Dict[str, Any]:
+    """Extract ``{code, message, request_id}`` from an API error body.
+
+    Shared by the raw-httpx auth path (this module) and the SDK error mapper
+    (``_ctx.api_errors``). Handles the three shapes an error body can take:
+
+    - ``dict``: a JSON envelope ``{"error": {"code", "message"}, "meta": {"request_id"}}``
+      (also tolerates a flat ``{"code", "message", "detail"}`` shape).
+    - ``str``: a raw JSON string (parsed) or an opaque message (used as ``message``).
+    - ``None``: nothing extractable.
+
+    Returns:
+        A dict with any of ``code`` / ``message`` / ``request_id`` that could be found.
+        Missing fields are simply absent. Never raises.
+    """
+    import json
+
+    if body is None:
+        return {}
+    if isinstance(body, str):
+        text = body.strip()
+        if not text:
+            return {}
+        try:
+            parsed = json.loads(text)
+        except (ValueError, TypeError):
+            return {"message": body}
+        if isinstance(parsed, dict):
+            return _parse_error_envelope(parsed)
+        return {"message": body}
+    if not isinstance(body, dict):
+        return {}
+
+    result: Dict[str, Any] = {}
+    meta = body.get("meta")
+    if isinstance(meta, dict) and meta.get("request_id"):
+        result["request_id"] = meta["request_id"]
+    error_obj = body.get("error")
+    if isinstance(error_obj, dict):
+        if error_obj.get("code"):
+            result["code"] = error_obj["code"]
+        if error_obj.get("message"):
+            result["message"] = error_obj["message"]
+    # Flat fallbacks (some endpoints return code/message/detail at the top level).
+    if "code" not in result and body.get("code"):
+        result["code"] = body["code"]
+    if "message" not in result:
+        if body.get("message"):
+            result["message"] = body["message"]
+        elif body.get("detail"):
+            detail = body["detail"]
+            result["message"] = detail if isinstance(detail, str) else json.dumps(detail)
+    return result
+
+
 def _call_whoami(key: str, base_url: str, timeout: float = 10.0, *, verbose: bool = False) -> Dict[str, Any]:
     """Call GET /api/v1/auth/whoami and return the ``data`` field.
 
@@ -102,14 +157,12 @@ def _call_whoami(key: str, base_url: str, timeout: float = 10.0, *, verbose: boo
 
     if response.status_code != 200:
         try:
-            payload = response.json()
-            meta = payload.get("meta", {})
-            request_id = meta.get("request_id")
-            error_obj = payload.get("error", {})
-            error_code = error_obj.get("code", error_code)
-            error_message = error_obj.get("message", error_message)
+            parsed = _parse_error_envelope(response.json())
         except Exception:  # noqa: BLE001
-            pass
+            parsed = {}
+        request_id = parsed.get("request_id", request_id)
+        error_code = parsed.get("code", error_code)
+        error_message = parsed.get("message", error_message)
 
         if response.status_code in (401, 403):
             raise OnePinAuthError(

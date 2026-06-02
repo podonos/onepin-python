@@ -25,11 +25,34 @@ class ResolvedCredentials:
     source: Literal["flag", "env", "file", "default"]
 
 
+def _resolve_base_url(
+    flag_base_url: Optional[str],
+    file_base_url: Optional[str] = None,
+) -> Optional[str]:
+    """Resolve base_url INDEPENDENTLY of where api_key came from.
+
+    Precedence: flag_base_url > ONEPIN_BASE_URL env > file [default].base_url > None.
+    This ensures ``ONEPIN_BASE_URL=https://staging onepin --api-key op_live_x ...``
+    targets staging (not production), regardless of the api_key source.
+    """
+    if flag_base_url is not None:
+        return flag_base_url
+    env_url = os.environ.get("ONEPIN_BASE_URL")
+    if env_url:
+        return env_url
+    if file_base_url:
+        return file_base_url
+    return None
+
+
 def resolve_credentials(
     flag_api_key: Optional[str] = None,
     flag_base_url: Optional[str] = None,
 ) -> ResolvedCredentials:
     """Resolve credentials from the priority chain.
+
+    api_key precedence: flag > env > file > None.
+    base_url precedence (independent): flag > env > file > None.
 
     Args:
         flag_api_key: Value of --api-key CLI flag (None if not provided).
@@ -41,36 +64,39 @@ def resolve_credentials(
     Raises:
         SystemExit: If the credentials file exists but is malformed TOML.
     """
+    # Read the credentials file once (may be needed for both api_key and base_url).
+    file_data = read_credentials()  # raises hard on malformed TOML
+    file_profile = file_data.get("default", {}) if file_data is not None else {}
+    file_base_url = file_profile.get("base_url")
+
+    # base_url resolved independently of api_key source.
+    base_url = _resolve_base_url(flag_base_url, file_base_url)
+
     # 1. Explicit flag
     if flag_api_key is not None:
         return ResolvedCredentials(
             api_key=flag_api_key,
-            base_url=flag_base_url,
+            base_url=base_url,
             source="flag",
         )
 
     # 2. Environment variable
     env_key = os.environ.get("ONEPIN_API_KEY")
     if env_key:
-        env_url = os.environ.get("ONEPIN_BASE_URL", flag_base_url)
         return ResolvedCredentials(
             api_key=env_key,
-            base_url=env_url,
+            base_url=base_url,
             source="env",
         )
 
     # 3. Credentials file (~/.onepin/credentials)
-    file_data = read_credentials()  # raises hard on malformed TOML
-    if file_data is not None:
-        profile = file_data.get("default", {})
-        file_key = profile.get("api_key")
-        file_url = flag_base_url or profile.get("base_url")
-        if file_key:
-            return ResolvedCredentials(
-                api_key=file_key,
-                base_url=file_url,
-                source="file",
-            )
+    file_key = file_profile.get("api_key")
+    if file_key:
+        return ResolvedCredentials(
+            api_key=file_key,
+            base_url=base_url,
+            source="file",
+        )
 
     # 4. Nothing found
-    return ResolvedCredentials(api_key=None, base_url=flag_base_url, source="default")
+    return ResolvedCredentials(api_key=None, base_url=base_url, source="default")
