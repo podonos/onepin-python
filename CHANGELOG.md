@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0](https://github.com/podonos/onepin-python/compare/v0.2.0...v0.3.0) (2026-06-02)
+
+
+### Features
+
+* **cli:** full command surface over the Fern SDK ([#24](https://github.com/podonos/onepin-python/issues/24)) ([162d805](https://github.com/podonos/onepin-python/commit/162d8054323c2c72d50c0a62cff9f8f181f767b6))
+
+
+### Bug Fixes
+
+* **publish:** scope attestation verify to --repo, not --owner ([a1ea74c](https://github.com/podonos/onepin-python/commit/a1ea74c10ad40a1af11cfe17b8e679634ec43138))
+* **release:** anchor release-please at the 0.2.0 commit ([#22](https://github.com/podonos/onepin-python/issues/22)) ([ca2dc22](https://github.com/podonos/onepin-python/commit/ca2dc22e82e5f3f4ae62ddf5d39271bb492ed8df))
+
+
+### Documentation
+
+* add AGENTS.md and Claude Code hooks ([#6](https://github.com/podonos/onepin-python/issues/6)) ([0551199](https://github.com/podonos/onepin-python/commit/05511993a6b58d31664a619da9c069d4eab0f6ec))
+* add community health files ([#15](https://github.com/podonos/onepin-python/issues/15)) ([3da0abf](https://github.com/podonos/onepin-python/commit/3da0abf48dbf6beffe35817869d9594a9be70db4))
+
 ## [0.2.0](https://github.com/podonos/onepin-python/compare/onepin-v0.1.0...onepin-v0.2.0) (2026-05-28)
 
 
