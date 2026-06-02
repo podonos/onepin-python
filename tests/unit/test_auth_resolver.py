@@ -85,3 +85,50 @@ class TestResolveCredentials:
         )
         result = resolve_credentials()
         assert result.source == "file"
+
+
+class TestBaseUrlIndependentOfApiKeySource:
+    """base_url must resolve independently: flag > env > file > None."""
+
+    def test_flag_api_key_with_env_base_url(self, tmp_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """--api-key flag + ONEPIN_BASE_URL env -> base_url = env (not None/default)."""
+        monkeypatch.setenv("ONEPIN_BASE_URL", "https://staging.onepin.ai")
+        monkeypatch.delenv("ONEPIN_API_KEY", raising=False)
+        result = resolve_credentials(flag_api_key="op_live_flag")
+        assert result.api_key == "op_live_flag"
+        assert result.source == "flag"
+        assert result.base_url == "https://staging.onepin.ai"
+
+    def test_flag_base_url_wins_over_env(self, tmp_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ONEPIN_BASE_URL", "https://staging.onepin.ai")
+        monkeypatch.setenv("ONEPIN_API_KEY", "op_live_env")
+        result = resolve_credentials(flag_base_url="https://custom.onepin.ai")
+        assert result.base_url == "https://custom.onepin.ai"
+
+    def test_env_base_url_wins_over_file(self, tmp_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ONEPIN_BASE_URL", "https://staging.onepin.ai")
+        monkeypatch.delenv("ONEPIN_API_KEY", raising=False)
+        creds_dir = tmp_home / ".onepin"
+        creds_dir.mkdir(mode=0o700)
+        (creds_dir / "credentials").write_text(
+            '[default]\napi_key = "op_live_file"\nbase_url = "https://file.onepin.ai"\n'
+        )
+        result = resolve_credentials()
+        assert result.base_url == "https://staging.onepin.ai"
+
+    def test_file_base_url_used_when_no_flag_no_env(self, tmp_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ONEPIN_API_KEY", raising=False)
+        monkeypatch.delenv("ONEPIN_BASE_URL", raising=False)
+        creds_dir = tmp_home / ".onepin"
+        creds_dir.mkdir(mode=0o700)
+        (creds_dir / "credentials").write_text(
+            '[default]\napi_key = "op_live_file"\nbase_url = "https://file.onepin.ai"\n'
+        )
+        result = resolve_credentials()
+        assert result.base_url == "https://file.onepin.ai"
+
+    def test_no_base_url_anywhere_returns_none(self, tmp_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ONEPIN_API_KEY", raising=False)
+        monkeypatch.delenv("ONEPIN_BASE_URL", raising=False)
+        result = resolve_credentials(flag_api_key="op_live_flag")
+        assert result.base_url is None

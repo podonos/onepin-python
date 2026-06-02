@@ -8,45 +8,383 @@ Python SDK + CLI for [OnePin](https://onepin.ai) — the AI-powered voice workfl
 pip install onepin
 ```
 
-## Quickstart
+Installs both the `onepin` Python SDK and the `onepin` command-line tool.
 
 Full documentation: [docs.onepin.ai](https://docs.onepin.ai)
 
-### Authentication
+## Authentication
 
 Mint an API key at [app.onepin.ai/settings/api-keys](https://app.onepin.ai/settings/api-keys), then:
 
 ```bash
 onepin login
-# Paste your key when prompted — saved to ~/.onepin/credentials (mode 0600)
-```
+# Paste your key when prompted — validated, then saved to ~/.onepin/credentials (mode 0600)
 
-### Commands
-
-```bash
-onepin login       # Authenticate — paste your key when prompted
-onepin whoami      # Show the active auth source + workspace
+onepin whoami      # Show the active auth source, workspace UUID, and key scopes
 onepin logout      # Remove stored credentials
 ```
 
-Global flags:
+Credential resolution order: `--api-key` flag → `ONEPIN_API_KEY` env var → stored `~/.onepin/credentials`.
+
+## Command reference
+
+The CLI groups its commands by resource. Every group prints its own command list with
+`onepin <group> --help`, and each command lists its flags with `onepin <group> <command> --help`.
+The examples further below are representative; the **authoritative, exhaustive inventory** is
+generated from the live command tree (the same source as `onepin schema`) and kept in sync by CI:
+
+<!-- BEGIN GENERATED: cli-commands -->
+## CLI command reference
+
+### health
+
+- `onepin health live` — Liveness probe.
+- `onepin health ready` — Readiness probe.
+
+### login
+
+- `onepin login` — Validate an API key and write it to ~/.onepin/credentials.
+
+### logout
+
+- `onepin logout` — Remove ~/.onepin/credentials.
+
+### nodes
+
+- `onepin nodes list` — List available node types.
+- `onepin nodes show <node_type>` — Show a node type's detail (runtime options).
+
+### provider-keys
+
+- `onepin provider-keys delete <provider>` — Delete a provider key.
+- `onepin provider-keys list` — List configured provider keys.
+- `onepin provider-keys put <provider>` — Create or replace a provider key.
+
+### schema
+
+- `onepin schema` — Emit the machine-readable JSON manifest of all commands.
+
+### templates
+
+- `onepin templates clone <template_id>` — Clone a template into a new workflow.
+- `onepin templates create` — Create a template.
+- `onepin templates delete <template_id>` — Delete a template.
+- `onepin templates favorite <template_id>` — Favorite a template.
+- `onepin templates list` — List gallery templates.
+- `onepin templates show <template_id>` — Show a single template.
+- `onepin templates unfavorite <template_id>` — Unfavorite a template.
+- `onepin templates update <template_id>` — Update a template.
+
+### uploads
+
+- `onepin uploads confirm <upload_id>` — Confirm an upload and attach it to a workflow.
+- `onepin uploads create` — Upload a file via the presigned-S3 flow.
+- `onepin uploads delete <upload_id>` — Delete an upload.
+
+### usage
+
+- `onepin usage activity` — Recent workspace activity.
+- `onepin usage by-language` — Usage broken down by language.
+- `onepin usage summary` — Usage summary.
+
+### voices
+
+- `onepin voices favorite <voice_id>` — Favorite a voice.
+- `onepin voices list` — List available voices.
+- `onepin voices show <voice_id>` — Show a single voice.
+- `onepin voices similar <voice_id>` — List voices similar to a voice.
+- `onepin voices unfavorite <voice_id>` — Unfavorite a voice.
+
+### whoami
+
+- `onepin whoami` — Show active auth source + workspace UUID + scopes.
+
+### workflows
+
+- `onepin workflows create` — Create a workflow.
+- `onepin workflows definition-schema` — Print the JSON Schema for a workflow definition.
+- `onepin workflows delete <workflow_id>` — Delete a workflow.
+- `onepin workflows duplicate <workflow_id>` — Duplicate a workflow.
+- `onepin workflows list` — List workflows in the workspace.
+- `onepin workflows preview-run <workflow_id>` — Estimate cost of a run without executing.
+- `onepin workflows run <workflow_id>` — Start a workflow run, optionally watching to completion.
+- `onepin workflows show <workflow_id>` — Show a single workflow.
+- `onepin workflows update <workflow_id>` — Update a workflow (partial patch).
+- `onepin workflows uploads <workflow_id>` — List a workflow's uploads.
+
+#### workflows runs
+
+- `onepin workflows runs cancel <workflow_id> <run_id>` — Cancel a running run.
+- `onepin workflows runs data <workflow_id> <run_id>` — Show a run's output data.
+- `onepin workflows runs download <workflow_id> <run_id>` — Download a run's full export to a file.
+- `onepin workflows runs download-node <workflow_id> <run_id> <node_id>` — Download a single node's output to a file.
+- `onepin workflows runs list <workflow_id>` — List runs for a workflow.
+- `onepin workflows runs overview <workflow_id> <run_id>` — Show a run's node overview.
+- `onepin workflows runs show <workflow_id> <run_id>` — Show a single run.
+- `onepin workflows runs status <workflow_id> <run_id>` — Show a run's current status.
+- `onepin workflows runs steps <workflow_id> <run_id>` — List the steps of a run.
+- `onepin workflows runs summary <workflow_id>` — Summarize a workflow's runs.
+
+### workspace
+
+- `onepin workspace create` — Create a workspace.
+- `onepin workspace delete <workspace_id>` — Delete a workspace.
+- `onepin workspace list` — List workspaces.
+- `onepin workspace settings <ws_id>` — Show a workspace's settings.
+- `onepin workspace show <workspace_id>` — Show a workspace.
+- `onepin workspace update <workspace_id>` — Update a workspace.
+
+#### workspace members
+
+- `onepin workspace members accept <token>` — Accept an invite by token.
+- `onepin workspace members invite <ws_id>` — Invite a member.
+- `onepin workspace members invite-role <ws_id> <invite_id>` — Change a pending invite's role.
+- `onepin workspace members list <ws_id>` — List workspace members.
+- `onepin workspace members remove <ws_id> <member_id>` — Remove a member.
+- `onepin workspace members revoke-invite <ws_id> <invite_id>` — Revoke a pending invite.
+- `onepin workspace members set-role <ws_id> <member_id>` — Change a member's role.
+
+#### workspace stats
+
+- `onepin workspace stats runs` — Workspace run statistics.
+- `onepin workspace stats workflows` — Workspace workflow statistics.
+<!-- END GENERATED: cli-commands -->
+
+### Global flags
+
+These apply to every command (pass them before the subcommand):
 
 ```
---api-key     Override stored credentials (env: ONEPIN_API_KEY)
---base-url    Override API base URL (env: ONEPIN_BASE_URL)
---json        Emit machine-readable JSON instead of rich tables
---no-color    Disable ANSI coloring
--v/--verbose  Log HTTP requests/responses to stderr
+--api-key TEXT     API key for this invocation        (env: ONEPIN_API_KEY)
+--base-url TEXT    Override the API base URL           (env: ONEPIN_BASE_URL)
+--workspace TEXT   Workspace UUID to scope requests to (env: ONEPIN_WORKSPACE_ID)
+--json             Emit machine-readable JSON to stdout instead of rich tables
+--no-color         Disable ANSI coloring
+-v, --verbose      Log HTTP requests/responses to stderr (auth/login flow only)
+--debug            Verbose logging; implies --verbose (auth/login flow only)
+--version          Show version and exit
 ```
+
+`--verbose`/`--debug` only affect HTTP logging on the authentication path; they do not change
+command output. Use `--json` for machine-consumable data on any command.
+
+### auth — `login`, `logout`, `whoami`
+
+```bash
+onepin login
+onepin whoami
+onepin logout
+```
+
+### workflows — create, run, and inspect workflows
+
+```bash
+onepin workflows list --status running --sort updated_at --order desc
+onepin workflows show <workflow_id>
+onepin workflows create --name "My workflow" --definition @workflow.json
+onepin workflows update <workflow_id> --name "Renamed"
+onepin workflows duplicate <workflow_id>
+onepin workflows preview-run <workflow_id>          # estimate cost without executing
+onepin workflows run <workflow_id> --watch          # poll to a terminal state
+onepin workflows definition-schema                  # JSON Schema for a definition
+onepin workflows delete <workflow_id> --yes
+```
+
+See `onepin workflows --help` for the full list.
+
+#### workflows runs — inspect and control runs
+
+```bash
+onepin workflows runs list <workflow_id>
+onepin workflows runs show <workflow_id> <run_id>
+onepin workflows runs status <workflow_id> <run_id>
+onepin workflows runs steps <workflow_id> <run_id>
+onepin workflows runs overview <workflow_id> <run_id>
+onepin workflows runs data <workflow_id> <run_id>
+onepin workflows runs summary <workflow_id>
+onepin workflows runs cancel <workflow_id> <run_id> --yes
+onepin workflows runs download <workflow_id> <run_id> --out export.zip
+onepin workflows runs download-node <workflow_id> <run_id> <node_id> --out node.wav
+```
+
+See `onepin workflows runs --help` for the full list.
+
+### templates — browse and manage gallery templates
+
+```bash
+onepin templates list --category media --sort popular
+onepin templates show <template_id>
+onepin templates clone <template_id> --name "My copy"
+onepin templates create --name "Starter" --definition @template.json
+onepin templates favorite <template_id>
+```
+
+See `onepin templates --help` for the full list (`update`, `delete`, `unfavorite`).
+
+### voices — browse available voices
+
+```bash
+onepin voices list --provider elevenlabs --gender female --language en-us
+onepin voices show <voice_id>
+onepin voices similar <voice_id>
+onepin voices favorite <voice_id>
+```
+
+See `onepin voices --help` for the full list.
+
+### uploads — manage file uploads (presigned-S3 flow)
+
+```bash
+onepin uploads create --file script.txt --category script   # upload + presign in one step
+onepin uploads confirm <upload_id> --workflow-id <workflow_id>
+onepin uploads delete <upload_id> --yes
+```
+
+See `onepin uploads --help` for the full list.
+
+### workspace — manage workspaces, members, and statistics
+
+```bash
+onepin workspace list
+onepin workspace show <workspace_id>
+onepin workspace create --name "Team"
+onepin workspace update <workspace_id> --name "Renamed"
+onepin workspace settings <ws_id>
+onepin workspace delete <workspace_id> --yes
+```
+
+See `onepin workspace --help` for the full list.
+
+#### workspace members — members and invites
+
+```bash
+onepin workspace members list <ws_id>
+onepin workspace members invite <ws_id> --email user@example.com --role editor
+onepin workspace members set-role <ws_id> <member_id> --role admin
+onepin workspace members remove <ws_id> <member_id> --yes
+onepin workspace members accept <token>
+```
+
+See `onepin workspace members --help` for the full list (`invite-role`, `revoke-invite`).
+
+#### workspace stats — aggregate statistics
+
+```bash
+onepin workspace stats runs --from 2026-01-01 --to 2026-02-01
+onepin workspace stats workflows
+```
+
+### usage — inspect workspace usage and activity
+
+```bash
+onepin usage summary --range 30d
+onepin usage activity --type workflow_run --limit 50
+onepin usage by-language --range 90d
+```
+
+See `onepin usage --help` for the full list.
+
+### provider-keys — manage bring-your-own-key credentials
+
+```bash
+onepin provider-keys list
+onepin provider-keys put <provider> --key '{"api_key": "..."}'
+onepin provider-keys delete <provider> --yes
+```
+
+Stored credentials are never echoed back; reads return redacted metadata only.
+
+### nodes — inspect available workflow node types
+
+```bash
+onepin nodes list
+onepin nodes show <node_type>
+```
+
+### health — API liveness and readiness probes
+
+```bash
+onepin health live
+onepin health ready
+```
+
+### schema — machine-readable command manifest
+
+```bash
+onepin schema --json
+```
+
+## For agents / scripting
+
+The CLI is designed to be driven programmatically.
+
+### The command manifest is the contract
+
+```bash
+onepin schema --json
+```
+
+`schema` emits a stable, machine-readable JSON manifest of every command: each entry has a
+`path` array (the full subcommand chain, e.g. `["workflows", "runs", "download"]`), its
+positional `args`, its `options` (flag, type, required, default, help), and a `destructive`
+flag. Build tooling against this manifest rather than scraping `--help`.
+
+### Structured output and exit codes
+
+Pass `--json` to any command to get raw data on **stdout**. When `--json` is set, a failure
+writes a structured error envelope to **stderr** instead of the default `[CODE] message` line:
+
+```json
+{"error": {"code": "not_found", "message": "Workflow not found"}}
+```
+
+Exit codes:
+
+| Code | Meaning                                  |
+|------|------------------------------------------|
+| 0    | Success                                  |
+| 1    | API or runtime error                     |
+| 2    | Usage error (bad flags/arguments)        |
+| 130  | Interrupted (SIGINT)                     |
+
+### Recipe: build a workflow definition
+
+```bash
+# 1. Discover the available node types
+onepin nodes list
+
+# 2. Inspect the ports/options of a node type
+onepin nodes show <node_type>
+
+# 3. Get the JSON Schema a definition must satisfy ...
+onepin workflows definition-schema
+
+#    ... or copy a known-good `.definition` from an existing template or workflow:
+onepin templates show <template_id> --json
+onepin workflows show <workflow_id> --json
+
+# 4. Assemble your definition JSON into a file, then create the workflow
+onepin workflows create --name "My workflow" --definition @workflow.json
+```
+
+`--definition` accepts inline JSON or `@path/to/file.json`. The same flag is available on
+`workflows update`, `templates create`, and `templates update`.
 
 ## SDK usage
 
-> The SDK surface is generated by Fern from the OpenAPI spec. It will be available after the first Fern regen lands.
+The Python SDK is generated by [Fern](https://buildwithfern.com) from the OpenAPI spec.
+Reference docs live at [docs.onepin.ai](https://docs.onepin.ai).
 
 ```python
-from onepin import __version__
-print(__version__)
+from onepin import OnePinClient
+
+client = OnePinClient(token="op_...")  # or base_url=... for a non-prod environment
+
+workflows = client.workflows.list()
+voices = client.voices.list()
 ```
+
+An `AsyncOnePinClient` with the same surface is also available for `asyncio` code.
 
 ## Repository structure
 

@@ -104,6 +104,48 @@ class TestLoginInvalidKeyFormat:
         assert call_count == 0
 
 
+class TestLoginRootBaseUrl:
+    @respx.mock
+    def test_root_base_url_honored_by_login(self, tmp_home: Path) -> None:
+        """Root --base-url should be used by login when login's own --base-url is not passed."""
+        staging_url = "https://staging-api.onepin.ai/api/v1/auth/whoami"
+        respx.get(staging_url).mock(return_value=httpx.Response(200, json=_WHOAMI_RESPONSE))
+
+        result = runner.invoke(
+            app,
+            ["--base-url", "https://staging-api.onepin.ai", "login", "--key", "op_live_stagekey"],
+        )
+
+        assert result.exit_code == 0, result.output
+        creds_path = tmp_home / ".onepin" / "credentials"
+        content = creds_path.read_text()
+        assert "https://staging-api.onepin.ai" in content
+
+    @respx.mock
+    def test_login_local_base_url_wins_over_root(self, tmp_home: Path) -> None:
+        """Login's own --base-url takes precedence over root --base-url."""
+        local_url = "https://local-api.onepin.ai/api/v1/auth/whoami"
+        respx.get(local_url).mock(return_value=httpx.Response(200, json=_WHOAMI_RESPONSE))
+
+        result = runner.invoke(
+            app,
+            [
+                "--base-url",
+                "https://root-api.onepin.ai",
+                "login",
+                "--key",
+                "op_live_localkey",
+                "--base-url",
+                "https://local-api.onepin.ai",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        creds_path = tmp_home / ".onepin" / "credentials"
+        content = creds_path.read_text()
+        assert "https://local-api.onepin.ai" in content
+
+
 class TestLoginErrors:
     @respx.mock
     def test_401_exits_1_with_invalid_api_key_message(self, tmp_home: Path) -> None:

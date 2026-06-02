@@ -5,24 +5,35 @@ from __future__ import annotations
 import json
 import os
 
-import click
 import typer
 
 from onepin._cli import _state
 from onepin._cli._http import OnePinAuthError, OnePinHTTPError, OnePinNetworkError, _call_whoami
 from onepin._cli.auth.credentials import delete_credentials, write_credentials
-from onepin._cli.auth.resolver import resolve_credentials
 
 _DEFAULT_BASE_URL = "https://api.onepin.ai"
 _DASHBOARD_URL = "https://app.onepin.ai/settings/api-keys"
 
 
-def _is_commandline_source(value: object) -> bool:
-    return value == click.core.ParameterSource.COMMANDLINE or getattr(value, "name", None) == "COMMANDLINE"
+def _resolve_login_base_url(local_flag: str | None) -> str:
+    """Resolve base_url for login: local --base-url > root --base-url > env > default.
 
+    Login has its own ``--base-url`` parameter, but the root ``--base-url`` (stored in
+    ``_state.root_options``) should also be honored when the user passes it there instead.
+    """
+    import click
 
-def _resolve_base_url(flag: str | None) -> str:
-    return flag or os.environ.get("ONEPIN_BASE_URL") or _DEFAULT_BASE_URL
+    if local_flag is not None:
+        return local_flag
+    # Root --base-url (only when explicitly passed on the command line).
+    root = _state.root_options
+    root_source = root.get("base_url_source")
+    is_cmdline = (
+        root_source == click.core.ParameterSource.COMMANDLINE or getattr(root_source, "name", None) == "COMMANDLINE"
+    )
+    if is_cmdline and root.get("base_url"):
+        return str(root["base_url"])
+    return os.environ.get("ONEPIN_BASE_URL") or _DEFAULT_BASE_URL
 
 
 def login(
@@ -30,7 +41,7 @@ def login(
     base_url: str | None = typer.Option(None, "--base-url"),
 ) -> None:
     """Validate an API key and write it to ~/.onepin/credentials."""
-    resolved_base_url = _resolve_base_url(base_url)
+    resolved_base_url = _resolve_login_base_url(base_url)
 
     # Resolve key: flag or interactive prompt
     if key is None:
@@ -81,41 +92,17 @@ def logout() -> None:
     typer.echo("✓ Removed credentials.")
 
 
-def whoami(ctx: typer.Context) -> None:
+def whoami() -> None:
     """Show active auth source + workspace UUID + scopes."""
-    # Read global flags (--api-key, --base-url, --json) from the root app callback context.
-    # Only treat api_key as an explicit flag when it was passed on the command line (not env var),
-    # so that resolve_credentials() can correctly attribute source="env" vs source="flag".
-    flag_api_key: str | None = None
-    flag_base_url: str | None = None
-    json_output = False
-    try:
-        root_options = _state.root_options
-        parent = ctx.parent
-        if parent is not None:
-            root_options = {
-                **root_options,
-                "api_key": parent.params.get("api_key"),
-                "api_key_source": root_options.get("api_key_source") or parent.get_parameter_source("api_key"),
-                "base_url": parent.params.get("base_url"),
-                "base_url_source": root_options.get("base_url_source") or parent.get_parameter_source("base_url"),
-                "json_output": parent.params.get("json_output", root_options.get("json_output", False)),
-            }
-        if _is_commandline_source(root_options.get("api_key_source")):
-            flag_api_key = root_options.get("api_key")
-        if _is_commandline_source(root_options.get("base_url_source")):
-            flag_base_url = root_options.get("base_url")
-        json_output = bool(root_options.get("json_output", False))
-    except Exception:  # noqa: BLE001
-        pass
+    # Credential resolution (flag > env > file) is shared with the dispatcher: it reads the
+    # root-callback state to attribute source correctly (flag vs env vs file).
+    from onepin._cli._ctx import _emit_error, resolve_cli_credentials
 
-    creds = resolve_credentials(flag_api_key=flag_api_key, flag_base_url=flag_base_url)
+    json_output = bool(_state.root_options.get("json_output", False))
+    creds = resolve_cli_credentials()
 
     if not creds.api_key:
-        typer.echo(
-            "[NOT_LOGGED_IN] Run `onepin login` or set ONEPIN_API_KEY.",
-            err=True,
-        )
+        _emit_error("NOT_LOGGED_IN", "Run `onepin login` or set ONEPIN_API_KEY.", None, json_output)
         raise typer.Exit(code=1)
 
     resolved_base_url = creds.base_url or _DEFAULT_BASE_URL
@@ -124,15 +111,13 @@ def whoami(ctx: typer.Context) -> None:
     try:
         data = _call_whoami(creds.api_key, resolved_base_url, verbose=verbose)
     except OnePinAuthError as exc:
-        rid = f", request_id={exc.request_id}" if exc.request_id else ""
-        typer.echo(f"[INVALID_API_KEY] {exc.message}{rid}", err=True)
+        _emit_error("INVALID_API_KEY", exc.message, exc.request_id, json_output)
         raise typer.Exit(code=1)
     except OnePinNetworkError as exc:
-        typer.echo(f"[NETWORK_ERROR] {exc.message}", err=True)
+        _emit_error("NETWORK_ERROR", exc.message, None, json_output)
         raise typer.Exit(code=1)
     except OnePinHTTPError as exc:
-        rid = f", request_id={exc.request_id}" if exc.request_id else ""
-        typer.echo(f"[{exc.error_code}] {exc.message}{rid}", err=True)
+        _emit_error(exc.error_code, exc.message, exc.request_id, json_output)
         raise typer.Exit(code=1)
 
     if json_output:

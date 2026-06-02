@@ -92,3 +92,80 @@ class TestWhoamiOutput:
         assert "voices:read" in result.output
         assert "Base URL: https://api.onepin.ai" in result.output
         assert "Auth: api_key" in result.output
+
+    @respx.mock
+    def test_json_output(self, tmp_home: Path) -> None:
+        """`onepin --json whoami` emits the whoami data as JSON."""
+        _write_credentials(tmp_home)
+        respx.get(_WHOAMI_URL).mock(return_value=httpx.Response(200, json=_WHOAMI_RESPONSE))
+
+        result = runner.invoke(app, ["--json", "whoami"])
+
+        assert result.exit_code == 0, result.output
+        assert '"workspace_id"' in result.output
+
+
+class TestWhoamiErrors:
+    @respx.mock
+    def test_invalid_key_exits_1(self, tmp_home: Path) -> None:
+        _write_credentials(tmp_home)
+        body = {"error": {"code": "INVALID_API_KEY", "message": "rejected"}, "meta": {"request_id": "r5"}}
+        respx.get(_WHOAMI_URL).mock(return_value=httpx.Response(401, json=body))
+
+        result = runner.invoke(app, ["whoami"])
+
+        assert result.exit_code == 1
+        assert "INVALID_API_KEY" in result.output
+
+    @respx.mock
+    def test_network_error_exits_1(self, tmp_home: Path) -> None:
+        _write_credentials(tmp_home)
+        respx.get(_WHOAMI_URL).mock(side_effect=httpx.ConnectError("down"))
+
+        result = runner.invoke(app, ["whoami"])
+
+        assert result.exit_code == 1
+        assert "NETWORK_ERROR" in result.output
+
+    @respx.mock
+    def test_server_error_exits_1(self, tmp_home: Path) -> None:
+        _write_credentials(tmp_home)
+        body = {"error": {"code": "SERVER_ERROR", "message": "boom"}}
+        respx.get(_WHOAMI_URL).mock(return_value=httpx.Response(500, json=body))
+
+        result = runner.invoke(app, ["whoami"])
+
+        assert result.exit_code == 1
+        assert "SERVER_ERROR" in result.output
+
+
+class TestWhoamiJsonErrors:
+    """Under --json, every whoami failure must emit a structured JSON error envelope."""
+
+    def test_no_creds_json_envelope(self, tmp_home: Path) -> None:
+        result = runner.invoke(app, ["--json", "whoami"])
+        assert result.exit_code == 1
+        assert '"code": "NOT_LOGGED_IN"' in result.output
+        assert '"message"' in result.output
+
+    @respx.mock
+    def test_401_json_envelope(self, tmp_home: Path) -> None:
+        _write_credentials(tmp_home)
+        body = {"error": {"code": "INVALID_API_KEY", "message": "rejected"}, "meta": {"request_id": "r9"}}
+        respx.get(_WHOAMI_URL).mock(return_value=httpx.Response(401, json=body))
+
+        result = runner.invoke(app, ["--json", "whoami"])
+
+        assert result.exit_code == 1
+        assert '"code": "INVALID_API_KEY"' in result.output
+        assert '"request_id": "r9"' in result.output
+
+    @respx.mock
+    def test_network_error_json_envelope(self, tmp_home: Path) -> None:
+        _write_credentials(tmp_home)
+        respx.get(_WHOAMI_URL).mock(side_effect=httpx.ConnectError("down"))
+
+        result = runner.invoke(app, ["--json", "whoami"])
+
+        assert result.exit_code == 1
+        assert '"code": "NETWORK_ERROR"' in result.output

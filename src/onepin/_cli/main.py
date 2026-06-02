@@ -66,7 +66,12 @@ def _main(
         callback=lambda value: _root_option_callback("base_url", value),
         is_eager=True,
     ),
-    workspace: str | None = typer.Option(None, "--workspace", hidden=True),
+    workspace: str | None = typer.Option(
+        None,
+        "--workspace",
+        envvar="ONEPIN_WORKSPACE_ID",
+        help="Workspace UUID to scope requests to (forwarded to commands that accept it).",
+    ),
     json_output: bool = typer.Option(
         False,
         "--json",
@@ -82,7 +87,7 @@ def _main(
         callback=_no_color_callback,
     ),
     verbose: bool = typer.Option(False, "-v", "--verbose", help="Log HTTP requests/responses to stderr."),
-    debug: bool = typer.Option(False, "--debug", help="Verbose logging; full tracebacks land with the API commands."),
+    debug: bool = typer.Option(False, "--debug", help="Enable verbose logging (implies --verbose)."),
 ) -> None:
     """OnePin CLI -- control workflows, voices, templates, and uploads from your terminal."""
     _state.root_options = {
@@ -93,8 +98,7 @@ def _main(
         "workspace": workspace,
         "json_output": json_output,
         "no_color": no_color,
-        # --debug implies --verbose (per the documented flag contract). Full
-        # tracebacks are wired with the API command layer.
+        # --debug implies --verbose (per the documented flag contract).
         "verbose": verbose or debug,
         "debug": debug,
     }
