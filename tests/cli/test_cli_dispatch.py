@@ -71,8 +71,20 @@ def _meta():
     return Meta(request_id="req-1", timestamp=NOW)
 
 
+class FakeRuns:
+    raise_404 = False
+
+    def cancel(self, workflow_id, run_id, **kw):
+        if self.raise_404:
+            raise NotFoundError(body={"error": {"code": "NOT_FOUND", "message": "gone"}})
+        return _dict_response(cancelled=True, id=run_id)
+
+
 class FakeWorkflows:
     raise_404 = False
+
+    def __init__(self) -> None:
+        self.runs = FakeRuns()
 
     def list(self, **kw):
         return _pager([_workflow_item()])
@@ -151,6 +163,17 @@ class TestActionMode:
         result = _invoke(["workflows", "delete", "wf-1", "--yes"])
         assert result.exit_code == 0, result.output
         assert "Deleted workflow wf-1" in result.output
+
+
+class TestNonDeleteDestructive404:
+    """Idempotent-404 is delete-only. cancel/remove/revoke must surface 404, not fake success."""
+
+    def test_cancel_404_under_yes_surfaces_error(self, fake_client: FakeClient, tmp_home) -> None:
+        fake_client.workflows.runs.raise_404 = True
+        result = _invoke(["workflows", "runs", "cancel", "wf-1", "run-x", "--yes"])
+        assert result.exit_code == 1, result.output
+        assert "NOT_FOUND" in result.output
+        assert "cancelled" not in result.output.lower()
 
 
 class TestNotAuthenticated:

@@ -415,8 +415,8 @@ def _run(cmd: Cmd, bound: dict[str, Any]) -> None:
                 kwargs["workspace_id"] = workspace
         try:
             resp = method(*positional, **kwargs)
-        except Exception as exc:  # noqa: BLE001 - 404 idempotency for destructive --yes
-            if cmd.destructive and bound.get("yes") and _is_not_found(exc):
+        except Exception as exc:  # noqa: BLE001 - 404 idempotency for delete --yes only
+            if _is_idempotent_delete(cmd) and bound.get("yes") and _is_not_found(exc):
                 _emit_idempotent(cmd, bound, json_on)
                 return
             raise
@@ -436,8 +436,20 @@ def _resolve_limit(cmd: Cmd, bound: dict[str, Any], json_on: bool) -> int:
     return int(limit)
 
 
+def _is_idempotent_delete(cmd: Cmd) -> bool:
+    """True only for delete operations, which are safe to treat as idempotent on 404.
+
+    A delete whose target is already gone is effectively a success. Other destructive
+    ops are NOT repeat-safe: ``runs cancel``/``members remove``/``revoke-invite`` returning
+    404 means a wrong id or workspace, which must surface as an error rather than a phantom
+    success (automation would otherwise believe the operation happened).
+    """
+    leaf = cmd.method.rsplit(".", 1)[-1]
+    return cmd.destructive and (leaf == "delete" or leaf.startswith("delete_"))
+
+
 def _is_not_found(exc: Exception) -> bool:
-    """True if an exception represents a 404 (used for destructive-delete idempotency)."""
+    """True if an exception represents a 404 (used for delete idempotency)."""
     from onepin.errors import NotFoundError
 
     if isinstance(exc, NotFoundError):
@@ -446,7 +458,7 @@ def _is_not_found(exc: Exception) -> bool:
 
 
 def _emit_idempotent(cmd: Cmd, bound: dict[str, Any], json_on: bool) -> None:
-    """Emit a stable success for a destructive op whose target was already gone (404)."""
+    """Emit a stable success for a delete whose target was already gone (404)."""
     if json_on:
         render_json({"ok": True})
         return
