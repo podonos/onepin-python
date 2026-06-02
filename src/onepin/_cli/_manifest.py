@@ -53,6 +53,15 @@ def _walk(command: Any, path: tuple[str, ...], out: list[dict[str, Any]]) -> Non
     out.append(_describe(command, path))
 
 
+def _short_help(command: Any) -> str:
+    """One-line help for a leaf command (the first line / summary of its docstring).
+
+    Collapses internal whitespace so the rendered Markdown stays a single deterministic line.
+    """
+    text = command.get_short_help_str(limit=200) if hasattr(command, "get_short_help_str") else ""
+    return " ".join(str(text).split())
+
+
 def _dummy_ctx(command: Any) -> click.Context:
     return click.Context(command)
 
@@ -119,3 +128,81 @@ def schema(
     from onepin._cli.main import app
 
     render_json(build_manifest(app))
+
+
+# === Deterministic Markdown command reference ============================================
+# This renders the same command tree the manifest is built from (the single source of
+# truth) into a stable Markdown inventory. ``scripts/gen_cli_docs.py`` splices the output
+# into README between markers; ``tests/build/test_readme_in_sync.py`` fails CI on drift.
+# No timestamps, no randomness -- identical output every run for a given command tree.
+
+
+def _collect_leaves(command: Any, path: tuple[str, ...], out: list[dict[str, Any]]) -> None:
+    """Recurse the assembled command tree, capturing ``path``/``help``/``args`` per leaf.
+
+    Mirrors :func:`_walk` (same duck-typed group detection and hidden-command filtering) but
+    additionally records each leaf's one-line help and positional arg names for rendering.
+    """
+    list_commands = getattr(command, "list_commands", None)
+    get_command = getattr(command, "get_command", None)
+    if callable(list_commands) and callable(get_command):
+        ctx = _dummy_ctx(command)
+        for name in list_commands(ctx):
+            child = get_command(ctx, name)
+            if child is None or getattr(child, "hidden", False):
+                continue
+            _collect_leaves(child, (*path, name), out)
+        return
+    args = [
+        param.name
+        for param in command.get_params(_dummy_ctx(command))
+        if param.param_type_name == "argument" and param.name
+    ]
+    out.append({"path": list(path), "help": _short_help(command), "args": args})
+
+
+def _command_line(entry: dict[str, Any]) -> str:
+    """Render one command as a Markdown bullet: ``onepin <path> <ARGS>`` -- one-line help."""
+    parts = ["onepin", *entry["path"], *(f"<{name}>" for name in entry["args"])]
+    invocation = " ".join(parts)
+    help_text = entry["help"]
+    tail = f" — {help_text}" if help_text else ""
+    return f"- `{invocation}`{tail}"
+
+
+def render_markdown() -> str:
+    """Render the assembled CLI command tree as a deterministic Markdown inventory.
+
+    Builds from the same command tree the manifest introspects (``build_manifest``'s source
+    of truth), groups by top-level group then subgroup, and emits a stable, sorted block.
+    Contains no timestamps or randomness, so the output is byte-identical every run for a
+    given command tree -- which lets a CI test gate the README against drift.
+
+    Returns:
+        The Markdown block (without surrounding markers), ending with a single newline.
+    """
+    from onepin._cli.main import app
+
+    cli = typer.main.get_command(app)
+    leaves: list[dict[str, Any]] = []
+    _collect_leaves(cli, (), leaves)
+    leaves.sort(key=lambda entry: entry["path"])
+
+    # Bucket leaves by (group, subgroup). The group is the first path segment; the subgroup
+    # is the middle segment for 3-deep paths (e.g. workflows runs list), else "".
+    sections: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for entry in leaves:
+        path = entry["path"]
+        group = path[0] if path else ""
+        subgroup = path[1] if len(path) >= 3 else ""
+        sections.setdefault((group, subgroup), []).append(entry)
+
+    lines: list[str] = ["## CLI command reference", ""]
+    for group, subgroup in sorted(sections):
+        heading = f"### {group}" if not subgroup else f"#### {group} {subgroup}"
+        lines.append(heading)
+        lines.append("")
+        for entry in sections[(group, subgroup)]:
+            lines.append(_command_line(entry))
+        lines.append("")
+    return "\n".join(lines).rstrip("\n") + "\n"

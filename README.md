@@ -28,9 +28,127 @@ Credential resolution order: `--api-key` flag → `ONEPIN_API_KEY` env var → s
 
 ## Command reference
 
-The CLI groups ~65 commands by resource. Every group prints its own command list with
+The CLI groups its commands by resource. Every group prints its own command list with
 `onepin <group> --help`, and each command lists its flags with `onepin <group> <command> --help`.
-The examples below are representative, not exhaustive.
+The examples further below are representative; the **authoritative, exhaustive inventory** is
+generated from the live command tree (the same source as `onepin schema`) and kept in sync by CI:
+
+<!-- BEGIN GENERATED: cli-commands -->
+## CLI command reference
+
+### health
+
+- `onepin health live` — Liveness probe.
+- `onepin health ready` — Readiness probe.
+
+### login
+
+- `onepin login` — Validate an API key and write it to ~/.onepin/credentials.
+
+### logout
+
+- `onepin logout` — Remove ~/.onepin/credentials.
+
+### nodes
+
+- `onepin nodes list` — List available node types.
+- `onepin nodes show <node_type>` — Show a node type's detail (runtime options).
+
+### provider-keys
+
+- `onepin provider-keys delete <provider>` — Delete a provider key.
+- `onepin provider-keys list` — List configured provider keys.
+- `onepin provider-keys put <provider>` — Create or replace a provider key.
+
+### schema
+
+- `onepin schema` — Emit the machine-readable JSON manifest of all commands.
+
+### templates
+
+- `onepin templates clone <template_id>` — Clone a template into a new workflow.
+- `onepin templates create` — Create a template.
+- `onepin templates delete <template_id>` — Delete a template.
+- `onepin templates favorite <template_id>` — Favorite a template.
+- `onepin templates list` — List gallery templates.
+- `onepin templates show <template_id>` — Show a single template.
+- `onepin templates unfavorite <template_id>` — Unfavorite a template.
+- `onepin templates update <template_id>` — Update a template.
+
+### uploads
+
+- `onepin uploads confirm <upload_id>` — Confirm an upload and attach it to a workflow.
+- `onepin uploads create` — Upload a file via the presigned-S3 flow.
+- `onepin uploads delete <upload_id>` — Delete an upload.
+
+### usage
+
+- `onepin usage activity` — Recent workspace activity.
+- `onepin usage by-language` — Usage broken down by language.
+- `onepin usage summary` — Usage summary.
+
+### voices
+
+- `onepin voices favorite <voice_id>` — Favorite a voice.
+- `onepin voices list` — List available voices.
+- `onepin voices show <voice_id>` — Show a single voice.
+- `onepin voices similar <voice_id>` — List voices similar to a voice.
+- `onepin voices unfavorite <voice_id>` — Unfavorite a voice.
+
+### whoami
+
+- `onepin whoami` — Show active auth source + workspace UUID + scopes.
+
+### workflows
+
+- `onepin workflows create` — Create a workflow.
+- `onepin workflows definition-schema` — Print the JSON Schema for a workflow definition.
+- `onepin workflows delete <workflow_id>` — Delete a workflow.
+- `onepin workflows duplicate <workflow_id>` — Duplicate a workflow.
+- `onepin workflows list` — List workflows in the workspace.
+- `onepin workflows preview-run <workflow_id>` — Estimate cost of a run without executing.
+- `onepin workflows run <workflow_id>` — Start a workflow run, optionally watching to completion.
+- `onepin workflows show <workflow_id>` — Show a single workflow.
+- `onepin workflows update <workflow_id>` — Update a workflow (partial patch).
+- `onepin workflows uploads <workflow_id>` — List a workflow's uploads.
+
+#### workflows runs
+
+- `onepin workflows runs cancel <workflow_id> <run_id>` — Cancel a running run.
+- `onepin workflows runs data <workflow_id> <run_id>` — Show a run's output data.
+- `onepin workflows runs download <workflow_id> <run_id>` — Download a run's full export to a file.
+- `onepin workflows runs download-node <workflow_id> <run_id> <node_id>` — Download a single node's output to a file.
+- `onepin workflows runs list <workflow_id>` — List runs for a workflow.
+- `onepin workflows runs overview <workflow_id> <run_id>` — Show a run's node overview.
+- `onepin workflows runs show <workflow_id> <run_id>` — Show a single run.
+- `onepin workflows runs status <workflow_id> <run_id>` — Show a run's current status.
+- `onepin workflows runs steps <workflow_id> <run_id>` — List the steps of a run.
+- `onepin workflows runs summary <workflow_id>` — Summarize a workflow's runs.
+
+### workspace
+
+- `onepin workspace create` — Create a workspace.
+- `onepin workspace delete <workspace_id>` — Delete a workspace.
+- `onepin workspace list` — List workspaces.
+- `onepin workspace settings <ws_id>` — Show a workspace's settings.
+- `onepin workspace show <workspace_id>` — Show a workspace.
+- `onepin workspace update <workspace_id>` — Update a workspace.
+
+#### workspace members
+
+- `onepin workspace members accept <token>` — Accept an invite by token.
+- `onepin workspace members invite <ws_id>` — Invite a member.
+- `onepin workspace members invite-role <ws_id> <invite_id>` — Change a pending invite's role.
+- `onepin workspace members list <ws_id>` — List workspace members.
+- `onepin workspace members remove <ws_id> <member_id>` — Remove a member.
+- `onepin workspace members revoke-invite <ws_id> <invite_id>` — Revoke a pending invite.
+- `onepin workspace members set-role <ws_id> <member_id>` — Change a member's role.
+
+#### workspace stats
+
+- `onepin workspace stats runs` — Workspace run statistics.
+- `onepin workspace stats workflows` — Workspace workflow statistics.
+<!-- END GENERATED: cli-commands -->
 
 ### Global flags
 
