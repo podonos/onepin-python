@@ -1,5 +1,5 @@
 {
-  "cliVersion": "5.38.0",
+  "cliVersion": "5.44.7",
   "generatorName": "fernapi/fern-python-sdk",
   "generatorVersion": "latest",
   "generatorConfig": {
@@ -7,7 +7,7 @@
     "package_name": "onepin",
     "flat_layout": false
   },
-  "originGitCommit": "15fc7440e6071168f65319df2abaae2f6ce6469b",
+  "originGitCommit": "b76d67a5c7b853189cac37339c1e9bd950f3a06c",
   "originGitCommitIsDirty": false,
   "invokedBy": "ci",
   "ciProvider": "github"
