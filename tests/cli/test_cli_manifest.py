@@ -55,3 +55,7 @@ def test_destructive_commands_flagged() -> None:
     assert by_path[("workflows", "delete")]["destructive"] is True
     assert by_path[("workflows", "runs", "cancel")]["destructive"] is True
     assert by_path[("workflows", "show")]["destructive"] is False
+    # `skill uninstall` carries --yes (destructive); install/path do not.
+    assert by_path[("skill", "uninstall")]["destructive"] is True
+    assert by_path[("skill", "install")]["destructive"] is False
+    assert by_path[("skill", "path")]["destructive"] is False

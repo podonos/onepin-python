@@ -63,6 +63,11 @@ packages = ["src/onepin"]
 [tool.hatch.build.targets.wheel.force-include]
 "src/onepin/py.typed" = "onepin/py.typed"
 "src/onepin/_cli/py.typed" = "onepin/_cli/py.typed"
+# Bundled agent skill data so `onepin skill install` can materialize it. Only the .md files
+# need forcing — the package's .py (incl. _skill/__init__.py) already ship via `packages`, and
+# force-including the whole dir would double-add __init__.py and fail the wheel build.
+"src/onepin/_cli/_skill/onepin/SKILL.md" = "onepin/_cli/_skill/onepin/SKILL.md"
+"src/onepin/_cli/_skill/onepin/reference.md" = "onepin/_cli/_skill/onepin/reference.md"
 
 [tool.check-wheel-contents]
 # W002 flags byte-identical files as "duplicates". The Fern-generated SDK ships many
