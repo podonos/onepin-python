@@ -30,6 +30,12 @@ on:
 permissions:
   contents: read
 
+# One regen per donut-be commit at a time; don't cancel an in-flight regen (it may be
+# mid-PR). Distinct shas regenerate independently.
+concurrency:
+  group: regen-${{ github.event.client_payload.sha || github.event.inputs.sha || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   regenerate:
     runs-on: ubuntu-latest
