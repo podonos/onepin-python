@@ -1,0 +1,147 @@
+name: Regenerate SDK
+
+# Self-generates the OnePin Python SDK from the SHAPED donut-be spec (POD-574).
+# Replaces the old onepin-sdks cross-repo rsync. The hand-rolled CLI under
+# src/onepin/_cli/ is preserved natively via src/onepin/.fernignore.
+#
+# Triggers (Decision A — never publish ahead of prod):
+#   repository_dispatch[api-spec-updated] {sha, spec_version, environment}
+#     environment=prod -> open a regen PR (the only regen PRs that merge → main never
+#                         leads prod; release-please + publish.yml then ship it)
+#     environment=dev  -> generation smoke-check only, NO PR
+#   workflow_dispatch  -> manual regen PR from a given donut-be sha (default: main HEAD)
+#
+# Requires the onepin-pipeline-bot GitHub App (org secrets PIPELINE_APP_ID /
+# PIPELINE_APP_PRIVATE_KEY), installed with:
+#   - donut-be: Contents read   (fetch the spec at sha)
+#   - onepin-python: Contents + Pull requests write   (open a PR with a token that fires CI;
+#     the default GITHUB_TOKEN would NOT trigger CI on the PR)
+
+on:
+  repository_dispatch:
+    types: [api-spec-updated]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "donut-be commit SHA to generate from (default: main HEAD)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve trigger inputs
+        id: vars
+        env:
+          PAYLOAD_ENV: ${{ github.event.client_payload.environment }}
+          PAYLOAD_SHA: ${{ github.event.client_payload.sha }}
+          PAYLOAD_SPEC_VERSION: ${{ github.event.client_payload.spec_version }}
+          INPUT_SHA: ${{ github.event.inputs.sha }}
+        run: |
+          set -euo pipefail
+          ENV="${PAYLOAD_ENV:-manual}"
+          SHA="${PAYLOAD_SHA:-$INPUT_SHA}"
+          # Decision A: dev is a smoke-check only; prod (and manual) open a PR.
+          if [ "$ENV" = "dev" ]; then OPEN_PR=false; else OPEN_PR=true; fi
+          {
+            echo "env=$ENV"
+            echo "sha=$SHA"
+            echo "spec_version=${PAYLOAD_SPEC_VERSION:-n/a}"
+            echo "open_pr=$OPEN_PR"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Mint GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.PIPELINE_APP_ID }}
+          private-key: ${{ secrets.PIPELINE_APP_PRIVATE_KEY }}
+          owner: podonos
+          repositories: onepin-python,donut-be
+
+      - name: Checkout onepin-python
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Fetch shaped spec from donut-be
+        id: spec
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REQ_SHA: ${{ steps.vars.outputs.sha }}
+        run: |
+          set -euo pipefail
+          REF="${REQ_SHA:-main}"
+          # Pin to the concrete commit SHA so the regen is reproducible.
+          RESOLVED_SHA=$(gh api "repos/podonos/donut-be/commits/${REF}" --jq '.sha')
+          echo "resolved_sha=$RESOLVED_SHA" >> "$GITHUB_OUTPUT"
+          mkdir -p fern/openapi
+          gh api "repos/podonos/donut-be/contents/api-spec.yaml?ref=${RESOLVED_SHA}" \
+            -H "Accept: application/vnd.github.raw" > fern/openapi/openapi.yml
+          echo "Fetched donut-be api-spec.yaml @ ${RESOLVED_SHA} ($(wc -l < fern/openapi/openapi.yml) lines)"
+          # The spec must be SHAPED (donut-be 4A deployed). A raw spec would silently
+          # produce an unshaped SDK — fail loudly instead.
+          if ! grep -q 'x-fern-sdk-group-name' fern/openapi/openapi.yml; then
+            echo "::error::Fetched spec carries no x-fern shaping — donut-be SDK-shaping export missing at ${RESOLVED_SHA}."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm install -g fern-api@5.38.0   # pin to fern.config.json
+      - run: fern check
+
+      - name: Generate Python SDK (local; .fernignore preserves _cli/)
+        run: fern generate --group python-sdk --local
+
+      - name: Restore PEP 561 markers
+        run: bash scripts/post_fern.sh
+
+      - name: Guard — CLI preserved + non-bare + shaped client
+        run: |
+          set -euxo pipefail
+          SRC=src/onepin
+          # 1. Hand-rolled CLI survived the regen (.fernignore worked).
+          [ -f "$SRC/_cli/main.py" ] || { echo "::error::src/onepin/_cli/ clobbered — .fernignore failed"; exit 1; }
+          [ -f "$SRC/py.typed" ] && [ -f "$SRC/_cli/py.typed" ] || { echo "::error::py.typed markers missing — run scripts/post_fern.sh"; exit 1; }
+          # 2. Non-bare client: real resource subclients + models present.
+          { [ -d "$SRC/workflows" ] && [ -d "$SRC/types" ]; } || { echo "::error::generated client is bare — spec wiring regressed"; exit 1; }
+          # 3. Overlay shaping applied: nested workflows.runs subclient + clean method name.
+          { [ -d "$SRC/workflows/runs" ] && grep -q 'def start(' "$SRC/workflows/runs/client.py"; } \
+            || { echo "::error::overlay shaping missing — client.workflows.runs.start not generated"; exit 1; }
+          echo "CLI preserved + non-bare + shaped client confirmed."
+
+      - name: Build/CLI guard tests
+        run: |
+          pip install uv
+          uv sync --all-extras
+          uv run pytest tests/build -q
+
+      - name: Open regen PR
+        if: steps.vars.outputs.open_pr == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: fern-regen/${{ steps.spec.outputs.resolved_sha }}
+          base: main
+          delete-branch: true
+          commit-message: "chore: regenerate SDK from donut-be@${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
+          title: "chore: regenerate SDK from donut-be@${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
+          body: |
+            Auto-regenerated from the shaped donut-be spec (POD-574).
+
+            - **Source:** donut-be@`${{ steps.spec.outputs.resolved_sha }}`
+            - **Spec version:** `${{ steps.vars.outputs.spec_version }}`
+            - **Trigger env:** `${{ steps.vars.outputs.env }}`
+
+            The hand-rolled CLI under `src/onepin/_cli/` is preserved via `.fernignore`.
+            Review the diff, let CI run, then merge to ship the new SDK surface.
+          labels: auto:sdk-regen
+
+      - name: Smoke-check note (dev — no PR)
+        if: steps.vars.outputs.open_pr != 'true'
+        run: echo "::notice::dev smoke-check passed — generation clean, CLI preserved. No PR (Decision A: customer publish gated on prod)."

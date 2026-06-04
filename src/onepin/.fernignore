@@ -1,0 +1,6 @@
+# Hand-rolled code preserved across `fern generate` (POD-574).
+# Fern auto-discovers this file in the generator's local-file-system output dir
+# (src/onepin/) and never overwrites the paths listed here. Replaces the old
+# cross-repo rsync-exclude that used to live in onepin-sdks/publish-sdks.yml.
+_cli/
+py.typed

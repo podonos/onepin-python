@@ -1,0 +1,29 @@
+# Fern generator config for the OnePin Python SDK (POD-574).
+#
+# Self-generation lives in this repo now (was onepin-sdks). The spec is SHAPED upstream
+# in donut-be (x-fern + servers folded into api-spec.yaml by scripts/export_openapi.py),
+# so this is a VANILLA generate — no overlay/overrides here.
+#
+# regen.yml fetches the shaped spec from donut-be @sha into ./openapi/openapi.yml, then
+# `fern generate --group python-sdk --local` writes the SDK into ../src/onepin. The
+# hand-rolled CLI under src/onepin/_cli/ is preserved by src/onepin/.fernignore
+# (auto-discovered in the local output dir; Fern CLI >= 4.16).
+api:
+  specs:
+    - openapi: openapi/openapi.yml
+
+groups:
+  python-sdk:
+    generators:
+      - name: fernapi/fern-python-sdk
+        # Pin to a concrete fern-python release once confirmed; the published image is
+        # only tagged `latest` today (matches what produced the committed SDK).
+        version: latest
+        output:
+          location: local-file-system
+          path: ../src/onepin
+        config:
+          client_class_name: OnePinClient
+          # `async_class_name` is NOT a supported key; Fern derives AsyncOnePinClient.
+          package_name: onepin
+          flat_layout: false
