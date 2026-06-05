@@ -43,10 +43,10 @@ def test_target_dirs_home_is_per_tool(tmp_home: Path) -> None:
 
 def test_target_dirs_project_dedupes_shared_agents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    targets = skill._target_dirs(["cursor", "codex", "copilot"], project=True)
+    targets = skill._target_dirs(["cursor", "codex", "copilot", "gemini"], project=True)
     assert len(targets) == 1
     labels, directory = targets[0]
-    assert set(labels) == {"cursor", "codex", "copilot"}
+    assert set(labels) == {"cursor", "codex", "copilot", "gemini"}
     assert directory == tmp_path / ".agents" / "skills" / "onepin"
 
 

@@ -47,7 +47,10 @@ _TOOLS: dict[str, dict[str, str]] = {
     "cursor": {"home": ".cursor/skills", "project": ".agents/skills", "detect": ".cursor"},
     "codex": {"home": ".codex/skills", "project": ".agents/skills", "detect": ".codex"},
     "copilot": {"home": ".copilot/skills", "project": ".agents/skills", "detect": ".copilot"},
-    "gemini": {"home": ".gemini/skills", "project": ".gemini/skills", "detect": ".gemini"},
+    # Gemini reads both ~/.gemini/skills and the shared .agents/skills alias. Use the per-tool
+    # home dir globally, but the shared .agents/skills for projects so it dedupes with
+    # cursor/codex/copilot and matches the alias Gemini gives precedence to.
+    "gemini": {"home": ".gemini/skills", "project": ".agents/skills", "detect": ".gemini"},
 }
 
 
