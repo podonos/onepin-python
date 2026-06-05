@@ -64,6 +64,8 @@ release-please falls back to the default token. Use a fine-grained PAT scoped to
 Manual fallback (publish an existing tag):
 
 ```bash
-# Run on the tag ref, not the default branch, or the version resolves wrong.
-gh workflow run publish.yml --ref vX.Y.Z -f tag=vX.Y.Z
+# Dispatch from a ref that has the CURRENT workflow (main): --ref selects which
+# publish.yml runs, while -f tag selects the artifacts/version (checkout uses the tag).
+# Using --ref vX.Y.Z would run that tag's possibly-stale publish.yml and repeat the failure.
+gh workflow run publish.yml --ref main -f tag=vX.Y.Z
 ```
