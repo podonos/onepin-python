@@ -28,4 +28,17 @@ def test_register_is_idempotent_shape() -> None:
 
     ctx = click.Context(cli)
     names = set(cli.list_commands(ctx))
-    assert {"login", "logout", "whoami", "schema", "workflows", "provider-keys", "health"} <= names
+    assert {"login", "logout", "whoami", "schema", "skill", "workflows", "provider-keys", "health"} <= names
+
+
+def test_skill_group_has_install_path_uninstall() -> None:
+    import click
+
+    app = typer.Typer()
+    _registry.register(app)
+    cli = typer.main.get_command(app)
+    ctx = click.Context(cli)
+    skill_group = cli.get_command(ctx, "skill")
+    assert skill_group is not None
+    sub = set(skill_group.list_commands(click.Context(skill_group)))
+    assert {"install", "path", "uninstall"} <= sub

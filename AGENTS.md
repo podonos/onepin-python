@@ -17,6 +17,7 @@ Guidance for AI coding assistants working in this repository.
 | `scripts/post_fern.sh` | Restores `py.typed` markers after regen | YES |
 | `tests/` | Project tests (`unit/`, `cli/`, `build/`) | YES |
 | `src/onepin/tests/` | SDK-bundled tests | NOT COLLECTED — `testpaths = ["tests"]` |
+| `src/onepin/_cli/_skill/` | Bundled cross-tool agent skill (`SKILL.md` + `reference.md`), shipped as wheel data | YES |
 | `pyproject.toml`, `Makefile`, `RUNBOOK.md`, `README.md` | Project docs/config | YES |
 
 ## SDK regeneration boundary
@@ -41,6 +42,9 @@ After every Fern regen, `scripts/post_fern.sh` must run to restore PEP 561 `py.t
 | `_http.py` | httpx client construction (base-url + auth) |
 | `_state.py` | Root-option state captured in the main callback |
 | `render.py` | Rich tables / JSON output |
+| `commands/skill.py` | `onepin skill install/path/uninstall` — installs the bundled agent skill into AI tools (SDK-free) |
+| `_fsutil.py` | Atomic-write helper shared by `skill install` and run downloads |
+| `_skill/onepin/` | The bundled `SKILL.md` + `reference.md` (package data) |
 
 Global flags (in `main.py` callback): `--api-key` (env `ONEPIN_API_KEY`), `--base-url` (env `ONEPIN_BASE_URL`), `--workspace`, `--json`, `--no-color`, `-v/--verbose`, `--debug`.
 
@@ -113,6 +117,7 @@ Comments must **never**:
 - **Adding tests under `src/onepin/tests/`** → not collected. Put project tests in `tests/`.
 - **Forgetting `scripts/post_fern.sh`** after a manual Fern regen → `py.typed` markers vanish; downstream type-checkers stop treating `onepin` as typed.
 - **`twine delete`** on a bad release → irrevocable. Use `twine yank` (see RUNBOOK).
+- **Changing the CLI surface** (e.g. adding the `skill` group) → regenerate the README block (`python scripts/gen_cli_docs.py`) and the manifest snapshot (`UPDATE_SNAPSHOT=1 pytest tests/cli/test_cli_manifest.py`), or `test_readme_in_sync.py` / `test_cli_manifest.py` fail.
 - **Patching generated files locally** → the next regen wipes your fix. Either fix the spec, or add an explicit `.fernignore` entry + document the patch.
 - **Bare attribute access on pydantic models** without `from __future__ import annotations` → forward refs break on older Pythons. Always import annotations at module top.
 

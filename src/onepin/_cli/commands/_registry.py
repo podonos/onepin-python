@@ -15,7 +15,7 @@ import typer
 
 from onepin._cli import _dispatch, _manifest
 from onepin._cli._spec import TABLE, Cmd
-from onepin._cli.commands import auth, composites
+from onepin._cli.commands import auth, composites, skill
 
 # Per-group help text. Groups not listed fall back to a generic header.
 _GROUP_HELP = {
@@ -51,6 +51,14 @@ def register(app: typer.Typer) -> None:
         app.add_typer(group_app, name=name, help=_GROUP_HELP.get(name, f"Manage {name}."))
 
     app.command(name="schema", help="Emit the machine-readable JSON manifest of all commands.")(_manifest.schema)
+
+    skill_app = typer.Typer(help="Manage the OnePin agent skill for AI coding tools.", no_args_is_help=True)
+    skill_app.command(
+        name="install", help="Install the OnePin agent skill (Claude Code, Cursor, Codex, Gemini, Copilot)."
+    )(skill.install)
+    skill_app.command(name="path", help="Show where the skill is or would be installed.")(skill.path)
+    skill_app.command(name="uninstall", help="Remove the installed OnePin agent skill.")(skill.uninstall)
+    app.add_typer(skill_app, name="skill", help="Manage the OnePin agent skill for AI coding tools.")
 
 
 def _build_groups() -> dict[str, typer.Typer]:

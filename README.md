@@ -26,6 +26,27 @@ onepin logout      # Remove stored credentials
 
 Credential resolution order: `--api-key` flag → `ONEPIN_API_KEY` env var → stored `~/.onepin/credentials`.
 
+## Use from your AI coding tool
+
+OnePin ships an [Agent Skill](https://agentskills.io) that teaches AI coding tools to drive the
+`onepin` CLI for you — list and run workflows, check run status, browse voices and templates —
+without leaving your editor. It works in Claude Code, Cursor, OpenAI Codex, Gemini CLI, and GitHub
+Copilot. Install it with the CLI (it auto-detects which tools you have):
+
+```bash
+onepin skill install                                # every detected tool
+onepin skill install --tool claude --tool cursor    # or pick tools explicitly
+onepin skill install --all                          # every supported tool
+onepin skill install --project                      # into ./ (this repo) instead of your home dir
+onepin skill path                                   # show where it is / would be installed
+onepin skill uninstall                              # remove it
+```
+
+In **Claude Code** the skill is then invocable as `/onepin`; other tools load it automatically when
+your request is about OnePin. After the first install, restart your tool (or run `/reload-plugins`
+in Claude Code) so it picks up the new skills directory. The skill drives the same `onepin` CLI, so
+run `onepin login` first.
+
 ## Command reference
 
 The CLI groups its commands by resource. Every group prints its own command list with
@@ -63,6 +84,12 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 ### schema
 
 - `onepin schema` — Emit the machine-readable JSON manifest of all commands.
+
+### skill
+
+- `onepin skill install` — Install the OnePin agent skill (Claude Code, Cursor, Codex, Gemini, Copilot).
+- `onepin skill path` — Show where the skill is or would be installed.
+- `onepin skill uninstall` — Remove the installed OnePin agent skill.
 
 ### templates
 

@@ -213,6 +213,140 @@
       ]
     },
     {
+      "args": [],
+      "destructive": false,
+      "group": "skill",
+      "name": "install",
+      "options": [
+        {
+          "default": null,
+          "flag": "--tool",
+          "help": "Target tool(s): claude, cursor, codex, copilot, gemini. Repeatable. Default: auto-detect.",
+          "required": false,
+          "type": "choice[claude,cursor,codex,copilot,gemini]"
+        },
+        {
+          "default": false,
+          "flag": "--all",
+          "help": "Install for every supported tool.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--project",
+          "help": "Install into the current project (./.claude, ./.agents, \u2026) instead of HOME.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--force",
+          "help": "Overwrite existing skill files.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "skill",
+        "install"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "skill",
+      "name": "path",
+      "options": [
+        {
+          "default": null,
+          "flag": "--tool",
+          "help": "Target tool(s). Default: auto-detect.",
+          "required": false,
+          "type": "choice[claude,cursor,codex,copilot,gemini]"
+        },
+        {
+          "default": false,
+          "flag": "--all",
+          "help": "Show paths for every supported tool.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--project",
+          "help": "Show project paths instead of HOME.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "skill",
+        "path"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": true,
+      "group": "skill",
+      "name": "uninstall",
+      "options": [
+        {
+          "default": null,
+          "flag": "--tool",
+          "help": "Target tool(s). Default: auto-detect.",
+          "required": false,
+          "type": "choice[claude,cursor,codex,copilot,gemini]"
+        },
+        {
+          "default": false,
+          "flag": "--all",
+          "help": "Uninstall from every supported tool.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--project",
+          "help": "Uninstall from the current project instead of HOME.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--yes",
+          "help": "Skip the confirmation prompt.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "skill",
+        "uninstall"
+      ]
+    },
+    {
       "args": [
         {
           "name": "template_id"

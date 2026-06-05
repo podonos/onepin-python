@@ -8,8 +8,6 @@ fast-startup guarantee holds.
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -236,53 +234,21 @@ def _download(
 
 
 def _atomic_write(dest: Path, content: bytes, *, force: bool) -> None:
-    """Write ``content`` to ``dest`` atomically (temp file in the same dir, then rename).
+    """Write ``content`` to ``dest`` atomically, refusing to clobber without --force.
 
-    When ``force`` is False, the destination is reserved atomically via ``O_CREAT|O_EXCL``
-    so a file created between the initial existence check and the rename is never silently
-    clobbered (closes the TOCTOU window).
+    Delegates the TOCTOU-safe write idiom to :func:`onepin._cli._fsutil.atomic_write_bytes`
+    and maps its builtin exceptions to this command's stable error codes.
     """
-    parent = dest.parent
-
-    # When not --force, atomically claim the destination to prevent clobbering a file
-    # that appeared after the caller's existence pre-check. Close the handle immediately:
-    # the empty placeholder remains as the guard, and os.replace() can overwrite it only
-    # when no handle is open (Windows raises WinError 5 / "Access is denied" otherwise).
-    reserved = False
-    if not force:
-        try:
-            fd = os.open(str(dest), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError as exc:
-            raise CliError("FILE_EXISTS", f"{dest} already exists. Pass --force to overwrite.") from exc
-        except (FileNotFoundError, NotADirectoryError) as exc:
-            raise CliError("DOWNLOAD_FAILED", f"Destination directory does not exist: {parent}") from exc
-        except OSError as exc:
-            raise CliError("DOWNLOAD_FAILED", f"Could not write {dest}: {exc}") from exc
-        os.close(fd)
-        reserved = True
+    from onepin._cli import _fsutil
 
     try:
-        fd, tmp_name = tempfile.mkstemp(dir=str(parent) if str(parent) else ".", prefix=".onepin-dl-")
+        _fsutil.atomic_write_bytes(dest, content, force=force)
+    except FileExistsError as exc:
+        raise CliError("FILE_EXISTS", f"{dest} already exists. Pass --force to overwrite.") from exc
     except (FileNotFoundError, NotADirectoryError) as exc:
-        if reserved:
-            _try_unlink(dest)
-        raise CliError("DOWNLOAD_FAILED", f"Destination directory does not exist: {parent}") from exc
-    try:
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(content)
-        os.replace(tmp_name, dest)
+        raise CliError("DOWNLOAD_FAILED", f"Destination directory does not exist: {dest.parent}") from exc
     except OSError as exc:
-        _try_unlink(tmp_name)
-        if reserved:
-            _try_unlink(dest)
         raise CliError("DOWNLOAD_FAILED", f"Could not write {dest}: {exc}") from exc
-
-
-def _try_unlink(path: Path | str) -> None:
-    try:
-        os.unlink(path)
-    except OSError:
-        pass
 
 
 # === workflows definition-schema (pure local) ============================================
