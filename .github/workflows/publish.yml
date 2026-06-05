@@ -18,10 +18,20 @@ jobs:
     outputs:
       version: ${{ steps.ver.outputs.version }}
     steps:
+      - name: Validate dispatch tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG_IN: ${{ inputs.tag }}
+        # Constrain the manual-dispatch free-text input to a release-tag shape: stops a
+        # build/publish from an arbitrary branch or SHA, and rejects a bogus/empty version
+        # before anything is uploaded. The push: tags trigger is already filtered.
+        run: |
+          [[ "$TAG_IN" =~ ^(onepin-)?v[0-9]+\.[0-9]+\.[0-9]+([._-].+)?$ ]] \
+            || { echo "::error::inputs.tag '$TAG_IN' is not a release tag (expected vX.Y.Z)"; exit 1; }
       - uses: actions/checkout@v6
         with:
-          # workflow_dispatch runs on the default branch, so check out the requested
-          # tag explicitly; on a tag push inputs.tag is empty -> falls back to the ref.
+          # workflow_dispatch may run on a branch ref, so check out the requested tag
+          # explicitly; on a tag push inputs.tag is empty -> falls back to the ref.
           ref: ${{ inputs.tag || github.ref }}
       - uses: actions/setup-python@v6
         with: { python-version: '3.12' }
@@ -46,7 +56,10 @@ jobs:
         # (e.g. main), not the tag, which would otherwise yield a bogus version.
         env:
           TAG_REF: ${{ inputs.tag || github.ref_name }}
-        run: echo "version=${TAG_REF##*v}" >> "$GITHUB_OUTPUT"
+        run: |
+          version="${TAG_REF##*v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || { echo "::error::bad version from '$TAG_REF'"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with: { name: dist, path: dist/* }
   smoke-install:

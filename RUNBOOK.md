@@ -56,7 +56,9 @@ Merging the release-please PR tags the version; `publish.yml` then builds → Te
 PyPI (OIDC trusted publishing). Auto-publish on release requires the **`RELEASE_PAT`**
 repo secret (a fine-grained PAT with `contents: write`): release-please pushes the tag
 with it so `publish.yml`'s `push: tags` trigger fires. Without the secret the tag still
-lands but nothing publishes — release-please falls back to the default token.
+lands but nothing publishes — release-please falls back to the default token. Use a
+fine-grained PAT scoped to `podonos/onepin-python` only, with an expiry; rotation is
+tracked in the private ops runbook.
 
 Manual fallback (publish an existing tag):
 
