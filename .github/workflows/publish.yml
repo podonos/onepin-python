@@ -105,6 +105,14 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with: { name: dist, path: dist }
+      # Create a GitHub-stored build-provenance attestation for the exact published
+      # artifacts. pypa/gh-action-pypi-publish only writes PEP 740 attestations to PyPI;
+      # the verify step below queries GitHub's attestation store, so without this it finds
+      # nothing and fails. Attest before upload so the published bytes are what's covered.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
       - uses: pypa/gh-action-pypi-publish@release/v1
       - name: Verify provenance attestation
         # Repo-scoped query: org-level endpoint returns 404 even when the
