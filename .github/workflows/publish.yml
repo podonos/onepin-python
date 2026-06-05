@@ -30,9 +30,10 @@ jobs:
             || { echo "::error::inputs.tag '$TAG_IN' is not a release tag (expected vX.Y.Z)"; exit 1; }
       - uses: actions/checkout@v6
         with:
-          # workflow_dispatch may run on a branch ref, so check out the requested tag
-          # explicitly; on a tag push inputs.tag is empty -> falls back to the ref.
-          ref: ${{ inputs.tag || github.ref }}
+          # workflow_dispatch may run on a branch ref. Qualify the dispatch input as
+          # refs/tags/... so checkout resolves ONLY a tag (never a same-named branch);
+          # on a tag push inputs.tag is empty -> falls back to the already-qualified ref.
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
       - uses: actions/setup-python@v6
         with: { python-version: '3.12' }
       - run: pip install build twine trove-classifiers check-wheel-contents pytest

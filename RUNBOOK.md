@@ -54,11 +54,12 @@ or tag. Most failures fall into one of:
 
 Merging the release-please PR tags the version; `publish.yml` then builds → TestPyPI →
 PyPI (OIDC trusted publishing). Auto-publish on release requires the **`RELEASE_PAT`**
-repo secret (a fine-grained PAT with `contents: write`): release-please pushes the tag
-with it so `publish.yml`'s `push: tags` trigger fires. Without the secret the tag still
-lands but nothing publishes — release-please falls back to the default token. Use a
-fine-grained PAT scoped to `podonos/onepin-python` only, with an expiry; rotation is
-tracked in the private ops runbook.
+repo secret. release-please uses this token for **all** its GitHub calls, so it needs both
+`contents: write` (to push the tag, which fires `publish.yml`'s `push: tags` trigger) **and**
+`pull requests: write` (to create/update the release PR) — a `contents`-only PAT fails the
+next release-please run before any tag is cut. Without the secret nothing publishes;
+release-please falls back to the default token. Use a fine-grained PAT scoped to
+`podonos/onepin-python` only, with an expiry; rotation is tracked in the private ops runbook.
 
 Manual fallback (publish an existing tag):
 
