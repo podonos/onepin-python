@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0](https://github.com/podonos/onepin-python/compare/v0.3.0...v0.4.0) (2026-06-05)
+
+
+### Features
+
+* **cli:** cross-tool onepin agent skill + skill install command ([#31](https://github.com/podonos/onepin-python/issues/31)) ([3ce5dba](https://github.com/podonos/onepin-python/commit/3ce5dba7b6a97dffb00374b5a5031a46abac1c6d))
+
+
+### Bug Fixes
+
+* **sdk:** correct list pagination `has_next` to stop at the last page ([#29](https://github.com/podonos/onepin-python/issues/29)) ([a53e37e](https://github.com/podonos/onepin-python/commit/a53e37e09f43370023351ab8814bf7ce786a7e1c))
+
 ## [0.3.0](https://github.com/podonos/onepin-python/compare/v0.2.0...v0.3.0) (2026-06-02)
 
 
