@@ -19,6 +19,10 @@ jobs:
       version: ${{ steps.ver.outputs.version }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          # workflow_dispatch runs on the default branch, so check out the requested
+          # tag explicitly; on a tag push inputs.tag is empty -> falls back to the ref.
+          ref: ${{ inputs.tag || github.ref }}
       - uses: actions/setup-python@v6
         with: { python-version: '3.12' }
       - run: pip install build twine trove-classifiers check-wheel-contents pytest
@@ -37,10 +41,12 @@ jobs:
       - run: python -m pytest tests/build/test_dist_contents.py
       - id: ver
         # Strip everything up to + including the last "v" so both tag formats
-        # resolve to a clean PEP 440 version:
-        #   onepin-v0.2.0 -> 0.2.0
-        #   v0.2.0        -> 0.2.0
-        run: echo "version=${GITHUB_REF_NAME##*v}" >> "$GITHUB_OUTPUT"
+        # resolve to a clean PEP 440 version (onepin-v0.2.0 / v0.2.0 -> 0.2.0).
+        # Prefer inputs.tag: on workflow_dispatch GITHUB_REF_NAME is the branch
+        # (e.g. main), not the tag, which would otherwise yield a bogus version.
+        env:
+          TAG_REF: ${{ inputs.tag || github.ref_name }}
+        run: echo "version=${TAG_REF##*v}" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with: { name: dist, path: dist/* }
   smoke-install:

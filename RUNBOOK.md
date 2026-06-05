@@ -49,3 +49,18 @@ or tag. Most failures fall into one of:
 - TestPyPI / PyPI upload error → inspect the publish job logs and re-trigger.
 - Attestation verification failure → confirm the `--repo` flag is scoped
   correctly in `publish.yml`.
+
+## Publishing a release
+
+Merging the release-please PR tags the version; `publish.yml` then builds → TestPyPI →
+PyPI (OIDC trusted publishing). Auto-publish on release requires the **`RELEASE_PAT`**
+repo secret (a fine-grained PAT with `contents: write`): release-please pushes the tag
+with it so `publish.yml`'s `push: tags` trigger fires. Without the secret the tag still
+lands but nothing publishes — release-please falls back to the default token.
+
+Manual fallback (publish an existing tag):
+
+```bash
+# Run on the tag ref, not the default branch, or the version resolves wrong.
+gh workflow run publish.yml --ref vX.Y.Z -f tag=vX.Y.Z
+```
