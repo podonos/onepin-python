@@ -46,7 +46,7 @@ htmlcov/
 /dist/
 /_local/
 
-# Fern: the shaped spec is fetched from donut-be at regen time (regen.yml), not vendored.
+# Fern: the shaped spec is fetched from the backend spec repo at regen time (regen.yml), not vendored.
 fern/openapi/openapi.yml
 fern/generated/
 

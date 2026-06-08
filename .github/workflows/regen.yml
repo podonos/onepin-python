@@ -1,21 +1,19 @@
 name: Regenerate SDK
 
-# Self-generates the OnePin Python SDK from the SHAPED donut-be spec (POD-574).
-# Replaces the old onepin-sdks cross-repo rsync. The hand-rolled CLI under
-# src/onepin/_cli/ is preserved natively via src/onepin/.fernignore.
+# Self-generates the OnePin Python SDK from the shaped OnePin API OpenAPI spec.
+# The hand-rolled CLI under src/onepin/_cli/ is preserved natively via src/onepin/.fernignore.
 #
-# Triggers (Decision A — never publish ahead of prod):
+# Triggers (never publish ahead of prod):
 #   repository_dispatch[api-spec-updated] {sha, spec_version, environment}
 #     environment=prod -> open a regen PR (the only regen PRs that merge → main never
 #                         leads prod; release-please + publish.yml then ship it)
 #     environment=dev  -> generation smoke-check only, NO PR
-#   workflow_dispatch  -> manual regen PR from a given donut-be sha (default: main HEAD)
+#   workflow_dispatch  -> manual regen PR from a given spec-repo SHA (default: main HEAD)
 #
-# Requires the onepin-pipeline-bot GitHub App (org secrets PIPELINE_APP_ID /
-# PIPELINE_APP_PRIVATE_KEY), installed with:
-#   - donut-be: Contents read   (fetch the spec at sha)
-#   - onepin-python: Contents + Pull requests write   (open a PR with a token that fires CI;
-#     the default GITHUB_TOKEN would NOT trigger CI on the PR)
+# Requires a GitHub App (org secrets PIPELINE_APP_ID / PIPELINE_APP_PRIVATE_KEY) and the
+# repo variable SPEC_REPO (name of the backend repo that publishes api-spec.yaml). The App
+# is installed with Contents read on the spec repo and Contents + Pull-requests write here
+# (the default GITHUB_TOKEN would not fire CI on the opened PR).
 
 on:
   repository_dispatch:
@@ -23,15 +21,15 @@ on:
   workflow_dispatch:
     inputs:
       sha:
-        description: "donut-be commit SHA to generate from (default: main HEAD)"
+        description: "Spec-repo commit SHA to generate from (default: main HEAD)"
         required: false
         default: ""
 
 permissions:
   contents: read
 
-# One regen per donut-be commit at a time; don't cancel an in-flight regen (it may be
-# mid-PR). Distinct shas regenerate independently.
+# One regen per spec commit at a time; don't cancel an in-flight regen (it may be mid-PR).
+# Distinct shas regenerate independently.
 concurrency:
   group: regen-${{ github.event.client_payload.sha || github.event.inputs.sha || github.run_id }}
   cancel-in-progress: false
@@ -51,7 +49,7 @@ jobs:
           set -euo pipefail
           ENV="${PAYLOAD_ENV:-manual}"
           SHA="${PAYLOAD_SHA:-$INPUT_SHA}"
-          # Decision A: dev is a smoke-check only; prod (and manual) open a PR.
+          # dev is a smoke-check only; prod (and manual) open a PR.
           if [ "$ENV" = "dev" ]; then OPEN_PR=false; else OPEN_PR=true; fi
           {
             echo "env=$ENV"
@@ -66,33 +64,38 @@ jobs:
         with:
           app-id: ${{ secrets.PIPELINE_APP_ID }}
           private-key: ${{ secrets.PIPELINE_APP_PRIVATE_KEY }}
-          owner: podonos
-          repositories: onepin-python,donut-be
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }},${{ vars.SPEC_REPO }}
 
-      - name: Checkout onepin-python
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Fetch shaped spec from donut-be
+      - name: Fetch shaped spec
         id: spec
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          OWNER: ${{ github.repository_owner }}
+          SPEC_REPO: ${{ vars.SPEC_REPO }}
           REQ_SHA: ${{ steps.vars.outputs.sha }}
         run: |
           set -euo pipefail
+          if [ -z "${SPEC_REPO:-}" ]; then
+            echo "::error::Repo variable SPEC_REPO is not set (name of the backend spec repo)."; exit 1
+          fi
           REF="${REQ_SHA:-main}"
           # Pin to the concrete commit SHA so the regen is reproducible.
-          RESOLVED_SHA=$(gh api "repos/podonos/donut-be/commits/${REF}" --jq '.sha')
+          RESOLVED_SHA=$(gh api "repos/${OWNER}/${SPEC_REPO}/commits/${REF}" --jq '.sha')
           echo "resolved_sha=$RESOLVED_SHA" >> "$GITHUB_OUTPUT"
           mkdir -p fern/openapi
-          gh api "repos/podonos/donut-be/contents/api-spec.yaml?ref=${RESOLVED_SHA}" \
+          gh api "repos/${OWNER}/${SPEC_REPO}/contents/api-spec.yaml?ref=${RESOLVED_SHA}" \
             -H "Accept: application/vnd.github.raw" > fern/openapi/openapi.yml
-          echo "Fetched donut-be api-spec.yaml @ ${RESOLVED_SHA} ($(wc -l < fern/openapi/openapi.yml) lines)"
-          # The spec must be SHAPED (donut-be 4A deployed). A raw spec would silently
+          echo "Fetched api-spec.yaml @ ${RESOLVED_SHA} ($(wc -l < fern/openapi/openapi.yml) lines)"
+          # The spec must be SHAPED (x-fern shaping present). A raw spec would silently
           # produce an unshaped SDK — fail loudly instead.
           if ! grep -q 'x-fern-sdk-group-name' fern/openapi/openapi.yml; then
-            echo "::error::Fetched spec carries no x-fern shaping — donut-be SDK-shaping export missing at ${RESOLVED_SHA}."
+            echo "::error::Fetched spec carries no x-fern shaping — backend SDK-shaping export missing at ${RESOLVED_SHA}."
             exit 1
           fi
 
@@ -135,12 +138,12 @@ jobs:
           branch: fern-regen/${{ steps.spec.outputs.resolved_sha }}
           base: main
           delete-branch: true
-          commit-message: "chore: regenerate SDK from donut-be@${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
-          title: "chore: regenerate SDK from donut-be@${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
+          commit-message: "chore: regenerate SDK from API spec @${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
+          title: "chore: regenerate SDK from API spec @${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
           body: |
-            Auto-regenerated from the shaped donut-be spec (POD-574).
+            Auto-regenerated from the shaped OnePin API OpenAPI spec.
 
-            - **Source:** donut-be@`${{ steps.spec.outputs.resolved_sha }}`
+            - **Spec commit:** `${{ steps.spec.outputs.resolved_sha }}`
             - **Spec version:** `${{ steps.vars.outputs.spec_version }}`
             - **Trigger env:** `${{ steps.vars.outputs.env }}`
 
@@ -150,4 +153,4 @@ jobs:
 
       - name: Smoke-check note (dev — no PR)
         if: steps.vars.outputs.open_pr != 'true'
-        run: echo "::notice::dev smoke-check passed — generation clean, CLI preserved. No PR (Decision A: customer publish gated on prod)."
+        run: echo "::notice::dev smoke-check passed — generation clean, CLI preserved. No PR (publish gated on prod)."
