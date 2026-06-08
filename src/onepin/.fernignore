@@ -1,0 +1,5 @@
+# Hand-rolled code preserved across `fern generate`.
+# Fern auto-discovers this file in the generator's local-file-system output dir
+# (src/onepin/) and never overwrites the paths listed here.
+_cli/
+py.typed

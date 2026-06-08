@@ -1,9 +1,10 @@
 """Regen-sync guard: assert the hand-rolled CLI + PEP 561 markers survive a Fern regen.
 
-The upstream ``publish-sdks.yml`` rsync (in ``onepin-sdks``) preserves
-``src/onepin/_cli/`` and the ``py.typed`` markers when it syncs generated code into
-this repo. That guard lives in another repo, so this test fails loudly in CI here if a
-regen ever clobbers the hand-rolled CLI or drops the typing markers.
+This repo self-generates the SDK (``.github/workflows/regen.yml`` runs ``fern generate
+--local`` into ``src/onepin/``). ``src/onepin/.fernignore`` tells Fern to preserve
+``_cli/`` and the ``py.typed`` markers across regeneration; ``scripts/post_fern.sh``
+restores the markers afterwards. This test fails loudly in CI if a regen ever clobbers
+the hand-rolled CLI or drops the typing markers.
 """
 
 from __future__ import annotations
