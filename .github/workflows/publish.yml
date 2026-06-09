@@ -136,6 +136,12 @@ jobs:
         if: env.SLACK_WEBHOOK_URL != ''
         uses: slackapi/slack-github-action@v3
         with:
+          # v2+ requires the URL via the `webhook` input + an explicit `webhook-type`
+          # (the v1 env-only style fails with "Missing input! The webhook type must be
+          # 'incoming-webhook' or 'webhook-trigger'"). SLACK_WEBHOOK_URL is a classic
+          # Incoming Webhook, which already targets its channel -> incoming-webhook.
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
           payload: |
             {"text":"Publish failed for ${{ github.ref_name }} in ${{ github.repository }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
         env:
