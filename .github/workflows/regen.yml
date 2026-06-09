@@ -101,7 +101,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
-      - run: npm install -g fern-api@5.38.0   # pin to fern.config.json
+      - run: npm install -g fern-api@5.45.3   # pin to fern.config.json
       - run: fern check
 
       - name: Generate Python SDK (local; .fernignore preserves _cli/)
