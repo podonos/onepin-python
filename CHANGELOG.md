@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0](https://github.com/podonos/onepin-python/compare/v0.4.0...v0.5.0) (2026-06-09)
+
+
+### Features
+
+* **ci:** self-generate the SDK in-repo via Fern + .fernignore ([#30](https://github.com/podonos/onepin-python/issues/30)) ([16ebc24](https://github.com/podonos/onepin-python/commit/16ebc246a43387bef0e968c5584a6d046aba8a3d))
+
 ## [0.4.0](https://github.com/podonos/onepin-python/compare/v0.3.0...v0.4.0) (2026-06-05)
 
 
