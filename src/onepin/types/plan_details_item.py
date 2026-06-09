@@ -4,16 +4,11 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .plan_response import PlanResponse
 
 
-class PlanChangePreviewResponse(UniversalBaseModel):
-    current_plan: PlanResponse
-    new_plan: PlanResponse
-    type: str
-    proration_amount: typing.Optional[int] = None
-    effective_at: str
-    currency: str
+class PlanDetailsItem(UniversalBaseModel):
+    label: str
+    value: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

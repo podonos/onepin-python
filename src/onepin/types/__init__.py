@@ -18,9 +18,9 @@ if typing.TYPE_CHECKING:
     from .api_key_out import ApiKeyOut
     from .api_key_rotate_out import ApiKeyRotateOut
     from .api_key_scope import ApiKeyScope
+    from .api_list_response_customer_plan_response import ApiListResponseCustomerPlanResponse
     from .api_list_response_dictionary_out import ApiListResponseDictionaryOut
     from .api_list_response_node_ports_out import ApiListResponseNodePortsOut
-    from .api_list_response_plan_response import ApiListResponsePlanResponse
     from .api_list_response_template_out import ApiListResponseTemplateOut
     from .api_list_response_upload_out import ApiListResponseUploadOut
     from .api_list_response_usage_activity_out import ApiListResponseUsageActivityOut
@@ -33,6 +33,8 @@ if typing.TYPE_CHECKING:
     from .api_response_auth_whoami_out import ApiResponseAuthWhoamiOut
     from .api_response_balance_response import ApiResponseBalanceResponse
     from .api_response_checkout_response import ApiResponseCheckoutResponse
+    from .api_response_customer_plan_change_preview_response import ApiResponseCustomerPlanChangePreviewResponse
+    from .api_response_customer_subscription_response import ApiResponseCustomerSubscriptionResponse
     from .api_response_dict import ApiResponseDict
     from .api_response_dictionary_out import ApiResponseDictionaryOut
     from .api_response_download_url_out import ApiResponseDownloadUrlOut
@@ -43,16 +45,17 @@ if typing.TYPE_CHECKING:
     from .api_response_list_payment_method_response import ApiResponseListPaymentMethodResponse
     from .api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
     from .api_response_node_detail_out import ApiResponseNodeDetailOut
-    from .api_response_plan_change_preview_response import ApiResponsePlanChangePreviewResponse
     from .api_response_plan_limits import ApiResponsePlanLimits
     from .api_response_pronunciation_suggestion import ApiResponsePronunciationSuggestion
     from .api_response_provider_key_item_out import ApiResponseProviderKeyItemOut
     from .api_response_provider_keys_manifest_out import ApiResponseProviderKeysManifestOut
     from .api_response_runs_summary_out import ApiResponseRunsSummaryOut
     from .api_response_setup_intent_response import ApiResponseSetupIntentResponse
-    from .api_response_subscription_response import ApiResponseSubscriptionResponse
+    from .api_response_template_estimate_response import ApiResponseTemplateEstimateResponse
     from .api_response_template_out import ApiResponseTemplateOut
-    from .api_response_union_subscription_response_none_type import ApiResponseUnionSubscriptionResponseNoneType
+    from .api_response_union_customer_subscription_response_none_type import (
+        ApiResponseUnionCustomerSubscriptionResponseNoneType,
+    )
     from .api_response_upload_create_response import ApiResponseUploadCreateResponse
     from .api_response_upload_out import ApiResponseUploadOut
     from .api_response_usage_by_language_out import ApiResponseUsageByLanguageOut
@@ -62,6 +65,7 @@ if typing.TYPE_CHECKING:
     from .api_response_workflow_run_detail_out import ApiResponseWorkflowRunDetailOut
     from .api_response_workflow_run_out import ApiResponseWorkflowRunOut
     from .api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
+    from .api_response_workflow_run_status_out import ApiResponseWorkflowRunStatusOut
     from .api_response_workspace_invite_out import ApiResponseWorkspaceInviteOut
     from .api_response_workspace_out import ApiResponseWorkspaceOut
     from .api_response_workspace_runs_stats_out import ApiResponseWorkspaceRunsStatsOut
@@ -72,6 +76,9 @@ if typing.TYPE_CHECKING:
     from .balance_response import BalanceResponse
     from .checkout_response import CheckoutResponse
     from .counted_pagination_meta import CountedPaginationMeta
+    from .customer_plan_change_preview_response import CustomerPlanChangePreviewResponse
+    from .customer_plan_response import CustomerPlanResponse
+    from .customer_subscription_response import CustomerSubscriptionResponse
     from .dictionary_language_out import DictionaryLanguageOut
     from .dictionary_method import DictionaryMethod
     from .dictionary_out import DictionaryOut
@@ -107,9 +114,10 @@ if typing.TYPE_CHECKING:
     from .numeric_option import NumericOption
     from .pagination_meta import PaginationMeta
     from .payment_method_response import PaymentMethodResponse
-    from .plan_change_preview_response import PlanChangePreviewResponse
+    from .plan_details import PlanDetails
+    from .plan_details_item import PlanDetailsItem
+    from .plan_details_section import PlanDetailsSection
     from .plan_limits import PlanLimits
-    from .plan_response import PlanResponse
     from .plan_tier import PlanTier
     from .port_out import PortOut
     from .pronunciation_suggestion import PronunciationSuggestion
@@ -120,8 +128,10 @@ if typing.TYPE_CHECKING:
     from .provider_keys_manifest_out import ProviderKeysManifestOut
     from .runs_summary_out import RunsSummaryOut
     from .setup_intent_response import SetupIntentResponse
-    from .subscription_response import SubscriptionResponse
     from .template_category import TemplateCategory
+    from .template_estimate_response import TemplateEstimateResponse
+    from .template_estimate_response_cache_status import TemplateEstimateResponseCacheStatus
+    from .template_estimate_response_source_snapshot import TemplateEstimateResponseSourceSnapshot
     from .template_out import TemplateOut
     from .triggered_by_out import TriggeredByOut
     from .upload_create_response import UploadCreateResponse
@@ -195,6 +205,7 @@ if typing.TYPE_CHECKING:
     from .workflow_run_overview_validator_out import WorkflowRunOverviewValidatorOut
     from .workflow_run_overview_validator_out_status import WorkflowRunOverviewValidatorOutStatus
     from .workflow_run_overview_workflow_out import WorkflowRunOverviewWorkflowOut
+    from .workflow_run_status_out import WorkflowRunStatusOut
     from .workflow_run_step_out import WorkflowRunStepOut
     from .workspace_invite_out import WorkspaceInviteOut
     from .workspace_member_out import WorkspaceMemberOut
@@ -217,9 +228,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiKeyOut": ".api_key_out",
     "ApiKeyRotateOut": ".api_key_rotate_out",
     "ApiKeyScope": ".api_key_scope",
+    "ApiListResponseCustomerPlanResponse": ".api_list_response_customer_plan_response",
     "ApiListResponseDictionaryOut": ".api_list_response_dictionary_out",
     "ApiListResponseNodePortsOut": ".api_list_response_node_ports_out",
-    "ApiListResponsePlanResponse": ".api_list_response_plan_response",
     "ApiListResponseTemplateOut": ".api_list_response_template_out",
     "ApiListResponseUploadOut": ".api_list_response_upload_out",
     "ApiListResponseUsageActivityOut": ".api_list_response_usage_activity_out",
@@ -232,6 +243,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiResponseAuthWhoamiOut": ".api_response_auth_whoami_out",
     "ApiResponseBalanceResponse": ".api_response_balance_response",
     "ApiResponseCheckoutResponse": ".api_response_checkout_response",
+    "ApiResponseCustomerPlanChangePreviewResponse": ".api_response_customer_plan_change_preview_response",
+    "ApiResponseCustomerSubscriptionResponse": ".api_response_customer_subscription_response",
     "ApiResponseDict": ".api_response_dict",
     "ApiResponseDictionaryOut": ".api_response_dictionary_out",
     "ApiResponseDownloadUrlOut": ".api_response_download_url_out",
@@ -242,16 +255,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiResponseListPaymentMethodResponse": ".api_response_list_payment_method_response",
     "ApiResponseListWorkflowRunStepOut": ".api_response_list_workflow_run_step_out",
     "ApiResponseNodeDetailOut": ".api_response_node_detail_out",
-    "ApiResponsePlanChangePreviewResponse": ".api_response_plan_change_preview_response",
     "ApiResponsePlanLimits": ".api_response_plan_limits",
     "ApiResponsePronunciationSuggestion": ".api_response_pronunciation_suggestion",
     "ApiResponseProviderKeyItemOut": ".api_response_provider_key_item_out",
     "ApiResponseProviderKeysManifestOut": ".api_response_provider_keys_manifest_out",
     "ApiResponseRunsSummaryOut": ".api_response_runs_summary_out",
     "ApiResponseSetupIntentResponse": ".api_response_setup_intent_response",
-    "ApiResponseSubscriptionResponse": ".api_response_subscription_response",
+    "ApiResponseTemplateEstimateResponse": ".api_response_template_estimate_response",
     "ApiResponseTemplateOut": ".api_response_template_out",
-    "ApiResponseUnionSubscriptionResponseNoneType": ".api_response_union_subscription_response_none_type",
+    "ApiResponseUnionCustomerSubscriptionResponseNoneType": ".api_response_union_customer_subscription_response_none_type",
     "ApiResponseUploadCreateResponse": ".api_response_upload_create_response",
     "ApiResponseUploadOut": ".api_response_upload_out",
     "ApiResponseUsageByLanguageOut": ".api_response_usage_by_language_out",
@@ -261,6 +273,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiResponseWorkflowRunDetailOut": ".api_response_workflow_run_detail_out",
     "ApiResponseWorkflowRunOut": ".api_response_workflow_run_out",
     "ApiResponseWorkflowRunOverviewOut": ".api_response_workflow_run_overview_out",
+    "ApiResponseWorkflowRunStatusOut": ".api_response_workflow_run_status_out",
     "ApiResponseWorkspaceInviteOut": ".api_response_workspace_invite_out",
     "ApiResponseWorkspaceOut": ".api_response_workspace_out",
     "ApiResponseWorkspaceRunsStatsOut": ".api_response_workspace_runs_stats_out",
@@ -271,6 +284,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BalanceResponse": ".balance_response",
     "CheckoutResponse": ".checkout_response",
     "CountedPaginationMeta": ".counted_pagination_meta",
+    "CustomerPlanChangePreviewResponse": ".customer_plan_change_preview_response",
+    "CustomerPlanResponse": ".customer_plan_response",
+    "CustomerSubscriptionResponse": ".customer_subscription_response",
     "DictionaryLanguageOut": ".dictionary_language_out",
     "DictionaryMethod": ".dictionary_method",
     "DictionaryOut": ".dictionary_out",
@@ -304,9 +320,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "NumericOption": ".numeric_option",
     "PaginationMeta": ".pagination_meta",
     "PaymentMethodResponse": ".payment_method_response",
-    "PlanChangePreviewResponse": ".plan_change_preview_response",
+    "PlanDetails": ".plan_details",
+    "PlanDetailsItem": ".plan_details_item",
+    "PlanDetailsSection": ".plan_details_section",
     "PlanLimits": ".plan_limits",
-    "PlanResponse": ".plan_response",
     "PlanTier": ".plan_tier",
     "PortOut": ".port_out",
     "PronunciationSuggestion": ".pronunciation_suggestion",
@@ -317,8 +334,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ProviderKeysManifestOut": ".provider_keys_manifest_out",
     "RunsSummaryOut": ".runs_summary_out",
     "SetupIntentResponse": ".setup_intent_response",
-    "SubscriptionResponse": ".subscription_response",
     "TemplateCategory": ".template_category",
+    "TemplateEstimateResponse": ".template_estimate_response",
+    "TemplateEstimateResponseCacheStatus": ".template_estimate_response_cache_status",
+    "TemplateEstimateResponseSourceSnapshot": ".template_estimate_response_source_snapshot",
     "TemplateOut": ".template_out",
     "TriggeredByOut": ".triggered_by_out",
     "UploadCreateResponse": ".upload_create_response",
@@ -392,6 +411,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WorkflowRunOverviewValidatorOut": ".workflow_run_overview_validator_out",
     "WorkflowRunOverviewValidatorOutStatus": ".workflow_run_overview_validator_out_status",
     "WorkflowRunOverviewWorkflowOut": ".workflow_run_overview_workflow_out",
+    "WorkflowRunStatusOut": ".workflow_run_status_out",
     "WorkflowRunStepOut": ".workflow_run_step_out",
     "WorkspaceInviteOut": ".workspace_invite_out",
     "WorkspaceMemberOut": ".workspace_member_out",
@@ -438,9 +458,9 @@ __all__ = [
     "ApiKeyOut",
     "ApiKeyRotateOut",
     "ApiKeyScope",
+    "ApiListResponseCustomerPlanResponse",
     "ApiListResponseDictionaryOut",
     "ApiListResponseNodePortsOut",
-    "ApiListResponsePlanResponse",
     "ApiListResponseTemplateOut",
     "ApiListResponseUploadOut",
     "ApiListResponseUsageActivityOut",
@@ -453,6 +473,8 @@ __all__ = [
     "ApiResponseAuthWhoamiOut",
     "ApiResponseBalanceResponse",
     "ApiResponseCheckoutResponse",
+    "ApiResponseCustomerPlanChangePreviewResponse",
+    "ApiResponseCustomerSubscriptionResponse",
     "ApiResponseDict",
     "ApiResponseDictionaryOut",
     "ApiResponseDownloadUrlOut",
@@ -463,16 +485,15 @@ __all__ = [
     "ApiResponseListPaymentMethodResponse",
     "ApiResponseListWorkflowRunStepOut",
     "ApiResponseNodeDetailOut",
-    "ApiResponsePlanChangePreviewResponse",
     "ApiResponsePlanLimits",
     "ApiResponsePronunciationSuggestion",
     "ApiResponseProviderKeyItemOut",
     "ApiResponseProviderKeysManifestOut",
     "ApiResponseRunsSummaryOut",
     "ApiResponseSetupIntentResponse",
-    "ApiResponseSubscriptionResponse",
+    "ApiResponseTemplateEstimateResponse",
     "ApiResponseTemplateOut",
-    "ApiResponseUnionSubscriptionResponseNoneType",
+    "ApiResponseUnionCustomerSubscriptionResponseNoneType",
     "ApiResponseUploadCreateResponse",
     "ApiResponseUploadOut",
     "ApiResponseUsageByLanguageOut",
@@ -482,6 +503,7 @@ __all__ = [
     "ApiResponseWorkflowRunDetailOut",
     "ApiResponseWorkflowRunOut",
     "ApiResponseWorkflowRunOverviewOut",
+    "ApiResponseWorkflowRunStatusOut",
     "ApiResponseWorkspaceInviteOut",
     "ApiResponseWorkspaceOut",
     "ApiResponseWorkspaceRunsStatsOut",
@@ -492,6 +514,9 @@ __all__ = [
     "BalanceResponse",
     "CheckoutResponse",
     "CountedPaginationMeta",
+    "CustomerPlanChangePreviewResponse",
+    "CustomerPlanResponse",
+    "CustomerSubscriptionResponse",
     "DictionaryLanguageOut",
     "DictionaryMethod",
     "DictionaryOut",
@@ -525,9 +550,10 @@ __all__ = [
     "NumericOption",
     "PaginationMeta",
     "PaymentMethodResponse",
-    "PlanChangePreviewResponse",
+    "PlanDetails",
+    "PlanDetailsItem",
+    "PlanDetailsSection",
     "PlanLimits",
-    "PlanResponse",
     "PlanTier",
     "PortOut",
     "PronunciationSuggestion",
@@ -538,8 +564,10 @@ __all__ = [
     "ProviderKeysManifestOut",
     "RunsSummaryOut",
     "SetupIntentResponse",
-    "SubscriptionResponse",
     "TemplateCategory",
+    "TemplateEstimateResponse",
+    "TemplateEstimateResponseCacheStatus",
+    "TemplateEstimateResponseSourceSnapshot",
     "TemplateOut",
     "TriggeredByOut",
     "UploadCreateResponse",
@@ -613,6 +641,7 @@ __all__ = [
     "WorkflowRunOverviewValidatorOut",
     "WorkflowRunOverviewValidatorOutStatus",
     "WorkflowRunOverviewWorkflowOut",
+    "WorkflowRunStatusOut",
     "WorkflowRunStepOut",
     "WorkspaceInviteOut",
     "WorkspaceMemberOut",

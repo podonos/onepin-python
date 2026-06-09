@@ -6,14 +6,16 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.api_list_response_template_out import ApiListResponseTemplateOut
 from ..types.api_response_balance_response import ApiResponseBalanceResponse
+from ..types.api_response_customer_subscription_response import ApiResponseCustomerSubscriptionResponse
 from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_email_notification_preferences_out import ApiResponseEmailNotificationPreferencesOut
 from ..types.api_response_invoice_list_response import ApiResponseInvoiceListResponse
 from ..types.api_response_list_payment_method_response import ApiResponseListPaymentMethodResponse
 from ..types.api_response_plan_limits import ApiResponsePlanLimits
 from ..types.api_response_setup_intent_response import ApiResponseSetupIntentResponse
-from ..types.api_response_subscription_response import ApiResponseSubscriptionResponse
-from ..types.api_response_union_subscription_response_none_type import ApiResponseUnionSubscriptionResponseNoneType
+from ..types.api_response_union_customer_subscription_response_none_type import (
+    ApiResponseUnionCustomerSubscriptionResponseNoneType,
+)
 from ..types.template_category import TemplateCategory
 from .raw_client import AsyncRawUsersClient, RawUsersClient
 from .types.list_my_templates_api_v1users_me_templates_get_request_sort import (
@@ -41,7 +43,7 @@ class UsersClient:
 
     def get_current_subscription(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseUnionSubscriptionResponseNoneType:
+    ) -> ApiResponseUnionCustomerSubscriptionResponseNoneType:
         """
         Get the current user's active subscription.
 
@@ -52,7 +54,7 @@ class UsersClient:
 
         Returns
         -------
-        ApiResponseUnionSubscriptionResponseNoneType
+        ApiResponseUnionCustomerSubscriptionResponseNoneType
             Successful Response
 
         Examples
@@ -69,7 +71,7 @@ class UsersClient:
 
     def subscribe(
         self, *, plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseSubscriptionResponse:
+    ) -> ApiResponseCustomerSubscriptionResponse:
         """
         Create a subscription using the default payment method.
 
@@ -82,7 +84,7 @@ class UsersClient:
 
         Returns
         -------
-        ApiResponseSubscriptionResponse
+        ApiResponseCustomerSubscriptionResponse
             Successful Response
 
         Examples
@@ -101,7 +103,7 @@ class UsersClient:
 
     def cancel_subscription(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseSubscriptionResponse:
+    ) -> ApiResponseCustomerSubscriptionResponse:
         """
         Cancel the current user's subscription at period end.
 
@@ -112,7 +114,7 @@ class UsersClient:
 
         Returns
         -------
-        ApiResponseSubscriptionResponse
+        ApiResponseCustomerSubscriptionResponse
             Successful Response
 
         Examples
@@ -129,7 +131,7 @@ class UsersClient:
 
     def change_plan(
         self, *, new_plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseSubscriptionResponse:
+    ) -> ApiResponseCustomerSubscriptionResponse:
         """
         Switch the current user's subscription to a different plan.
 
@@ -142,7 +144,7 @@ class UsersClient:
 
         Returns
         -------
-        ApiResponseSubscriptionResponse
+        ApiResponseCustomerSubscriptionResponse
             Successful Response
 
         Examples
@@ -161,7 +163,7 @@ class UsersClient:
 
     def cancel_scheduled_change(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseSubscriptionResponse:
+    ) -> ApiResponseCustomerSubscriptionResponse:
         """
         Cancel a scheduled plan downgrade.
 
@@ -172,7 +174,7 @@ class UsersClient:
 
         Returns
         -------
-        ApiResponseSubscriptionResponse
+        ApiResponseCustomerSubscriptionResponse
             Successful Response
 
         Examples
@@ -556,7 +558,7 @@ class AsyncUsersClient:
 
     async def get_current_subscription(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseUnionSubscriptionResponseNoneType:
+    ) -> ApiResponseUnionCustomerSubscriptionResponseNoneType:
         """
         Get the current user's active subscription.
 
@@ -567,7 +569,7 @@ class AsyncUsersClient:
 
         Returns
         -------
-        ApiResponseUnionSubscriptionResponseNoneType
+        ApiResponseUnionCustomerSubscriptionResponseNoneType
             Successful Response
 
         Examples
@@ -592,7 +594,7 @@ class AsyncUsersClient:
 
     async def subscribe(
         self, *, plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseSubscriptionResponse:
+    ) -> ApiResponseCustomerSubscriptionResponse:
         """
         Create a subscription using the default payment method.
 
@@ -605,7 +607,7 @@ class AsyncUsersClient:
 
         Returns
         -------
-        ApiResponseSubscriptionResponse
+        ApiResponseCustomerSubscriptionResponse
             Successful Response
 
         Examples
@@ -632,7 +634,7 @@ class AsyncUsersClient:
 
     async def cancel_subscription(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseSubscriptionResponse:
+    ) -> ApiResponseCustomerSubscriptionResponse:
         """
         Cancel the current user's subscription at period end.
 
@@ -643,7 +645,7 @@ class AsyncUsersClient:
 
         Returns
         -------
-        ApiResponseSubscriptionResponse
+        ApiResponseCustomerSubscriptionResponse
             Successful Response
 
         Examples
@@ -668,7 +670,7 @@ class AsyncUsersClient:
 
     async def change_plan(
         self, *, new_plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseSubscriptionResponse:
+    ) -> ApiResponseCustomerSubscriptionResponse:
         """
         Switch the current user's subscription to a different plan.
 
@@ -681,7 +683,7 @@ class AsyncUsersClient:
 
         Returns
         -------
-        ApiResponseSubscriptionResponse
+        ApiResponseCustomerSubscriptionResponse
             Successful Response
 
         Examples
@@ -708,7 +710,7 @@ class AsyncUsersClient:
 
     async def cancel_scheduled_change(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseSubscriptionResponse:
+    ) -> ApiResponseCustomerSubscriptionResponse:
         """
         Cancel a scheduled plan downgrade.
 
@@ -719,7 +721,7 @@ class AsyncUsersClient:
 
         Returns
         -------
-        ApiResponseSubscriptionResponse
+        ApiResponseCustomerSubscriptionResponse
             Successful Response
 
         Examples

@@ -3,14 +3,13 @@
 import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.api_list_response_template_out import ApiListResponseTemplateOut
 from ..types.api_response_dict import ApiResponseDict
+from ..types.api_response_template_estimate_response import ApiResponseTemplateEstimateResponse
 from ..types.api_response_template_out import ApiResponseTemplateOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
 from ..types.template_category import TemplateCategory
-from ..types.template_out import TemplateOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from .raw_client import AsyncRawTemplatesClient, RawTemplatesClient
 from .types.list_templates_request_sort import ListTemplatesRequestSort
@@ -44,7 +43,7 @@ class TemplatesClient:
         limit: typing.Optional[int] = None,
         favorites_only: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[TemplateOut, ApiListResponseTemplateOut]:
+    ) -> ApiListResponseTemplateOut:
         """
         List live published templates across workspaces (gallery).
 
@@ -75,7 +74,7 @@ class TemplatesClient:
 
         Returns
         -------
-        SyncPager[TemplateOut, ApiListResponseTemplateOut]
+        ApiListResponseTemplateOut
             Successful Response
 
         Examples
@@ -85,14 +84,9 @@ class TemplatesClient:
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
-        response = client.templates.list()
-        for item in response:
-            yield item
-        # alternatively, you can paginate page-by-page
-        for page in response.iter_pages():
-            yield page
+        client.templates.list()
         """
-        return self._raw_client.list(
+        _response = self._raw_client.list(
             category=category,
             search=search,
             sort=sort,
@@ -101,6 +95,7 @@ class TemplatesClient:
             favorites_only=favorites_only,
             request_options=request_options,
         )
+        return _response.data
 
     def create_template(
         self,
@@ -304,6 +299,46 @@ class TemplatesClient:
         )
         return _response.data
 
+    def estimate_template(
+        self,
+        template_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseTemplateEstimateResponse:
+        """
+        Return per-1,000-character pricing for a visible template snapshot.
+
+        Parameters
+        ----------
+        template_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseTemplateEstimateResponse
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.templates.estimate_template(
+            template_id="template_id",
+        )
+        """
+        _response = self._raw_client.estimate_template(
+            template_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
     def clone(
         self,
         template_id: str,
@@ -322,7 +357,7 @@ class TemplatesClient:
         leaking unpublished draft edits.
 
         Resolved name: explicit `body.name` (stripped) OR fallback to
-        `"{source_name} (copy)"`.
+        `"{source_name} (Copy)"`.
 
         Parameters
         ----------
@@ -457,7 +492,7 @@ class AsyncTemplatesClient:
         limit: typing.Optional[int] = None,
         favorites_only: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[TemplateOut, ApiListResponseTemplateOut]:
+    ) -> ApiListResponseTemplateOut:
         """
         List live published templates across workspaces (gallery).
 
@@ -488,7 +523,7 @@ class AsyncTemplatesClient:
 
         Returns
         -------
-        AsyncPager[TemplateOut, ApiListResponseTemplateOut]
+        ApiListResponseTemplateOut
             Successful Response
 
         Examples
@@ -503,18 +538,12 @@ class AsyncTemplatesClient:
 
 
         async def main() -> None:
-            response = await client.templates.list()
-            async for item in response:
-                yield item
-
-            # alternatively, you can paginate page-by-page
-            async for page in response.iter_pages():
-                yield page
+            await client.templates.list()
 
 
         asyncio.run(main())
         """
-        return await self._raw_client.list(
+        _response = await self._raw_client.list(
             category=category,
             search=search,
             sort=sort,
@@ -523,6 +552,7 @@ class AsyncTemplatesClient:
             favorites_only=favorites_only,
             request_options=request_options,
         )
+        return _response.data
 
     async def create_template(
         self,
@@ -758,6 +788,54 @@ class AsyncTemplatesClient:
         )
         return _response.data
 
+    async def estimate_template(
+        self,
+        template_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseTemplateEstimateResponse:
+        """
+        Return per-1,000-character pricing for a visible template snapshot.
+
+        Parameters
+        ----------
+        template_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseTemplateEstimateResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.templates.estimate_template(
+                template_id="template_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.estimate_template(
+            template_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
     async def clone(
         self,
         template_id: str,
@@ -776,7 +854,7 @@ class AsyncTemplatesClient:
         leaking unpublished draft edits.
 
         Resolved name: explicit `body.name` (stripped) OR fallback to
-        `"{source_name} (copy)"`.
+        `"{source_name} (Copy)"`.
 
         Parameters
         ----------

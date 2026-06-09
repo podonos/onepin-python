@@ -11,9 +11,9 @@ from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
-from ..types.api_list_response_plan_response import ApiListResponsePlanResponse
+from ..types.api_list_response_customer_plan_response import ApiListResponseCustomerPlanResponse
 from ..types.api_response_checkout_response import ApiResponseCheckoutResponse
-from ..types.api_response_plan_change_preview_response import ApiResponsePlanChangePreviewResponse
+from ..types.api_response_customer_plan_change_preview_response import ApiResponseCustomerPlanChangePreviewResponse
 from ..types.http_validation_error import HttpValidationError
 from pydantic import ValidationError
 
@@ -27,7 +27,7 @@ class RawBillingClient:
 
     def list_plans(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiListResponsePlanResponse]:
+    ) -> HttpResponse[ApiListResponseCustomerPlanResponse]:
         """
         List available subscription plans.
 
@@ -38,7 +38,7 @@ class RawBillingClient:
 
         Returns
         -------
-        HttpResponse[ApiListResponsePlanResponse]
+        HttpResponse[ApiListResponseCustomerPlanResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -49,9 +49,9 @@ class RawBillingClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiListResponsePlanResponse,
+                    ApiListResponseCustomerPlanResponse,
                     parse_obj_as(
-                        type_=ApiListResponsePlanResponse,  # type: ignore
+                        type_=ApiListResponseCustomerPlanResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -78,7 +78,7 @@ class RawBillingClient:
 
     def preview_plan_change(
         self, plan_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponsePlanChangePreviewResponse]:
+    ) -> HttpResponse[ApiResponseCustomerPlanChangePreviewResponse]:
         """
         Preview the cost of changing to the given plan.
 
@@ -91,7 +91,7 @@ class RawBillingClient:
 
         Returns
         -------
-        HttpResponse[ApiResponsePlanChangePreviewResponse]
+        HttpResponse[ApiResponseCustomerPlanChangePreviewResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -102,9 +102,9 @@ class RawBillingClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponsePlanChangePreviewResponse,
+                    ApiResponseCustomerPlanChangePreviewResponse,
                     parse_obj_as(
-                        type_=ApiResponsePlanChangePreviewResponse,  # type: ignore
+                        type_=ApiResponseCustomerPlanChangePreviewResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -199,7 +199,7 @@ class AsyncRawBillingClient:
 
     async def list_plans(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiListResponsePlanResponse]:
+    ) -> AsyncHttpResponse[ApiListResponseCustomerPlanResponse]:
         """
         List available subscription plans.
 
@@ -210,7 +210,7 @@ class AsyncRawBillingClient:
 
         Returns
         -------
-        AsyncHttpResponse[ApiListResponsePlanResponse]
+        AsyncHttpResponse[ApiListResponseCustomerPlanResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -221,9 +221,9 @@ class AsyncRawBillingClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiListResponsePlanResponse,
+                    ApiListResponseCustomerPlanResponse,
                     parse_obj_as(
-                        type_=ApiListResponsePlanResponse,  # type: ignore
+                        type_=ApiListResponseCustomerPlanResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -250,7 +250,7 @@ class AsyncRawBillingClient:
 
     async def preview_plan_change(
         self, plan_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponsePlanChangePreviewResponse]:
+    ) -> AsyncHttpResponse[ApiResponseCustomerPlanChangePreviewResponse]:
         """
         Preview the cost of changing to the given plan.
 
@@ -263,7 +263,7 @@ class AsyncRawBillingClient:
 
         Returns
         -------
-        AsyncHttpResponse[ApiResponsePlanChangePreviewResponse]
+        AsyncHttpResponse[ApiResponseCustomerPlanChangePreviewResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -274,9 +274,9 @@ class AsyncRawBillingClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponsePlanChangePreviewResponse,
+                    ApiResponseCustomerPlanChangePreviewResponse,
                     parse_obj_as(
-                        type_=ApiResponsePlanChangePreviewResponse,  # type: ignore
+                        type_=ApiResponseCustomerPlanChangePreviewResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

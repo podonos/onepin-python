@@ -7,7 +7,11 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class UsageCreditsOut(UniversalBaseModel):
-    used: int
+    used: int = pydantic.Field()
+    """
+    Credits used for the authenticated user's current billing period; daily and activity buckets remain workspace-scoped.
+    """
+
     quota: typing.Optional[int] = None
     percent: typing.Optional[float] = None
 

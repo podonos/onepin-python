@@ -3,7 +3,6 @@
 import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.api_counted_list_response_voice_out import ApiCountedListResponseVoiceOut
 from ..types.api_list_response_voice_similar_out import ApiListResponseVoiceSimilarOut
@@ -13,7 +12,6 @@ from ..types.voice_accent import VoiceAccent
 from ..types.voice_age import VoiceAge
 from ..types.voice_category import VoiceCategory
 from ..types.voice_gender import VoiceGender
-from ..types.voice_out import VoiceOut
 from .raw_client import AsyncRawVoicesClient, RawVoicesClient
 from .types.list_voices_request_language_item import ListVoicesRequestLanguageItem
 from .types.list_voices_request_order_item import ListVoicesRequestOrderItem
@@ -55,7 +53,7 @@ class VoicesClient:
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[VoiceOut, ApiCountedListResponseVoiceOut]:
+    ) -> ApiCountedListResponseVoiceOut:
         """
         List TTS voices available to the current workspace.
 
@@ -121,7 +119,7 @@ class VoicesClient:
 
         Returns
         -------
-        SyncPager[VoiceOut, ApiCountedListResponseVoiceOut]
+        ApiCountedListResponseVoiceOut
             Successful Response
 
         Examples
@@ -131,14 +129,9 @@ class VoicesClient:
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
-        response = client.voices.list()
-        for item in response:
-            yield item
-        # alternatively, you can paginate page-by-page
-        for page in response.iter_pages():
-            yield page
+        client.voices.list()
         """
-        return self._raw_client.list(
+        _response = self._raw_client.list(
             offset=offset,
             limit=limit,
             favorites_only=favorites_only,
@@ -155,6 +148,7 @@ class VoicesClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
+        return _response.data
 
     def get(
         self,
@@ -355,7 +349,7 @@ class AsyncVoicesClient:
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[VoiceOut, ApiCountedListResponseVoiceOut]:
+    ) -> ApiCountedListResponseVoiceOut:
         """
         List TTS voices available to the current workspace.
 
@@ -421,7 +415,7 @@ class AsyncVoicesClient:
 
         Returns
         -------
-        AsyncPager[VoiceOut, ApiCountedListResponseVoiceOut]
+        ApiCountedListResponseVoiceOut
             Successful Response
 
         Examples
@@ -436,18 +430,12 @@ class AsyncVoicesClient:
 
 
         async def main() -> None:
-            response = await client.voices.list()
-            async for item in response:
-                yield item
-
-            # alternatively, you can paginate page-by-page
-            async for page in response.iter_pages():
-                yield page
+            await client.voices.list()
 
 
         asyncio.run(main())
         """
-        return await self._raw_client.list(
+        _response = await self._raw_client.list(
             offset=offset,
             limit=limit,
             favorites_only=favorites_only,
@@ -464,6 +452,7 @@ class AsyncVoicesClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
+        return _response.data
 
     async def get(
         self,

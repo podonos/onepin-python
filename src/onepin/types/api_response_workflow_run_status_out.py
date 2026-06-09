@@ -5,11 +5,11 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .meta import Meta
-from .subscription_response import SubscriptionResponse
+from .workflow_run_status_out import WorkflowRunStatusOut
 
 
-class ApiResponseSubscriptionResponse(UniversalBaseModel):
-    data: SubscriptionResponse
+class ApiResponseWorkflowRunStatusOut(UniversalBaseModel):
+    data: WorkflowRunStatusOut
     meta: Meta
 
     if IS_PYDANTIC_V2:

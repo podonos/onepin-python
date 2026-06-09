@@ -15,6 +15,7 @@ class WorkflowRunListItem(UniversalBaseModel):
     total_nodes: typing.Optional[int] = None
     total_steps: typing.Optional[int] = None
     finished_steps: typing.Optional[int] = None
+    credits: typing.Optional[int] = None
     usage_summary: typing.Optional[typing.Dict[str, typing.Any]] = None
     started_at: typing.Optional[dt.datetime] = None
     completed_at: typing.Optional[dt.datetime] = None

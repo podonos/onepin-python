@@ -4,12 +4,12 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .customer_subscription_response import CustomerSubscriptionResponse
 from .meta import Meta
-from .plan_change_preview_response import PlanChangePreviewResponse
 
 
-class ApiResponsePlanChangePreviewResponse(UniversalBaseModel):
-    data: PlanChangePreviewResponse
+class ApiResponseUnionCustomerSubscriptionResponseNoneType(UniversalBaseModel):
+    data: typing.Optional[CustomerSubscriptionResponse] = None
     meta: Meta
 
     if IS_PYDANTIC_V2:

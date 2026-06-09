@@ -7,7 +7,6 @@ from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import encode_path_param
-from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
@@ -15,11 +14,11 @@ from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_list_response_template_out import ApiListResponseTemplateOut
 from ..types.api_response_dict import ApiResponseDict
+from ..types.api_response_template_estimate_response import ApiResponseTemplateEstimateResponse
 from ..types.api_response_template_out import ApiResponseTemplateOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
 from ..types.http_validation_error import HttpValidationError
 from ..types.template_category import TemplateCategory
-from ..types.template_out import TemplateOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from .types.list_templates_request_sort import ListTemplatesRequestSort
 from pydantic import ValidationError
@@ -42,7 +41,7 @@ class RawTemplatesClient:
         limit: typing.Optional[int] = None,
         favorites_only: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[TemplateOut, ApiListResponseTemplateOut]:
+    ) -> HttpResponse[ApiListResponseTemplateOut]:
         """
         List live published templates across workspaces (gallery).
 
@@ -73,11 +72,9 @@ class RawTemplatesClient:
 
         Returns
         -------
-        SyncPager[TemplateOut, ApiListResponseTemplateOut]
+        HttpResponse[ApiListResponseTemplateOut]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = self._client_wrapper.httpx_client.request(
             "api/v1/templates",
             method="GET",
@@ -93,25 +90,14 @@ class RawTemplatesClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiListResponseTemplateOut,
                     parse_obj_as(
                         type_=ApiListResponseTemplateOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-                _get_next = lambda: self.list(
-                    category=category,
-                    search=search,
-                    sort=sort,
-                    offset=offset + len(_items or []),
-                    limit=limit,
-                    favorites_only=favorites_only,
-                    request_options=request_options,
-                )
-                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -433,6 +419,68 @@ class RawTemplatesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def estimate_template(
+        self,
+        template_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseTemplateEstimateResponse]:
+        """
+        Return per-1,000-character pricing for a visible template snapshot.
+
+        Parameters
+        ----------
+        template_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseTemplateEstimateResponse]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/templates/{encode_path_param(template_id)}/estimate",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseTemplateEstimateResponse,
+                    parse_obj_as(
+                        type_=ApiResponseTemplateEstimateResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def clone(
         self,
         template_id: str,
@@ -451,7 +499,7 @@ class RawTemplatesClient:
         leaking unpublished draft edits.
 
         Resolved name: explicit `body.name` (stripped) OR fallback to
-        `"{source_name} (copy)"`.
+        `"{source_name} (Copy)"`.
 
         Parameters
         ----------
@@ -644,7 +692,7 @@ class AsyncRawTemplatesClient:
         limit: typing.Optional[int] = None,
         favorites_only: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[TemplateOut, ApiListResponseTemplateOut]:
+    ) -> AsyncHttpResponse[ApiListResponseTemplateOut]:
         """
         List live published templates across workspaces (gallery).
 
@@ -675,11 +723,9 @@ class AsyncRawTemplatesClient:
 
         Returns
         -------
-        AsyncPager[TemplateOut, ApiListResponseTemplateOut]
+        AsyncHttpResponse[ApiListResponseTemplateOut]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = await self._client_wrapper.httpx_client.request(
             "api/v1/templates",
             method="GET",
@@ -695,28 +741,14 @@ class AsyncRawTemplatesClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiListResponseTemplateOut,
                     parse_obj_as(
                         type_=ApiListResponseTemplateOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-
-                async def _get_next():
-                    return await self.list(
-                        category=category,
-                        search=search,
-                        sort=sort,
-                        offset=offset + len(_items or []),
-                        limit=limit,
-                        favorites_only=favorites_only,
-                        request_options=request_options,
-                    )
-
-                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -1038,6 +1070,68 @@ class AsyncRawTemplatesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def estimate_template(
+        self,
+        template_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseTemplateEstimateResponse]:
+        """
+        Return per-1,000-character pricing for a visible template snapshot.
+
+        Parameters
+        ----------
+        template_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseTemplateEstimateResponse]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/templates/{encode_path_param(template_id)}/estimate",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseTemplateEstimateResponse,
+                    parse_obj_as(
+                        type_=ApiResponseTemplateEstimateResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def clone(
         self,
         template_id: str,
@@ -1056,7 +1150,7 @@ class AsyncRawTemplatesClient:
         leaking unpublished draft edits.
 
         Resolved name: explicit `body.name` (stripped) OR fallback to
-        `"{source_name} (copy)"`.
+        `"{source_name} (Copy)"`.
 
         Parameters
         ----------
