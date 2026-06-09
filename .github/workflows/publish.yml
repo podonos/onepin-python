@@ -18,7 +18,22 @@ jobs:
     outputs:
       version: ${{ steps.ver.outputs.version }}
     steps:
+      - name: Validate dispatch tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG_IN: ${{ inputs.tag }}
+        # Constrain the manual-dispatch free-text input to a release-tag shape: stops a
+        # build/publish from an arbitrary branch or SHA, and rejects a bogus/empty version
+        # before anything is uploaded. The push: tags trigger is already filtered.
+        run: |
+          [[ "$TAG_IN" =~ ^(onepin-)?v[0-9]+\.[0-9]+\.[0-9]+([._-].+)?$ ]] \
+            || { echo "::error::inputs.tag '$TAG_IN' is not a release tag (expected vX.Y.Z)"; exit 1; }
       - uses: actions/checkout@v6
+        with:
+          # workflow_dispatch may run on a branch ref. Qualify the dispatch input as
+          # refs/tags/... so checkout resolves ONLY a tag (never a same-named branch);
+          # on a tag push inputs.tag is empty -> falls back to the already-qualified ref.
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
       - uses: actions/setup-python@v6
         with: { python-version: '3.12' }
       - run: pip install build twine trove-classifiers check-wheel-contents pytest
@@ -37,10 +52,15 @@ jobs:
       - run: python -m pytest tests/build/test_dist_contents.py
       - id: ver
         # Strip everything up to + including the last "v" so both tag formats
-        # resolve to a clean PEP 440 version:
-        #   onepin-v0.2.0 -> 0.2.0
-        #   v0.2.0        -> 0.2.0
-        run: echo "version=${GITHUB_REF_NAME##*v}" >> "$GITHUB_OUTPUT"
+        # resolve to a clean PEP 440 version (onepin-v0.2.0 / v0.2.0 -> 0.2.0).
+        # Prefer inputs.tag: on workflow_dispatch GITHUB_REF_NAME is the branch
+        # (e.g. main), not the tag, which would otherwise yield a bogus version.
+        env:
+          TAG_REF: ${{ inputs.tag || github.ref_name }}
+        run: |
+          version="${TAG_REF##*v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || { echo "::error::bad version from '$TAG_REF'"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with: { name: dist, path: dist/* }
   smoke-install:
@@ -86,6 +106,14 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with: { name: dist, path: dist }
+      # Create a GitHub-stored build-provenance attestation for the exact published
+      # artifacts. pypa/gh-action-pypi-publish only writes PEP 740 attestations to PyPI;
+      # the verify step below queries GitHub's attestation store, so without this it finds
+      # nothing and fails. Attest before upload so the published bytes are what's covered.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
       - uses: pypa/gh-action-pypi-publish@release/v1
       - name: Verify provenance attestation
         # Repo-scoped query: org-level endpoint returns 404 even when the

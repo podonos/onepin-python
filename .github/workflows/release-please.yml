@@ -10,3 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v5
+        with:
+          # Release-please pushes the version tag. The default GITHUB_TOKEN cannot
+          # trigger another workflow (GitHub's anti-recursion rule), so publish.yml's
+          # `push: tags` never fires and nothing reaches PyPI. A PAT makes the tag a
+          # "real" push that fires publish.yml. Falls back to github.token when
+          # RELEASE_PAT is unset (release-please still runs; auto-publish stays off
+          # until the secret is added — see RUNBOOK.md).
+          token: ${{ secrets.RELEASE_PAT || github.token }}

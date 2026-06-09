@@ -49,3 +49,23 @@ or tag. Most failures fall into one of:
 - TestPyPI / PyPI upload error → inspect the publish job logs and re-trigger.
 - Attestation verification failure → confirm the `--repo` flag is scoped
   correctly in `publish.yml`.
+
+## Publishing a release
+
+Merging the release-please PR tags the version; `publish.yml` then builds → TestPyPI →
+PyPI (OIDC trusted publishing). Auto-publish on release requires the **`RELEASE_PAT`**
+repo secret. release-please uses this token for **all** its GitHub calls, so it needs both
+`contents: write` (to push the tag, which fires `publish.yml`'s `push: tags` trigger) **and**
+`pull requests: write` (to create/update the release PR) — a `contents`-only PAT fails the
+next release-please run before any tag is cut. Without the secret nothing publishes;
+release-please falls back to the default token. Use a fine-grained PAT scoped to
+`podonos/onepin-python` only, with an expiry; rotation is tracked in the private ops runbook.
+
+Manual fallback (publish an existing tag):
+
+```bash
+# Dispatch from a ref that has the CURRENT workflow (main): --ref selects which
+# publish.yml runs, while -f tag selects the artifacts/version (checkout uses the tag).
+# Using --ref vX.Y.Z would run that tag's possibly-stale publish.yml and repeat the failure.
+gh workflow run publish.yml --ref main -f tag=vX.Y.Z
+```
