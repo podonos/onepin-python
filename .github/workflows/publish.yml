@@ -106,11 +106,15 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with: { name: dist, path: dist }
-      # Create a GitHub-stored build-provenance attestation for the exact published
-      # artifacts. pypa/gh-action-pypi-publish only writes PEP 740 attestations to PyPI;
-      # the verify step below queries GitHub's attestation store, so without this it finds
-      # nothing and fails. Attest before upload so the published bytes are what's covered.
+      # GitHub-stored build-provenance attestation for the exact published artifacts: a
+      # signed statement that these bytes were built by this workflow at this commit,
+      # which `gh attestation verify` (below) checks. The attestation API requires a
+      # public repo or a paid org plan, so BOTH steps are gated on repo visibility —
+      # they skip cleanly while this repo is private and light up automatically once it
+      # goes public. Attest runs before upload so the published bytes are what's covered.
+      # (pypa/gh-action-pypi-publish only writes PEP 740 attestations to PyPI, not here.)
       - name: Attest build provenance
+        if: ${{ !github.event.repository.private }}
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: 'dist/*'
@@ -118,6 +122,8 @@ jobs:
       - name: Verify provenance attestation
         # Repo-scoped query: org-level endpoint returns 404 even when the
         # attestation exists on the repo. `--repo` resolves correctly.
+        # Gated with the attest step above: nothing to verify while private.
+        if: ${{ !github.event.repository.private }}
         run: gh attestation verify dist/*.whl --repo podonos/onepin-python
         env:
           GH_TOKEN: ${{ github.token }}
