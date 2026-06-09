@@ -25,6 +25,7 @@ class WorkflowRunOut(UniversalBaseModel):
     error: typing.Optional[str] = None
     has_export: typing.Optional[bool] = None
     triggered_by: typing.Optional[TriggeredByOut] = None
+    credits: typing.Optional[int] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

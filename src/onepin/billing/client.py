@@ -4,9 +4,9 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
-from ..types.api_list_response_plan_response import ApiListResponsePlanResponse
+from ..types.api_list_response_customer_plan_response import ApiListResponseCustomerPlanResponse
 from ..types.api_response_checkout_response import ApiResponseCheckoutResponse
-from ..types.api_response_plan_change_preview_response import ApiResponsePlanChangePreviewResponse
+from ..types.api_response_customer_plan_change_preview_response import ApiResponseCustomerPlanChangePreviewResponse
 from .raw_client import AsyncRawBillingClient, RawBillingClient
 
 # this is used as the default value for optional parameters
@@ -28,7 +28,9 @@ class BillingClient:
         """
         return self._raw_client
 
-    def list_plans(self, *, request_options: typing.Optional[RequestOptions] = None) -> ApiListResponsePlanResponse:
+    def list_plans(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiListResponseCustomerPlanResponse:
         """
         List available subscription plans.
 
@@ -39,7 +41,7 @@ class BillingClient:
 
         Returns
         -------
-        ApiListResponsePlanResponse
+        ApiListResponseCustomerPlanResponse
             Successful Response
 
         Examples
@@ -56,7 +58,7 @@ class BillingClient:
 
     def preview_plan_change(
         self, plan_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponsePlanChangePreviewResponse:
+    ) -> ApiResponseCustomerPlanChangePreviewResponse:
         """
         Preview the cost of changing to the given plan.
 
@@ -69,7 +71,7 @@ class BillingClient:
 
         Returns
         -------
-        ApiResponsePlanChangePreviewResponse
+        ApiResponseCustomerPlanChangePreviewResponse
             Successful Response
 
         Examples
@@ -141,7 +143,7 @@ class AsyncBillingClient:
 
     async def list_plans(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiListResponsePlanResponse:
+    ) -> ApiListResponseCustomerPlanResponse:
         """
         List available subscription plans.
 
@@ -152,7 +154,7 @@ class AsyncBillingClient:
 
         Returns
         -------
-        ApiListResponsePlanResponse
+        ApiListResponseCustomerPlanResponse
             Successful Response
 
         Examples
@@ -177,7 +179,7 @@ class AsyncBillingClient:
 
     async def preview_plan_change(
         self, plan_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponsePlanChangePreviewResponse:
+    ) -> ApiResponseCustomerPlanChangePreviewResponse:
         """
         Preview the cost of changing to the given plan.
 
@@ -190,7 +192,7 @@ class AsyncBillingClient:
 
         Returns
         -------
-        ApiResponsePlanChangePreviewResponse
+        ApiResponseCustomerPlanChangePreviewResponse
             Successful Response
 
         Examples

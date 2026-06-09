@@ -4,15 +4,20 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .meta import Meta
-from .pagination_meta import PaginationMeta
-from .plan_response import PlanResponse
+from .plan_details import PlanDetails
+from .plan_tier import PlanTier
 
 
-class ApiListResponsePlanResponse(UniversalBaseModel):
-    data: typing.List[PlanResponse]
-    meta: Meta
-    pagination: PaginationMeta
+class CustomerPlanResponse(UniversalBaseModel):
+    id: str
+    name: str
+    tier: PlanTier
+    limits: typing.Dict[str, typing.Any]
+    billing_interval: str
+    amount: int
+    currency: str
+    display_order: int
+    plan_details: typing.Optional[PlanDetails] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

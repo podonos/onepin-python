@@ -2543,6 +2543,87 @@ client.templates.update_template(
 </dl>
 </details>
 
+<details><summary><code>client.templates.<a href="src/onepin/templates/client.py">estimate_template</a>(...) -> ApiResponseTemplateEstimateResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Return per-1,000-character pricing for a visible template snapshot.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.templates.estimate_template(
+    template_id="template_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**template_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.templates.<a href="src/onepin/templates/client.py">clone</a>(...) -> ApiResponseWorkflowOut</code></summary>
 <dl>
 <dd>
@@ -2564,7 +2645,7 @@ Cross-workspace clones use the `published_definition` snapshot to avoid
 leaking unpublished draft edits.
 
 Resolved name: explicit `body.name` (stripped) OR fallback to
-`"{source_name} (copy)"`.
+`"{source_name} (Copy)"`.
 </dd>
 </dl>
 </dd>
@@ -5196,7 +5277,7 @@ client.usage.usage_activity()
 </details>
 
 ## billing
-<details><summary><code>client.billing.<a href="src/onepin/billing/client.py">list_plans</a>() -> ApiListResponsePlanResponse</code></summary>
+<details><summary><code>client.billing.<a href="src/onepin/billing/client.py">list_plans</a>() -> ApiListResponseCustomerPlanResponse</code></summary>
 <dl>
 <dd>
 
@@ -5259,7 +5340,7 @@ client.billing.list_plans()
 </dl>
 </details>
 
-<details><summary><code>client.billing.<a href="src/onepin/billing/client.py">preview_plan_change</a>(...) -> ApiResponsePlanChangePreviewResponse</code></summary>
+<details><summary><code>client.billing.<a href="src/onepin/billing/client.py">preview_plan_change</a>(...) -> ApiResponseCustomerPlanChangePreviewResponse</code></summary>
 <dl>
 <dd>
 
@@ -5415,7 +5496,7 @@ client.billing.create_checkout(
 </details>
 
 ## users
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">get_current_subscription</a>() -> ApiResponseUnionSubscriptionResponseNoneType</code></summary>
+<details><summary><code>client.users.<a href="src/onepin/users/client.py">get_current_subscription</a>() -> ApiResponseUnionCustomerSubscriptionResponseNoneType</code></summary>
 <dl>
 <dd>
 
@@ -5478,7 +5559,7 @@ client.users.get_current_subscription()
 </dl>
 </details>
 
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">subscribe</a>(...) -> ApiResponseSubscriptionResponse</code></summary>
+<details><summary><code>client.users.<a href="src/onepin/users/client.py">subscribe</a>(...) -> ApiResponseCustomerSubscriptionResponse</code></summary>
 <dl>
 <dd>
 
@@ -5551,7 +5632,7 @@ client.users.subscribe(
 </dl>
 </details>
 
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">cancel_subscription</a>() -> ApiResponseSubscriptionResponse</code></summary>
+<details><summary><code>client.users.<a href="src/onepin/users/client.py">cancel_subscription</a>() -> ApiResponseCustomerSubscriptionResponse</code></summary>
 <dl>
 <dd>
 
@@ -5614,7 +5695,7 @@ client.users.cancel_subscription()
 </dl>
 </details>
 
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">change_plan</a>(...) -> ApiResponseSubscriptionResponse</code></summary>
+<details><summary><code>client.users.<a href="src/onepin/users/client.py">change_plan</a>(...) -> ApiResponseCustomerSubscriptionResponse</code></summary>
 <dl>
 <dd>
 
@@ -5687,7 +5768,7 @@ client.users.change_plan(
 </dl>
 </details>
 
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">cancel_scheduled_change</a>() -> ApiResponseSubscriptionResponse</code></summary>
+<details><summary><code>client.users.<a href="src/onepin/users/client.py">cancel_scheduled_change</a>() -> ApiResponseCustomerSubscriptionResponse</code></summary>
 <dl>
 <dd>
 
@@ -7221,6 +7302,87 @@ client.workflows.list_workflow_uploads(
 </dl>
 </details>
 
+<details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">estimate_workflow</a>(...) -> ApiResponseEstimateResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Estimate workflow credits without creating a run.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workflows.estimate_workflow(
+    workflow_id="workflow_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workflow_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">preview_run</a>(...) -> ApiResponseEstimateResponse</code></summary>
 <dl>
 <dd>
@@ -8289,7 +8451,7 @@ client.workflows.runs.get(
 </dl>
 </details>
 
-<details><summary><code>client.workflows.runs.<a href="src/onepin/workflows/runs/client.py">status</a>(...) -> ApiResponseWorkflowRunOut</code></summary>
+<details><summary><code>client.workflows.runs.<a href="src/onepin/workflows/runs/client.py">status</a>(...) -> ApiResponseWorkflowRunStatusOut</code></summary>
 <dl>
 <dd>
 

@@ -20,6 +20,8 @@ class UsageByLanguageOut(UniversalBaseModel):
     timezone: str
     period: UsagePeriodOut
     languages: typing.Optional[typing.List[UsageLanguageRowOut]] = None
+    total_credits: typing.Optional[int] = None
+    untagged_credits: typing.Optional[int] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -7,7 +7,6 @@ from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import encode_path_param
-from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
@@ -21,7 +20,6 @@ from ..types.voice_accent import VoiceAccent
 from ..types.voice_age import VoiceAge
 from ..types.voice_category import VoiceCategory
 from ..types.voice_gender import VoiceGender
-from ..types.voice_out import VoiceOut
 from .types.list_voices_request_language_item import ListVoicesRequestLanguageItem
 from .types.list_voices_request_order_item import ListVoicesRequestOrderItem
 from .types.list_voices_request_provider_item import ListVoicesRequestProviderItem
@@ -52,7 +50,7 @@ class RawVoicesClient:
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[VoiceOut, ApiCountedListResponseVoiceOut]:
+    ) -> HttpResponse[ApiCountedListResponseVoiceOut]:
         """
         List TTS voices available to the current workspace.
 
@@ -118,11 +116,9 @@ class RawVoicesClient:
 
         Returns
         -------
-        SyncPager[VoiceOut, ApiCountedListResponseVoiceOut]
+        HttpResponse[ApiCountedListResponseVoiceOut]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = self._client_wrapper.httpx_client.request(
             "api/v1/voices",
             method="GET",
@@ -148,33 +144,14 @@ class RawVoicesClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiCountedListResponseVoiceOut,
                     parse_obj_as(
                         type_=ApiCountedListResponseVoiceOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-                _get_next = lambda: self.list(
-                    offset=offset + len(_items or []),
-                    limit=limit,
-                    favorites_only=favorites_only,
-                    source=source,
-                    gender=gender,
-                    age=age,
-                    category=category,
-                    accent=accent,
-                    search=search,
-                    sort=sort,
-                    order=order,
-                    provider=provider,
-                    language=language,
-                    workspace_id=workspace_id,
-                    request_options=request_options,
-                )
-                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -477,7 +454,7 @@ class AsyncRawVoicesClient:
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[VoiceOut, ApiCountedListResponseVoiceOut]:
+    ) -> AsyncHttpResponse[ApiCountedListResponseVoiceOut]:
         """
         List TTS voices available to the current workspace.
 
@@ -543,11 +520,9 @@ class AsyncRawVoicesClient:
 
         Returns
         -------
-        AsyncPager[VoiceOut, ApiCountedListResponseVoiceOut]
+        AsyncHttpResponse[ApiCountedListResponseVoiceOut]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = await self._client_wrapper.httpx_client.request(
             "api/v1/voices",
             method="GET",
@@ -573,36 +548,14 @@ class AsyncRawVoicesClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiCountedListResponseVoiceOut,
                     parse_obj_as(
                         type_=ApiCountedListResponseVoiceOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-
-                async def _get_next():
-                    return await self.list(
-                        offset=offset + len(_items or []),
-                        limit=limit,
-                        favorites_only=favorites_only,
-                        source=source,
-                        gender=gender,
-                        age=age,
-                        category=category,
-                        accent=accent,
-                        search=search,
-                        sort=sort,
-                        order=order,
-                        provider=provider,
-                        language=language,
-                        workspace_id=workspace_id,
-                        request_options=request_options,
-                    )
-
-                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),

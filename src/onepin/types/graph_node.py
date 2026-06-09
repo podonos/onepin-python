@@ -11,6 +11,7 @@ from .node_type import NodeType
 class GraphNode(UniversalBaseModel):
     id: str
     type: NodeType
+    name: typing.Optional[str] = None
     position: NodePosition
     config: typing.Optional[typing.Dict[str, typing.Any]] = None
     config_version: typing.Optional[int] = None

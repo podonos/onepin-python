@@ -5,18 +5,26 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .triggered_by_out import TriggeredByOut
 
 
-class WorkflowRunOverviewNodeStateOut(UniversalBaseModel):
-    node_id: str
-    node_type: str
-    node_display_name: typing.Optional[str] = None
+class WorkflowRunStatusOut(UniversalBaseModel):
+    id: str
+    workflow_id: str
     status: str
-    iteration: typing.Optional[int] = None
+    run_number: int
+    total_nodes: typing.Optional[int] = None
+    total_steps: typing.Optional[int] = None
+    finished_steps: typing.Optional[int] = None
+    token_cost: int
+    usage_summary: typing.Optional[typing.Dict[str, typing.Any]] = None
     started_at: typing.Optional[dt.datetime] = None
     completed_at: typing.Optional[dt.datetime] = None
-    duration_ms: typing.Optional[int] = None
+    created_at: dt.datetime
+    updated_at: dt.datetime
     error: typing.Optional[str] = None
+    has_export: typing.Optional[bool] = None
+    triggered_by: typing.Optional[TriggeredByOut] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

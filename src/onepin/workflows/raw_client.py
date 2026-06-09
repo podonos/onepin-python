@@ -9,7 +9,6 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.datetime_utils import serialize_datetime
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import encode_path_param
-from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
@@ -28,7 +27,6 @@ from ..types.api_response_workflow_out import ApiResponseWorkflowOut
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
 from ..types.http_validation_error import HttpValidationError
 from ..types.workflow_definition_input import WorkflowDefinitionInput
-from ..types.workflow_list_item import WorkflowListItem
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
 from .types.list_workflows_request_order_item import ListWorkflowsRequestOrderItem
@@ -56,7 +54,7 @@ class RawWorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
+    ) -> HttpResponse[ApiCountedListResponseWorkflowListItem]:
         """
         List workflows in the current workspace.
 
@@ -104,11 +102,9 @@ class RawWorkflowsClient:
 
         Returns
         -------
-        SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
+        HttpResponse[ApiCountedListResponseWorkflowListItem]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = self._client_wrapper.httpx_client.request(
             "api/v1/workflows",
             method="GET",
@@ -129,28 +125,14 @@ class RawWorkflowsClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiCountedListResponseWorkflowListItem,
                     parse_obj_as(
                         type_=ApiCountedListResponseWorkflowListItem,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-                _get_next = lambda: self.list(
-                    status=status,
-                    search=search,
-                    sort=sort,
-                    order=order,
-                    last_run_after=last_run_after,
-                    last_run_before=last_run_before,
-                    offset=offset + len(_items or []),
-                    limit=limit,
-                    workspace_id=workspace_id,
-                    request_options=request_options,
-                )
-                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -580,6 +562,68 @@ class RawWorkflowsClient:
                     ApiListResponseUploadOut,
                     parse_obj_as(
                         type_=ApiListResponseUploadOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def estimate_workflow(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseEstimateResponse]:
+        """
+        Estimate workflow credits without creating a run.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseEstimateResponse]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/estimate",
+            method="POST",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseEstimateResponse,
+                    parse_obj_as(
+                        type_=ApiResponseEstimateResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1220,7 +1264,7 @@ class AsyncRawWorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
+    ) -> AsyncHttpResponse[ApiCountedListResponseWorkflowListItem]:
         """
         List workflows in the current workspace.
 
@@ -1268,11 +1312,9 @@ class AsyncRawWorkflowsClient:
 
         Returns
         -------
-        AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
+        AsyncHttpResponse[ApiCountedListResponseWorkflowListItem]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = await self._client_wrapper.httpx_client.request(
             "api/v1/workflows",
             method="GET",
@@ -1293,31 +1335,14 @@ class AsyncRawWorkflowsClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiCountedListResponseWorkflowListItem,
                     parse_obj_as(
                         type_=ApiCountedListResponseWorkflowListItem,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-
-                async def _get_next():
-                    return await self.list(
-                        status=status,
-                        search=search,
-                        sort=sort,
-                        order=order,
-                        last_run_after=last_run_after,
-                        last_run_before=last_run_before,
-                        offset=offset + len(_items or []),
-                        limit=limit,
-                        workspace_id=workspace_id,
-                        request_options=request_options,
-                    )
-
-                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -1747,6 +1772,68 @@ class AsyncRawWorkflowsClient:
                     ApiListResponseUploadOut,
                     parse_obj_as(
                         type_=ApiListResponseUploadOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def estimate_workflow(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseEstimateResponse]:
+        """
+        Estimate workflow credits without creating a run.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseEstimateResponse]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/estimate",
+            method="POST",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseEstimateResponse,
+                    parse_obj_as(
+                        type_=ApiResponseEstimateResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

@@ -6,7 +6,6 @@ import datetime as dt
 import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.api_counted_list_response_workflow_list_item import ApiCountedListResponseWorkflowListItem
 from ..types.api_list_response_upload_out import ApiListResponseUploadOut
@@ -18,7 +17,6 @@ from ..types.api_response_runs_summary_out import ApiResponseRunsSummaryOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
-from ..types.workflow_list_item import WorkflowListItem
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
 from .raw_client import AsyncRawWorkflowsClient, RawWorkflowsClient
@@ -61,7 +59,7 @@ class WorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
+    ) -> ApiCountedListResponseWorkflowListItem:
         """
         List workflows in the current workspace.
 
@@ -109,7 +107,7 @@ class WorkflowsClient:
 
         Returns
         -------
-        SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
+        ApiCountedListResponseWorkflowListItem
             Successful Response
 
         Examples
@@ -119,14 +117,9 @@ class WorkflowsClient:
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
-        response = client.workflows.list()
-        for item in response:
-            yield item
-        # alternatively, you can paginate page-by-page
-        for page in response.iter_pages():
-            yield page
+        client.workflows.list()
         """
-        return self._raw_client.list(
+        _response = self._raw_client.list(
             status=status,
             search=search,
             sort=sort,
@@ -138,6 +131,7 @@ class WorkflowsClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
+        return _response.data
 
     def create_workflow(
         self,
@@ -420,6 +414,46 @@ class WorkflowsClient:
         """
         _response = self._raw_client.list_workflow_uploads(
             workflow_id, offset=offset, limit=limit, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    def estimate_workflow(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseEstimateResponse:
+        """
+        Estimate workflow credits without creating a run.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseEstimateResponse
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workflows.estimate_workflow(
+            workflow_id="workflow_id",
+        )
+        """
+        _response = self._raw_client.estimate_workflow(
+            workflow_id, workspace_id=workspace_id, request_options=request_options
         )
         return _response.data
 
@@ -843,7 +877,7 @@ class AsyncWorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
+    ) -> ApiCountedListResponseWorkflowListItem:
         """
         List workflows in the current workspace.
 
@@ -891,7 +925,7 @@ class AsyncWorkflowsClient:
 
         Returns
         -------
-        AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
+        ApiCountedListResponseWorkflowListItem
             Successful Response
 
         Examples
@@ -906,18 +940,12 @@ class AsyncWorkflowsClient:
 
 
         async def main() -> None:
-            response = await client.workflows.list()
-            async for item in response:
-                yield item
-
-            # alternatively, you can paginate page-by-page
-            async for page in response.iter_pages():
-                yield page
+            await client.workflows.list()
 
 
         asyncio.run(main())
         """
-        return await self._raw_client.list(
+        _response = await self._raw_client.list(
             status=status,
             search=search,
             sort=sort,
@@ -929,6 +957,7 @@ class AsyncWorkflowsClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
+        return _response.data
 
     async def create_workflow(
         self,
@@ -1259,6 +1288,54 @@ class AsyncWorkflowsClient:
         """
         _response = await self._raw_client.list_workflow_uploads(
             workflow_id, offset=offset, limit=limit, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    async def estimate_workflow(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseEstimateResponse:
+        """
+        Estimate workflow credits without creating a run.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseEstimateResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workflows.estimate_workflow(
+                workflow_id="workflow_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.estimate_workflow(
+            workflow_id, workspace_id=workspace_id, request_options=request_options
         )
         return _response.data
 

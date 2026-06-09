@@ -14,6 +14,16 @@ class BalanceResponse(UniversalBaseModel):
     """
 
     balance: int
+    used: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Ledger-derived credits used in the current billing period.
+    """
+
+    remaining: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Ledger-derived settled credits remaining for display only. Excludes in-flight open reserves, so this may exceed `balance` while a workflow is executing. Use `balance` for gate decisions.
+    """
+
     period_start: typing.Optional[dt.datetime] = None
     period_end: typing.Optional[dt.datetime] = None
     plan_grant: int

@@ -11,6 +11,7 @@ class WorkflowRunStepOut(UniversalBaseModel):
     id: str
     node_id: str
     node_type: str
+    node_display_name: typing.Optional[str] = None
     status: str
     iteration: typing.Optional[int] = None
     started_at: typing.Optional[dt.datetime] = None

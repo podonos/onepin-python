@@ -33,6 +33,7 @@ class WorkflowRunDetailOut(UniversalBaseModel):
     error: typing.Optional[str] = None
     has_export: typing.Optional[bool] = None
     triggered_by: typing.Optional[TriggeredByOut] = None
+    credits: typing.Optional[int] = None
     definition_snapshot: typing.Optional[typing.Dict[str, typing.Any]] = None
 
     if IS_PYDANTIC_V2:

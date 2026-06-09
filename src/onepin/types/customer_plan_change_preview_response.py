@@ -4,13 +4,16 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .meta import Meta
-from .subscription_response import SubscriptionResponse
+from .customer_plan_response import CustomerPlanResponse
 
 
-class ApiResponseUnionSubscriptionResponseNoneType(UniversalBaseModel):
-    data: typing.Optional[SubscriptionResponse] = None
-    meta: Meta
+class CustomerPlanChangePreviewResponse(UniversalBaseModel):
+    current_plan: CustomerPlanResponse
+    new_plan: CustomerPlanResponse
+    type: str
+    proration_amount: typing.Optional[int] = None
+    effective_at: str
+    currency: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

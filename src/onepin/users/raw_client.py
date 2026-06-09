@@ -13,14 +13,16 @@ from ..core.request_options import RequestOptions
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_list_response_template_out import ApiListResponseTemplateOut
 from ..types.api_response_balance_response import ApiResponseBalanceResponse
+from ..types.api_response_customer_subscription_response import ApiResponseCustomerSubscriptionResponse
 from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_email_notification_preferences_out import ApiResponseEmailNotificationPreferencesOut
 from ..types.api_response_invoice_list_response import ApiResponseInvoiceListResponse
 from ..types.api_response_list_payment_method_response import ApiResponseListPaymentMethodResponse
 from ..types.api_response_plan_limits import ApiResponsePlanLimits
 from ..types.api_response_setup_intent_response import ApiResponseSetupIntentResponse
-from ..types.api_response_subscription_response import ApiResponseSubscriptionResponse
-from ..types.api_response_union_subscription_response_none_type import ApiResponseUnionSubscriptionResponseNoneType
+from ..types.api_response_union_customer_subscription_response_none_type import (
+    ApiResponseUnionCustomerSubscriptionResponseNoneType,
+)
 from ..types.http_validation_error import HttpValidationError
 from ..types.template_category import TemplateCategory
 from .types.list_my_templates_api_v1users_me_templates_get_request_sort import (
@@ -38,7 +40,7 @@ class RawUsersClient:
 
     def get_current_subscription(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseUnionSubscriptionResponseNoneType]:
+    ) -> HttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]:
         """
         Get the current user's active subscription.
 
@@ -49,7 +51,7 @@ class RawUsersClient:
 
         Returns
         -------
-        HttpResponse[ApiResponseUnionSubscriptionResponseNoneType]
+        HttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -60,9 +62,9 @@ class RawUsersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponseUnionSubscriptionResponseNoneType,
+                    ApiResponseUnionCustomerSubscriptionResponseNoneType,
                     parse_obj_as(
-                        type_=ApiResponseUnionSubscriptionResponseNoneType,  # type: ignore
+                        type_=ApiResponseUnionCustomerSubscriptionResponseNoneType,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -89,7 +91,7 @@ class RawUsersClient:
 
     def subscribe(
         self, *, plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseSubscriptionResponse]:
+    ) -> HttpResponse[ApiResponseCustomerSubscriptionResponse]:
         """
         Create a subscription using the default payment method.
 
@@ -102,7 +104,7 @@ class RawUsersClient:
 
         Returns
         -------
-        HttpResponse[ApiResponseSubscriptionResponse]
+        HttpResponse[ApiResponseCustomerSubscriptionResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -120,9 +122,9 @@ class RawUsersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponseSubscriptionResponse,
+                    ApiResponseCustomerSubscriptionResponse,
                     parse_obj_as(
-                        type_=ApiResponseSubscriptionResponse,  # type: ignore
+                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -149,7 +151,7 @@ class RawUsersClient:
 
     def cancel_subscription(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseSubscriptionResponse]:
+    ) -> HttpResponse[ApiResponseCustomerSubscriptionResponse]:
         """
         Cancel the current user's subscription at period end.
 
@@ -160,7 +162,7 @@ class RawUsersClient:
 
         Returns
         -------
-        HttpResponse[ApiResponseSubscriptionResponse]
+        HttpResponse[ApiResponseCustomerSubscriptionResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -171,9 +173,9 @@ class RawUsersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponseSubscriptionResponse,
+                    ApiResponseCustomerSubscriptionResponse,
                     parse_obj_as(
-                        type_=ApiResponseSubscriptionResponse,  # type: ignore
+                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -200,7 +202,7 @@ class RawUsersClient:
 
     def change_plan(
         self, *, new_plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseSubscriptionResponse]:
+    ) -> HttpResponse[ApiResponseCustomerSubscriptionResponse]:
         """
         Switch the current user's subscription to a different plan.
 
@@ -213,7 +215,7 @@ class RawUsersClient:
 
         Returns
         -------
-        HttpResponse[ApiResponseSubscriptionResponse]
+        HttpResponse[ApiResponseCustomerSubscriptionResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -231,9 +233,9 @@ class RawUsersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponseSubscriptionResponse,
+                    ApiResponseCustomerSubscriptionResponse,
                     parse_obj_as(
-                        type_=ApiResponseSubscriptionResponse,  # type: ignore
+                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -260,7 +262,7 @@ class RawUsersClient:
 
     def cancel_scheduled_change(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseSubscriptionResponse]:
+    ) -> HttpResponse[ApiResponseCustomerSubscriptionResponse]:
         """
         Cancel a scheduled plan downgrade.
 
@@ -271,7 +273,7 @@ class RawUsersClient:
 
         Returns
         -------
-        HttpResponse[ApiResponseSubscriptionResponse]
+        HttpResponse[ApiResponseCustomerSubscriptionResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -282,9 +284,9 @@ class RawUsersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponseSubscriptionResponse,
+                    ApiResponseCustomerSubscriptionResponse,
                     parse_obj_as(
-                        type_=ApiResponseSubscriptionResponse,  # type: ignore
+                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -905,7 +907,7 @@ class AsyncRawUsersClient:
 
     async def get_current_subscription(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseUnionSubscriptionResponseNoneType]:
+    ) -> AsyncHttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]:
         """
         Get the current user's active subscription.
 
@@ -916,7 +918,7 @@ class AsyncRawUsersClient:
 
         Returns
         -------
-        AsyncHttpResponse[ApiResponseUnionSubscriptionResponseNoneType]
+        AsyncHttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -927,9 +929,9 @@ class AsyncRawUsersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponseUnionSubscriptionResponseNoneType,
+                    ApiResponseUnionCustomerSubscriptionResponseNoneType,
                     parse_obj_as(
-                        type_=ApiResponseUnionSubscriptionResponseNoneType,  # type: ignore
+                        type_=ApiResponseUnionCustomerSubscriptionResponseNoneType,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -956,7 +958,7 @@ class AsyncRawUsersClient:
 
     async def subscribe(
         self, *, plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseSubscriptionResponse]:
+    ) -> AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]:
         """
         Create a subscription using the default payment method.
 
@@ -969,7 +971,7 @@ class AsyncRawUsersClient:
 
         Returns
         -------
-        AsyncHttpResponse[ApiResponseSubscriptionResponse]
+        AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -987,9 +989,9 @@ class AsyncRawUsersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponseSubscriptionResponse,
+                    ApiResponseCustomerSubscriptionResponse,
                     parse_obj_as(
-                        type_=ApiResponseSubscriptionResponse,  # type: ignore
+                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1016,7 +1018,7 @@ class AsyncRawUsersClient:
 
     async def cancel_subscription(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseSubscriptionResponse]:
+    ) -> AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]:
         """
         Cancel the current user's subscription at period end.
 
@@ -1027,7 +1029,7 @@ class AsyncRawUsersClient:
 
         Returns
         -------
-        AsyncHttpResponse[ApiResponseSubscriptionResponse]
+        AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -1038,9 +1040,9 @@ class AsyncRawUsersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponseSubscriptionResponse,
+                    ApiResponseCustomerSubscriptionResponse,
                     parse_obj_as(
-                        type_=ApiResponseSubscriptionResponse,  # type: ignore
+                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1067,7 +1069,7 @@ class AsyncRawUsersClient:
 
     async def change_plan(
         self, *, new_plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseSubscriptionResponse]:
+    ) -> AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]:
         """
         Switch the current user's subscription to a different plan.
 
@@ -1080,7 +1082,7 @@ class AsyncRawUsersClient:
 
         Returns
         -------
-        AsyncHttpResponse[ApiResponseSubscriptionResponse]
+        AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -1098,9 +1100,9 @@ class AsyncRawUsersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponseSubscriptionResponse,
+                    ApiResponseCustomerSubscriptionResponse,
                     parse_obj_as(
-                        type_=ApiResponseSubscriptionResponse,  # type: ignore
+                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1127,7 +1129,7 @@ class AsyncRawUsersClient:
 
     async def cancel_scheduled_change(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseSubscriptionResponse]:
+    ) -> AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]:
         """
         Cancel a scheduled plan downgrade.
 
@@ -1138,7 +1140,7 @@ class AsyncRawUsersClient:
 
         Returns
         -------
-        AsyncHttpResponse[ApiResponseSubscriptionResponse]
+        AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -1149,9 +1151,9 @@ class AsyncRawUsersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiResponseSubscriptionResponse,
+                    ApiResponseCustomerSubscriptionResponse,
                     parse_obj_as(
-                        type_=ApiResponseSubscriptionResponse,  # type: ignore
+                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
