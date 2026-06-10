@@ -3,7 +3,7 @@
   "last-release-sha": "4b2769382852f63f5786244b8a7d69a93210bac0",
   "packages": {
     ".": {
-      "release-type": "python",
+      "release-type": "simple",
       "package-name": "onepin",
       "bump-minor-pre-major": true,
       "include-v-in-tag": true,
