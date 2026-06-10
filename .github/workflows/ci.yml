@@ -16,8 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          # diff-cover needs to see origin/main to compute PR diff coverage
+          # diff-cover needs origin/main; hatch-vcs needs full history + tags for the version
           fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-python@v6
         with: { python-version: '${{ matrix.python }}' }
       - run: pip install uv
@@ -37,12 +38,24 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v6
+        with:
+          # hatch-vcs derives the version from git history + tags; a shallow/tagless
+          # checkout would build a bogus low version (e.g. 0.1.dev1).
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-python@v6
         with: { python-version: '3.12' }
       - run: pip install build
       - run: python -m build
       - run: python -m venv /tmp/v && /tmp/v/bin/pip install dist/*.whl && /tmp/v/bin/onepin --version
       - run: python -m venv /tmp/vs && /tmp/vs/bin/pip install --no-binary onepin dist/onepin-*.tar.gz && /tmp/vs/bin/onepin --version
+      - name: Assert version is sane (no 0.0.0 fallback, no +local segment)
+        run: |
+          v=$(/tmp/v/bin/onepin --version | awk '{print $NF}')
+          echo "resolved version: $v"
+          case "$v" in
+            0.0.0*|*+*) echo "::error::insane version '$v' — hatch-vcs starved of tags/history (shallow checkout?)"; exit 1 ;;
+          esac
   notify-failure:
     if: failure()
     needs: [test, fresh-venv-smoke]
