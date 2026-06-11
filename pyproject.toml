@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling>=1.27"]
+requires = ["hatchling>=1.27", "hatch-vcs>=0.4,<1"]
 build-backend = "hatchling.build"
 
 [project]
 name = "onepin"
-version = "0.5.0"
+dynamic = ["version"]
 description = "OnePin Python SDK + CLI"
 readme = "README.md"
 license = "MIT"
@@ -56,6 +56,14 @@ dev = [
     "trove-classifiers",
     "check-wheel-contents",
 ]
+
+[tool.hatch.version]
+source = "vcs"
+
+# setuptools_scm's default appends a local segment (+gHASH) which PyPI/TestPyPI reject.
+# no-local-version yields clean PEP 440 dev releases (e.g. 0.5.1.dev4) that upload cleanly.
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/onepin"]

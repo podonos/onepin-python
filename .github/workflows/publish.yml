@@ -1,6 +1,22 @@
-name: Publish
+name: Publish (TestPyPI)
+
+# TestPyPI lane — the CONTINUOUS, internal index. Runs ahead of prod freely.
+#   - push to main (touching the SDK build inputs)  -> hatch-vcs stamps X.Y.Z.devN -> TestPyPI
+#   - push of a release tag (vX.Y.Z / onepin-vX.Y.Z) -> hatch-vcs stamps clean X.Y.Z   -> TestPyPI
+#   - workflow_dispatch                              -> manual TestPyPI publish from a ref
+#
+# Customers are NOT served here. The public PyPI publish is a SEPARATE, prod-gated lane
+# (promote-prod.yml), fired only by the donut-be production deploy dispatch. This file must
+# NEVER push to PyPI. See docs/PUBLISH.md for the two-lane model.
 on:
   push:
+    branches: [main]
+    # Only rebuild when something that changes the shipped artifact moves. Docs/CI-only
+    # commits to main don't need a new .devN on TestPyPI.
+    paths:
+      - 'src/onepin/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
     # Accept both formats: release-please default `onepin-v0.2.0` (component
     # prefix on single-package repos) and the plain `v0.2.0` shape used after
     # `include-component-in-tag: false` lands in release-please-config.json.
@@ -8,8 +24,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to publish (e.g. onepin-v0.2.0)'
-        required: true
+        description: "Release tag to replay to TestPyPI, e.g. v0.5.0. Leave empty to build the triggering ref."
+        required: false
+        default: ""
 permissions:
   contents: read
 jobs:
@@ -18,22 +35,28 @@ jobs:
     outputs:
       version: ${{ steps.ver.outputs.version }}
     steps:
-      - name: Validate dispatch tag
-        if: github.event_name == 'workflow_dispatch'
+      - name: Validate replay tag (if provided)
+        if: github.event.inputs.tag != ''
         env:
-          TAG_IN: ${{ inputs.tag }}
-        # Constrain the manual-dispatch free-text input to a release-tag shape: stops a
-        # build/publish from an arbitrary branch or SHA, and rejects a bogus/empty version
-        # before anything is uploaded. The push: tags trigger is already filtered.
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          [[ "$TAG_IN" =~ ^(onepin-)?v[0-9]+\.[0-9]+\.[0-9]+([._-].+)?$ ]] \
-            || { echo "::error::inputs.tag '$TAG_IN' is not a release tag (expected vX.Y.Z)"; exit 1; }
+          echo "$INPUT_TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            || { echo "::error::tag '${INPUT_TAG}' does not match ^v[0-9]+\\.[0-9]+\\.[0-9]+\$ — must be a plain vX.Y.Z tag"; exit 1; }
       - uses: actions/checkout@v6
+        if: github.event.inputs.tag == ''
         with:
-          # workflow_dispatch may run on a branch ref. Qualify the dispatch input as
-          # refs/tags/... so checkout resolves ONLY a tag (never a same-named branch);
-          # on a tag push inputs.tag is empty -> falls back to the already-qualified ref.
-          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
+          # hatch-vcs derives the version from git history + tags. A shallow/tagless
+          # checkout would build a bogus low version (e.g. 0.1.dev1) — fetch everything
+          # so .devN (main) / clean vX.Y.Z (tag) resolve correctly.
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/checkout@v6
+        if: github.event.inputs.tag != ''
+        with:
+          # Replay: check out the exact release tag so hatch-vcs stamps clean vX.Y.Z.
+          ref: refs/tags/${{ github.event.inputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-python@v6
         with: { python-version: '3.12' }
       - run: pip install build twine trove-classifiers check-wheel-contents pytest
@@ -51,15 +74,20 @@ jobs:
           "
       - run: python -m pytest tests/build/test_dist_contents.py
       - id: ver
-        # Strip everything up to + including the last "v" so both tag formats
-        # resolve to a clean PEP 440 version (onepin-v0.2.0 / v0.2.0 -> 0.2.0).
-        # Prefer inputs.tag: on workflow_dispatch GITHUB_REF_NAME is the branch
-        # (e.g. main), not the tag, which would otherwise yield a bogus version.
-        env:
-          TAG_REF: ${{ inputs.tag || github.ref_name }}
+        # Derive the version from the BUILT sdist — the authoritative artifact hatch-vcs
+        # just produced — NOT the git ref. On a main push there is no tag, so the version
+        # is hatch-vcs's X.Y.Z.devN; on a tag push it's the clean X.Y.Z. Then fail LOUD if
+        # the version is insane: a 0.0.0 fallback (hatch-vcs starved of tags/history) or a
+        # PyPI-rejected +local segment must abort BEFORE any upload, never ship silently.
         run: |
-          version="${TAG_REF##*v}"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || { echo "::error::bad version from '$TAG_REF'"; exit 1; }
+          set -euo pipefail
+          version="$(python -c "import re,glob,os; f=glob.glob('dist/*.tar.gz')[0]; print(re.match(r'onepin-(.+)\.tar\.gz', os.path.basename(f)).group(1))")"
+          echo "built version: $version"
+          case "$version" in
+            0.0.0*|*+*)
+              echo "::error::insane built version '$version' — hatch-vcs starved of tags/history (shallow checkout?) or a local segment leaked"; exit 1 ;;
+          esac
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || { echo "::error::built version '$version' is not PEP 440 X.Y.Z[...]"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with: { name: dist, path: dist/* }
@@ -82,9 +110,10 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
-          # Allow re-runs on the same tag: TestPyPI rejects identical-version
-          # re-uploads, but a retag (e.g. after fixing a workflow bug) shouldn't
-          # cause the whole publish chain to fail.
+          # Allow re-runs on the same ref: TestPyPI rejects identical-version
+          # re-uploads, but a re-run (e.g. after fixing a workflow bug) shouldn't
+          # cause the whole publish chain to fail. (Each main push yields a fresh
+          # .devN, so collisions are limited to genuine re-runs / retags.)
           skip-existing: true
   testpypi-smoke:
     needs: [build, test-pypi]
@@ -98,38 +127,9 @@ jobs:
             --extra-index-url https://pypi.org/simple/ \
             onepin==${{ needs.build.outputs.version }} \
             && onepin --version
-  pypi:
-    needs: testpypi-smoke
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions: { id-token: write, contents: write, attestations: write }
-    steps:
-      - uses: actions/download-artifact@v8
-        with: { name: dist, path: dist }
-      # GitHub-stored build-provenance attestation for the exact published artifacts: a
-      # signed statement that these bytes were built by this workflow at this commit,
-      # which `gh attestation verify` (below) checks. The attestation API requires a
-      # public repo or a paid org plan, so BOTH steps are gated on repo visibility —
-      # they skip cleanly while this repo is private and light up automatically once it
-      # goes public. Attest runs before upload so the published bytes are what's covered.
-      # (pypa/gh-action-pypi-publish only writes PEP 740 attestations to PyPI, not here.)
-      - name: Attest build provenance
-        if: ${{ !github.event.repository.private }}
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: 'dist/*'
-      - uses: pypa/gh-action-pypi-publish@release/v1
-      - name: Verify provenance attestation
-        # Repo-scoped query: org-level endpoint returns 404 even when the
-        # attestation exists on the repo. `--repo` resolves correctly.
-        # Gated with the attest step above: nothing to verify while private.
-        if: ${{ !github.event.repository.private }}
-        run: gh attestation verify dist/*.whl --repo podonos/onepin-python
-        env:
-          GH_TOKEN: ${{ github.token }}
   notify-failure:
     if: failure()
-    needs: [build, smoke-install, test-pypi, testpypi-smoke, pypi]
+    needs: [build, smoke-install, test-pypi, testpypi-smoke]
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack
@@ -143,7 +143,7 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
-            {"text":"Publish failed for ${{ github.ref_name }} in ${{ github.repository }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
+            {"text":"TestPyPI publish failed for ${{ github.ref_name }} in ${{ github.repository }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       - name: Skip Slack notification

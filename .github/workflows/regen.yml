@@ -71,6 +71,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ steps.app-token.outputs.token }}
+          # The guard tests build the wheel (tests/build) via hatch-vcs, which derives
+          # the version from git history + tags; a shallow/tagless checkout would build
+          # a bogus low version and trip the version-sanity assertions.
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Fetch shaped spec
         id: spec
@@ -104,7 +109,7 @@ jobs:
       - run: npm install -g fern-api@5.45.3   # pin to fern.config.json
       - run: fern check
 
-      - name: Generate Python SDK (local; .fernignore preserves _cli/)
+      - name: Generate Python SDK (local; src/onepin/.fernignore preserves _cli/)
         run: fern generate --group python-sdk --local
 
       - name: Restore PEP 561 markers
@@ -130,6 +135,20 @@ jobs:
           uv sync --all-extras
           uv run pytest tests/build -q
 
+      - name: Record source spec sha (.spec-sha — consumed by promote-prod.yml)
+        if: steps.vars.outputs.open_pr == 'true'
+        env:
+          RESOLVED_SHA: ${{ steps.spec.outputs.resolved_sha }}
+        # Stamp the exact spec commit this SDK was generated from into a TRACKED file at
+        # repo root. peter-evans/create-pull-request commits all worktree changes, so writing
+        # it BEFORE that step bakes it into the regen PR → it rides along to the release tag.
+        # promote-prod.yml reads .spec-sha@<tag> to promote exactly the SDK whose API is in
+        # prod (per-sha pinning by spec-commit ancestry), never an SDK ahead of prod.
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$RESOLVED_SHA" > .spec-sha
+          echo "Recorded .spec-sha=${RESOLVED_SHA}"
+
       - name: Open regen PR
         if: steps.vars.outputs.open_pr == 'true'
         uses: peter-evans/create-pull-request@v6
@@ -138,8 +157,11 @@ jobs:
           branch: fern-regen/${{ steps.spec.outputs.resolved_sha }}
           base: main
           delete-branch: true
-          commit-message: "chore: regenerate SDK from API spec @${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
-          title: "chore: regenerate SDK from API spec @${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
+          # feat: (not chore:) so a merged regen PR makes release-please cut a minor bump
+          # (bump-minor-pre-major) → vX.Y.Z tag → publish.yml → TestPyPI. A chore: regen
+          # is invisible to release-please and would never reach the index.
+          commit-message: "feat: regenerate SDK from API spec @${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
+          title: "feat: regenerate SDK from API spec @${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
           body: |
             Auto-regenerated from the shaped OnePin API OpenAPI spec.
 
@@ -147,7 +169,7 @@ jobs:
             - **Spec version:** `${{ steps.vars.outputs.spec_version }}`
             - **Trigger env:** `${{ steps.vars.outputs.env }}`
 
-            The hand-rolled CLI under `src/onepin/_cli/` is preserved via `.fernignore`.
+            The hand-rolled CLI under `src/onepin/_cli/` is preserved via `src/onepin/.fernignore`.
             Review the diff, let CI run, then merge to ship the new SDK surface.
           labels: auto:sdk-regen
 
