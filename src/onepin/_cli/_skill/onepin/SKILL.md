@@ -64,6 +64,9 @@ rather than dumping raw JSON.
 - Run and wait: `onepin --json workflows run <workflow_id> --watch --timeout 300` — polls to a
   terminal state (`completed`/`failed`/`cancelled`) and returns the final status inline (no
   separate status call). Exit is non-zero if the run failed or timed out.
+- **Build/design a workflow:** see the GA node catalog and the *Designing a workflow* topology rules
+  (sources → processing → generators → validators → sinks; validator pass/fail pins and retries) in
+  [reference.md](reference.md). Discover slugs with `onepin nodes list` — never invent them.
 
 ### Runs
 - `onepin --json workflows runs list <workflow_id>`
