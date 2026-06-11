@@ -57,6 +57,65 @@ onepin --json workflows create --name "My workflow" --definition @workflow.json 
 `--definition` accepts inline JSON or `@path/to/file.json`. Same flag on `workflows update`,
 `templates create`, `templates update`.
 
+## Node catalog (generally-available nodes)
+
+`onepin nodes list` is **authoritative** for the exact `node_type` slug, ports, and config schema —
+confirm the slug via `nodes list` / `nodes show <slug>` before authoring. This is a conceptual map
+of the GA nodes (keyed by display name + category), not a slug reference.
+
+| Node | Category | Purpose | Key config |
+|------|----------|---------|------------|
+| **Single script input** | source | Entry point; emits one script in one locale to its output. | script text / `.txt`/`.csv` |
+| **Normalizer** | processing | Text normalization before TTS (e.g. `"123 main st."` → `"one two three main street"`); multilingual. | language code |
+| **Voice Generator** | processing | TTS for one script in one locale → an audio object. **100+ TTS models** across providers, each with different config support and pricing (the spread from cheapest-but-reasonable to most expensive is ~40×). | **auto-route** picks the best model for the language/locale from Onepin's TTS benchmark, balancing performance against price, or set provider + model manually; speed, emotion, tone, and more (model-dependent) |
+| **Validator – Word accuracy** | validation | ASR-based word accuracy in [0, 100] (from WER); emits **pass** / **fail** pins. | threshold (default 85, adjustable), max-retry |
+| **Validator – Naturalness** | validation | Internal-AI naturalness score in [0, 100]; emits **pass** / **fail** pins. | threshold (default 85, adjustable), max-retry |
+| **Onepin storage** | output (sink) | Aggregates audio + scripts + validation results for download/visualization. | — |
+
+Every validator's pass/fail **threshold is adjustable**. Validators also carry a per-object **retry
+counter**: each visit increments it; once it reaches max-retry the object exits the **pass** pin
+regardless of score, which prevents infinite loops.
+
+## Designing a workflow
+
+A workflow is a directed graph. Use `onepin nodes list` for the authoritative slugs and ports; the
+shape below is the design contract.
+
+**Overall shape:** one or more **Sources** → **Processing** → **Generator(s)** → **Validator(s)** →
+one or more **Sinks**. A graph can have **multiple** sources, processors, generators, and sinks — it
+is not a single linear chain.
+
+**Example topologies (simple → robust):**
+- **Minimal:** `source → generator → sink`.
+- **+ accuracy:** `source → normalizer → generator → sink`.
+- **Higher accuracy:** `source → normalizer → multiple generators → multiple validators → sink(s)`.
+- **Fan-out:** a single source can feed several branches at once — e.g. `source → normalizer →
+  generator` **and** the same source straight into a second `generator`, with both branches
+  converging on sinks.
+
+**Processor ordering:** the **Normalizer** typically runs *before* a generator (normalize text → then
+TTS).
+
+**Validators:**
+- Can be wired **in series** (chained checks) or **in parallel** (independent checks on the same audio).
+- Each exposes **pass / fail pins** plus a retry counter (default threshold 85, max-retry guard).
+- A **fail pin** can route back to the *same* generator (regenerate) **or** forward to a *different /
+  new* generator — failed items don't have to return to where they came from.
+
+**After validation:**
+- Most often validator results flow into a **Sink**.
+- But results may also feed **another set of generators** for a further pass — validation is not
+  necessarily terminal.
+
+**Sinks:**
+- A workflow can have **multiple** sinks.
+- **Onepin storage** is the default sink. If the user does **not** want results stored in Onepin and
+  instead wants them in a **local directory**, run the workflow then pull outputs down with
+  `onepin workflows runs download <workflow_id> <run_id> --out <path>` (and `runs data` for rows).
+
+**Always discover first:** `nodes list` → `nodes show <slug>` → `definition-schema` before authoring.
+Never invent slugs or ports.
+
 ## Recipe: upload a file and attach it
 
 ```bash
