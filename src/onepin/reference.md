@@ -3045,6 +3045,14 @@ client.voices.list()
 <dl>
 <dd>
 
+**model:** `typing.Optional[typing.List[str]]` — Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **language:** `typing.Optional[typing.List[ListVoicesRequestLanguageItem]]` — Repeat for OR, e.g. ?language=en-us&language=ko-kr
     
 </dd>
@@ -5289,7 +5297,12 @@ client.usage.usage_activity()
 <dl>
 <dd>
 
-List available subscription plans.
+List subscription plans and features (public, no authentication).
+
+Public so the marketing site (Framer) can render live pricing without a
+Clerk session. Returns the same active, non-custom plan catalog as before
+(name, price, interval, limits, localized ``plan_details``). Honors
+``X-Language`` / ``Accept-Language`` for ``plan_details`` (defaults ``en``).
 </dd>
 </dl>
 </dd>
