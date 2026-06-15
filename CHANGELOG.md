@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0](https://github.com/podonos/onepin-python/compare/v0.5.0...v0.6.0) (2026-06-15)
+
+
+### Features
+
+* regenerate SDK from API spec [@9fe47587946f7ab984ac1dd701c85c15c368a67](https://github.com/9fe47587946f7ab984ac1dd701c85c15c368a67)c (spec v0.37.7) ([#43](https://github.com/podonos/onepin-python/issues/43)) ([f429244](https://github.com/podonos/onepin-python/commit/f4292440ac7481a07a2ef8670b6a88ecb8ad0791))
+
 ## [0.5.0](https://github.com/podonos/onepin-python/compare/v0.4.0...v0.5.0) (2026-06-09)
 
 
