@@ -149,6 +149,23 @@ jobs:
           printf '%s\n' "$RESOLVED_SHA" > .spec-sha
           echo "Recorded .spec-sha=${RESOLVED_SHA}"
 
+      - name: Compose PR title
+        id: title
+        if: steps.vars.outputs.open_pr == 'true'
+        env:
+          VER: ${{ steps.vars.outputs.spec_version }}
+          SHA: ${{ steps.spec.outputs.resolved_sha }}
+        run: |
+          set -euo pipefail
+          # The SDK tracks the API, so the meaningful "what changed" is the API version, not
+          # the regen sha (kept in the PR body + .spec-sha for traceability). release-please
+          # turns this commit subject into the CHANGELOG line — keep it human-readable.
+          if [ -n "${VER:-}" ] && [ "$VER" != "n/a" ]; then
+            echo "title=feat: sync SDK to OnePin API v${VER}" >> "$GITHUB_OUTPUT"
+          else
+            echo "title=feat: regenerate SDK @${SHA:0:7}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Open regen PR
         if: steps.vars.outputs.open_pr == 'true'
         uses: peter-evans/create-pull-request@v6
@@ -159,9 +176,10 @@ jobs:
           delete-branch: true
           # feat: (not chore:) so a merged regen PR makes release-please cut a minor bump
           # (bump-minor-pre-major) → vX.Y.Z tag → publish.yml → TestPyPI. A chore: regen
-          # is invisible to release-please and would never reach the index.
-          commit-message: "feat: regenerate SDK from API spec @${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
-          title: "feat: regenerate SDK from API spec @${{ steps.spec.outputs.resolved_sha }} (spec v${{ steps.vars.outputs.spec_version }})"
+          # is invisible to release-please and would never reach the index. Subject comes
+          # from steps.title — "sync SDK to OnePin API vX.Y.Z" — so the CHANGELOG reads well.
+          commit-message: "${{ steps.title.outputs.title }}"
+          title: "${{ steps.title.outputs.title }}"
           body: |
             Auto-regenerated from the shaped OnePin API OpenAPI spec.
 
