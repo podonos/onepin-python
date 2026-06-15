@@ -51,10 +51,15 @@ jobs:
           SHA="${PAYLOAD_SHA:-$INPUT_SHA}"
           # dev is a smoke-check only; prod (and manual) open a PR.
           if [ "$ENV" = "dev" ]; then OPEN_PR=false; else OPEN_PR=true; fi
+          # spec_version comes from the dispatch payload (write-access-controllable). Validate
+          # to a clean semver — grep -z anchors the WHOLE string, so a multi-line value can't
+          # smuggle extra $GITHUB_OUTPUT lines or inject the commit subject — else fall to n/a.
+          VER="${PAYLOAD_SPEC_VERSION:-n/a}"
+          printf '%s' "$VER" | grep -qzE '^([0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?|n/a)$' || VER="n/a"
           {
             echo "env=$ENV"
             echo "sha=$SHA"
-            echo "spec_version=${PAYLOAD_SPEC_VERSION:-n/a}"
+            echo "spec_version=$VER"
             echo "open_pr=$OPEN_PR"
           } >> "$GITHUB_OUTPUT"
 
