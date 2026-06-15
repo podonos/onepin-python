@@ -15,7 +15,7 @@ class PlanLimits(UniversalBaseModel):
     """
 
     monthly_credits: int
-    seats: int
+    seats: typing.Optional[int] = None
     workspaces_per_owner: int
     projects_per_workspace: typing.Optional[int] = None
     concurrent_runs_per_user: int

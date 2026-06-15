@@ -50,6 +50,7 @@ class VoicesClient:
         sort: typing.Optional[typing.Sequence[ListVoicesRequestSortItem]] = None,
         order: typing.Optional[typing.Sequence[ListVoicesRequestOrderItem]] = None,
         provider: typing.Optional[typing.Sequence[ListVoicesRequestProviderItem]] = None,
+        model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -109,6 +110,9 @@ class VoicesClient:
         provider : typing.Optional[typing.Sequence[ListVoicesRequestProviderItem]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
+        model : typing.Optional[typing.Sequence[str]]
+            Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
+
         language : typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]]
             Repeat for OR, e.g. ?language=en-us&language=ko-kr
 
@@ -144,6 +148,7 @@ class VoicesClient:
             sort=sort,
             order=order,
             provider=provider,
+            model=model,
             language=language,
             workspace_id=workspace_id,
             request_options=request_options,
@@ -346,6 +351,7 @@ class AsyncVoicesClient:
         sort: typing.Optional[typing.Sequence[ListVoicesRequestSortItem]] = None,
         order: typing.Optional[typing.Sequence[ListVoicesRequestOrderItem]] = None,
         provider: typing.Optional[typing.Sequence[ListVoicesRequestProviderItem]] = None,
+        model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -405,6 +411,9 @@ class AsyncVoicesClient:
         provider : typing.Optional[typing.Sequence[ListVoicesRequestProviderItem]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
+        model : typing.Optional[typing.Sequence[str]]
+            Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
+
         language : typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]]
             Repeat for OR, e.g. ?language=en-us&language=ko-kr
 
@@ -448,6 +457,7 @@ class AsyncVoicesClient:
             sort=sort,
             order=order,
             provider=provider,
+            model=model,
             language=language,
             workspace_id=workspace_id,
             request_options=request_options,

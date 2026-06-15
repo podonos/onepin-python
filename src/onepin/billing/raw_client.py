@@ -29,7 +29,12 @@ class RawBillingClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ApiListResponseCustomerPlanResponse]:
         """
-        List available subscription plans.
+        List subscription plans and features (public, no authentication).
+
+        Public so the marketing site (Framer) can render live pricing without a
+        Clerk session. Returns the same active, non-custom plan catalog as before
+        (name, price, interval, limits, localized ``plan_details``). Honors
+        ``X-Language`` / ``Accept-Language`` for ``plan_details`` (defaults ``en``).
 
         Parameters
         ----------
@@ -56,17 +61,6 @@ class RawBillingClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -201,7 +195,12 @@ class AsyncRawBillingClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ApiListResponseCustomerPlanResponse]:
         """
-        List available subscription plans.
+        List subscription plans and features (public, no authentication).
+
+        Public so the marketing site (Framer) can render live pricing without a
+        Clerk session. Returns the same active, non-custom plan catalog as before
+        (name, price, interval, limits, localized ``plan_details``). Honors
+        ``X-Language`` / ``Accept-Language`` for ``plan_details`` (defaults ``en``).
 
         Parameters
         ----------
@@ -228,17 +227,6 @@ class AsyncRawBillingClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)

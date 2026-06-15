@@ -17,6 +17,7 @@ class VoiceOut(UniversalBaseModel):
     name: str
     provider: str
     provider_voice_id: str
+    model: typing.Optional[str] = None
     description: typing.Optional[str] = None
     is_active: bool
     gender: typing.Optional[VoiceGender] = None

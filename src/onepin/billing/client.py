@@ -32,7 +32,12 @@ class BillingClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiListResponseCustomerPlanResponse:
         """
-        List available subscription plans.
+        List subscription plans and features (public, no authentication).
+
+        Public so the marketing site (Framer) can render live pricing without a
+        Clerk session. Returns the same active, non-custom plan catalog as before
+        (name, price, interval, limits, localized ``plan_details``). Honors
+        ``X-Language`` / ``Accept-Language`` for ``plan_details`` (defaults ``en``).
 
         Parameters
         ----------
@@ -145,7 +150,12 @@ class AsyncBillingClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiListResponseCustomerPlanResponse:
         """
-        List available subscription plans.
+        List subscription plans and features (public, no authentication).
+
+        Public so the marketing site (Framer) can render live pricing without a
+        Clerk session. Returns the same active, non-custom plan catalog as before
+        (name, price, interval, limits, localized ``plan_details``). Honors
+        ``X-Language`` / ``Accept-Language`` for ``plan_details`` (defaults ``en``).
 
         Parameters
         ----------
