@@ -173,7 +173,7 @@ jobs:
 
       - name: Open regen PR
         if: steps.vars.outputs.open_pr == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.app-token.outputs.token }}
           branch: fern-regen/${{ steps.spec.outputs.resolved_sha }}
