@@ -317,7 +317,7 @@ jobs:
       # (pypa/gh-action-pypi-publish only writes PEP 740 attestations to PyPI, not here.)
       - name: Attest build provenance
         if: ${{ !github.event.repository.private }}
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'dist/*'
       - uses: pypa/gh-action-pypi-publish@release/v1
