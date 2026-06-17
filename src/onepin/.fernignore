@@ -2,4 +2,5 @@
 # Fern auto-discovers this file in the generator's local-file-system output dir
 # (src/onepin/) and never overwrites the paths listed here.
 _cli/
+_version_gate.py
 py.typed

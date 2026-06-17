@@ -1016,6 +1016,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "httpx" },
+    { name = "packaging" },
     { name = "pydantic" },
     { name = "rich" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
@@ -1041,6 +1042,7 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.1" },
     { name = "httpx", specifier = ">=0.27,<1.0" },
+    { name = "packaging", specifier = ">=23" },
     { name = "pydantic", specifier = ">=2.7,<3.0" },
     { name = "rich", specifier = ">=13" },
     { name = "tomli", marker = "python_full_version < '3.11'" },

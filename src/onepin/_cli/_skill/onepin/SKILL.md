@@ -38,6 +38,16 @@ integration surface — this skill teaches its contract, not a frozen command li
      workspace and the wrong one is active.
 3. If `onepin schema` errors or the command is missing, the CLI is old — suggest
    `pip install -U onepin`, or fall back to `onepin <group> --help`.
+4. **Offer upgrades (advisory, never block the task).** Run `onepin upgrade-check` (it prints
+   nothing when up to date, snoozed, offline, or disabled via `ONEPIN_NO_UPDATE_CHECK`).
+   - On `UPGRADE_AVAILABLE <current> <latest>`: ask with AskUserQuestion — **Upgrade now**
+     (run `onepin upgrade-check --mark-upgrading && pip install --upgrade onepin` — the marker lets
+     the next run confirm the new version), **Not now** (run `onepin upgrade-check --snooze` — an
+     escalating quiet period: 24h, then 48h, then 7d), or **Don't ask again** (run
+     `onepin upgrade-check --disable`). Continue with the task either way.
+   - On `JUST_UPGRADED <old> <new>`: tell the user they're now on v`<new>` and continue.
+   Separately, if *any* command fails with `UPGRADE_REQUIRED` (or an HTTP 426), the SDK is too old to
+   talk to the API — surface the message and its `pip install --upgrade` command, and stop.
 
 ## Discover, don't guess
 

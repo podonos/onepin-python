@@ -59,7 +59,9 @@ def build_client(creds: ResolvedCredentials) -> OnePinClient:
             (guards against sending the token to a ``file://``/``ftp://`` host).
     """
     # Deferred import: importing _ctx must stay cheap (no SDK on `onepin --help`).
-    from onepin.client import OnePinClient
+    # make_client wraps OnePinClient with the version-gate response hook + a corrected
+    # User-Agent (the generated default is baked at codegen time and can be stale).
+    from onepin._version_gate import make_client
 
     if not creds.api_key:
         raise OnePinAuthError(
@@ -71,7 +73,7 @@ def build_client(creds: ResolvedCredentials) -> OnePinClient:
             f"Invalid base URL {creds.base_url!r}: only http and https are supported.",
             error_code="INVALID_BASE_URL",
         )
-    return OnePinClient(base_url=creds.base_url, token=creds.api_key)
+    return make_client(base_url=creds.base_url, token=creds.api_key)
 
 
 def _is_commandline_source(value: object) -> bool:
@@ -164,6 +166,7 @@ def api_errors(json_out: bool) -> Iterator[None]:
         json_out: Whether to emit the structured-JSON error envelope.
     """
     # Deferred: these SDK error classes live under the generated tree.
+    from onepin._version_gate import OnePinUpgradeRequiredError
     from onepin.core.api_error import ApiError
     from onepin.core.parse_error import ParsingError
     from onepin.errors import ConflictError, NotFoundError, UnprocessableEntityError
@@ -192,7 +195,16 @@ def api_errors(json_out: bool) -> Iterator[None]:
             json_out,
         )
         raise SystemExit(1) from exc
+    except OnePinUpgradeRequiredError as exc:
+        # Client-side gate (response hook) saw an install below the required floor.
+        _emit_upgrade_required(str(exc), json_out)
+        raise SystemExit(1) from exc
     except (NotFoundError, ConflictError, UnprocessableEntityError, ApiError) as exc:
+        # 426 Upgrade Required: the server hard-floors the SDK version. Surface it as the
+        # same yellow upgrade message instead of a generic API error.
+        if getattr(exc, "status_code", None) == 426:
+            _emit_upgrade_required(_format_upgrade_required(exc), json_out)
+            raise SystemExit(1) from exc
         code, message, request_id = _classify_api_error(exc)
         _emit_error(code, message, request_id, json_out)
         raise SystemExit(1) from exc
@@ -295,3 +307,27 @@ def _emit_error(code: str, message: str, request_id: str | None, json_out: bool)
     else:
         rid = f" (request_id={request_id})" if request_id else ""
         print(f"[{code}] {message}{rid}", file=sys.stderr)
+
+
+def _emit_upgrade_required(message: str, json_out: bool) -> None:
+    """Emit a version-floor failure: machine envelope under --json, else a yellow stderr note."""
+    if json_out:
+        _emit_error("UPGRADE_REQUIRED", message, None, json_out)
+        return
+    from onepin._cli.render import echo_warning
+
+    echo_warning(message)
+
+
+def _format_upgrade_required(exc: Exception) -> str:
+    """Build an upgrade message from a 426 ApiError body (best-effort), else a generic one."""
+    from onepin._version_gate import format_upgrade_message
+
+    required = None
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        detail = body.get("error") if isinstance(body.get("error"), dict) else body
+        if isinstance(detail, dict):
+            raw = detail.get("required_version") or detail.get("minimum_version")
+            required = raw.strip() if isinstance(raw, str) and raw.strip() else None
+    return format_upgrade_message(required)

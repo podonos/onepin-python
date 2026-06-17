@@ -18,6 +18,7 @@ dependencies = [
     "typer>=0.12,<1.0",
     "rich>=13",
     "pydantic>=2.7,<3.0",
+    "packaging>=23",
     "tomli; python_version<\"3.11\"",
 ]
 

@@ -164,6 +164,27 @@ def _call_whoami(key: str, base_url: str, timeout: float = 10.0, *, verbose: boo
         error_code = parsed.get("code", error_code)
         error_message = parsed.get("message", error_message)
 
+        if response.status_code == 426:
+            # Server-enforced SDK floor. The raw auth path bypasses the SDK's api_errors()
+            # mapper, so surface the same UPGRADE_REQUIRED message + copy-paste command here.
+            from onepin._version_gate import format_upgrade_message, required_version_from
+
+            required = required_version_from(dict(response.headers))
+            if not required:
+                try:
+                    err = response.json().get("error")
+                    raw = err.get("required_version") or err.get("minimum_version") if isinstance(err, dict) else None
+                    required = raw.strip() if isinstance(raw, str) and raw.strip() else None
+                except Exception:  # noqa: BLE001  # pragma: no cover - defensive 426 body-parse guard
+                    required = None
+            raise OnePinHTTPError(
+                format_upgrade_message(required),
+                status_code=426,
+                error_code="UPGRADE_REQUIRED",
+                request_id=request_id,
+                response_body=body_text,
+            )
+
         if response.status_code in (401, 403):
             raise OnePinAuthError(
                 error_message,

@@ -867,21 +867,6 @@ TABLE: list[Cmd] = [
         options=[_JSON],
         unwrap="data",
     ),
-    # --- health -------------------------------------------------------------------------
-    Cmd(
-        "health",
-        "live",
-        "health.liveness",
-        "Liveness probe.",
-        options=[_JSON],
-        unwrap="data",
-    ),
-    Cmd(
-        "health",
-        "ready",
-        "health.readiness",
-        "Readiness probe.",
-        options=[_JSON],
-        unwrap="data",
-    ),
+    # health (live/ready) is hand-written in commands/health.py -- it blends local SDK version,
+    # the API's reported version, and version-gate headers, which the table model can't express.
 ]

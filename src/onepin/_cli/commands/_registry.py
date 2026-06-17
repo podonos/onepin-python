@@ -15,7 +15,8 @@ import typer
 
 from onepin._cli import _dispatch, _manifest
 from onepin._cli._spec import TABLE, Cmd
-from onepin._cli.commands import auth, composites, skill
+from onepin._cli._update_check import upgrade_check
+from onepin._cli.commands import auth, composites, health, skill
 
 # Per-group help text. Groups not listed fall back to a generic header.
 _GROUP_HELP = {
@@ -59,6 +60,15 @@ def register(app: typer.Typer) -> None:
     skill_app.command(name="path", help="Show where the skill is or would be installed.")(skill.path)
     skill_app.command(name="uninstall", help="Remove the installed OnePin agent skill.")(skill.uninstall)
     app.add_typer(skill_app, name="skill", help="Manage the OnePin agent skill for AI coding tools.")
+
+    # health (live/ready): hand-written so it can surface SDK/API/recommended/required versions.
+    health_app = typer.Typer(help=_GROUP_HELP["health"], no_args_is_help=True)
+    health_app.command(name="live", help="Liveness probe.")(health.live)
+    health_app.command(name="ready", help="Readiness probe.")(health.ready)
+    app.add_typer(health_app, name="health", help=_GROUP_HELP["health"])
+
+    # Hidden: the /onepin agent skill runs this to drive the upgrade prompt (not user-facing).
+    app.command(name="upgrade-check", hidden=True)(upgrade_check)
 
 
 def _build_groups() -> dict[str, typer.Typer]:
