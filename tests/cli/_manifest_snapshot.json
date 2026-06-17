@@ -1,0 +1,2215 @@
+{
+  "commands": [
+    {
+      "args": [],
+      "destructive": false,
+      "group": "health",
+      "name": "live",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "health",
+        "live"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "health",
+      "name": "ready",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "health",
+        "ready"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "login",
+      "name": "login",
+      "options": [
+        {
+          "default": null,
+          "flag": "--key",
+          "help": "API key. Prompts if omitted.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--base-url",
+          "help": "",
+          "required": false,
+          "type": "text"
+        }
+      ],
+      "path": [
+        "login"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "logout",
+      "name": "logout",
+      "options": [],
+      "path": [
+        "logout"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "nodes",
+      "name": "list",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "nodes",
+        "list"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "node_type"
+        }
+      ],
+      "destructive": false,
+      "group": "nodes",
+      "name": "show",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "nodes",
+        "show"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "provider"
+        }
+      ],
+      "destructive": true,
+      "group": "provider-keys",
+      "name": "delete",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--yes",
+          "help": "Skip the confirmation prompt.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "provider-keys",
+        "delete"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "provider-keys",
+      "name": "list",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "provider-keys",
+        "list"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "provider"
+        }
+      ],
+      "destructive": false,
+      "group": "provider-keys",
+      "name": "put",
+      "options": [
+        {
+          "default": null,
+          "flag": "--key",
+          "help": "Credential payload: a raw key string (wrapped as {\"api_key\": ...}) or inline JSON.",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "provider-keys",
+        "put"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "schema",
+      "name": "schema",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON (default for this command).",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "schema"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "skill",
+      "name": "install",
+      "options": [
+        {
+          "default": null,
+          "flag": "--tool",
+          "help": "Target tool(s): claude, cursor, codex, copilot, gemini. Repeatable. Default: auto-detect.",
+          "required": false,
+          "type": "choice[claude,cursor,codex,copilot,gemini]"
+        },
+        {
+          "default": false,
+          "flag": "--all",
+          "help": "Install for every supported tool.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--project",
+          "help": "Install into the current project (./.claude, ./.agents, \u2026) instead of HOME.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--force",
+          "help": "Overwrite existing skill files.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "skill",
+        "install"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "skill",
+      "name": "path",
+      "options": [
+        {
+          "default": null,
+          "flag": "--tool",
+          "help": "Target tool(s). Default: auto-detect.",
+          "required": false,
+          "type": "choice[claude,cursor,codex,copilot,gemini]"
+        },
+        {
+          "default": false,
+          "flag": "--all",
+          "help": "Show paths for every supported tool.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--project",
+          "help": "Show project paths instead of HOME.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "skill",
+        "path"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": true,
+      "group": "skill",
+      "name": "uninstall",
+      "options": [
+        {
+          "default": null,
+          "flag": "--tool",
+          "help": "Target tool(s). Default: auto-detect.",
+          "required": false,
+          "type": "choice[claude,cursor,codex,copilot,gemini]"
+        },
+        {
+          "default": false,
+          "flag": "--all",
+          "help": "Uninstall from every supported tool.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--project",
+          "help": "Uninstall from the current project instead of HOME.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--yes",
+          "help": "Skip the confirmation prompt.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "skill",
+        "uninstall"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "template_id"
+        }
+      ],
+      "destructive": false,
+      "group": "templates",
+      "name": "clone",
+      "options": [
+        {
+          "default": null,
+          "flag": "--name",
+          "help": "Name for the new workflow.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "templates",
+        "clone"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "templates",
+      "name": "create",
+      "options": [
+        {
+          "default": null,
+          "flag": "--name",
+          "help": "Template name.",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--description",
+          "help": "Template description.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--category",
+          "help": "Template category.",
+          "required": false,
+          "type": "choice[media,creative,business,education,wellness]"
+        },
+        {
+          "default": null,
+          "flag": "--definition",
+          "help": "Definition: inline JSON or @path/to/file.json.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "templates",
+        "create"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "template_id"
+        }
+      ],
+      "destructive": true,
+      "group": "templates",
+      "name": "delete",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--yes",
+          "help": "Skip the confirmation prompt.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "templates",
+        "delete"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "template_id"
+        }
+      ],
+      "destructive": false,
+      "group": "templates",
+      "name": "favorite",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "templates",
+        "favorite"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "templates",
+      "name": "list",
+      "options": [
+        {
+          "default": 50,
+          "flag": "--limit",
+          "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--category",
+          "help": "Filter by category.",
+          "required": false,
+          "type": "choice[media,creative,business,education,wellness]"
+        },
+        {
+          "default": null,
+          "flag": "--search",
+          "help": "Substring search.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--sort",
+          "help": "Sort order.",
+          "required": false,
+          "type": "choice[popular,recent,name]"
+        },
+        {
+          "default": false,
+          "flag": "--favorites-only",
+          "help": "Only favorited templates.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "templates",
+        "list"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "template_id"
+        }
+      ],
+      "destructive": false,
+      "group": "templates",
+      "name": "show",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "templates",
+        "show"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "template_id"
+        }
+      ],
+      "destructive": false,
+      "group": "templates",
+      "name": "unfavorite",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "templates",
+        "unfavorite"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "template_id"
+        }
+      ],
+      "destructive": false,
+      "group": "templates",
+      "name": "update",
+      "options": [
+        {
+          "default": null,
+          "flag": "--name",
+          "help": "New name.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--description",
+          "help": "New description.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--category",
+          "help": "New category.",
+          "required": false,
+          "type": "choice[media,creative,business,education,wellness]"
+        },
+        {
+          "default": null,
+          "flag": "--definition",
+          "help": "New definition: inline JSON or @path/to/file.json.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "templates",
+        "update"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "upload_id"
+        }
+      ],
+      "destructive": false,
+      "group": "uploads",
+      "name": "confirm",
+      "options": [
+        {
+          "default": null,
+          "flag": "--workflow-id",
+          "help": "Workflow UUID to attach the upload to.",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "uploads",
+        "confirm"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "uploads",
+      "name": "create",
+      "options": [
+        {
+          "default": null,
+          "flag": "--file",
+          "help": "Path to the file to upload.",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--category",
+          "help": "Upload category: script or dictionary.",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "uploads",
+        "create"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "upload_id"
+        }
+      ],
+      "destructive": true,
+      "group": "uploads",
+      "name": "delete",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--yes",
+          "help": "Skip the confirmation prompt.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "uploads",
+        "delete"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "usage",
+      "name": "activity",
+      "options": [
+        {
+          "default": null,
+          "flag": "--range",
+          "help": "Time range.",
+          "required": false,
+          "type": "choice[30d,60d,90d]"
+        },
+        {
+          "default": null,
+          "flag": "--type",
+          "help": "Activity type filter.",
+          "required": false,
+          "type": "choice[workflow_run,voice_generated,template_applied,member_invited,api_key_created,settings_changed]"
+        },
+        {
+          "default": null,
+          "flag": "--user-id",
+          "help": "Filter by user UUID.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--limit",
+          "help": "Max rows.",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--cursor",
+          "help": "Pagination cursor.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--timezone",
+          "help": "IANA timezone.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "usage",
+        "activity"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "usage",
+      "name": "by-language",
+      "options": [
+        {
+          "default": null,
+          "flag": "--range",
+          "help": "Time range.",
+          "required": false,
+          "type": "choice[30d,60d,90d]"
+        },
+        {
+          "default": null,
+          "flag": "--activity-view",
+          "help": "Aggregation granularity.",
+          "required": false,
+          "type": "choice[daily,weekly,monthly]"
+        },
+        {
+          "default": null,
+          "flag": "--timezone",
+          "help": "IANA timezone.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "usage",
+        "by-language"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "usage",
+      "name": "summary",
+      "options": [
+        {
+          "default": null,
+          "flag": "--range",
+          "help": "Time range.",
+          "required": false,
+          "type": "choice[30d,60d,90d]"
+        },
+        {
+          "default": null,
+          "flag": "--activity-view",
+          "help": "Aggregation granularity.",
+          "required": false,
+          "type": "choice[daily,weekly,monthly]"
+        },
+        {
+          "default": null,
+          "flag": "--timezone",
+          "help": "IANA timezone.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "usage",
+        "summary"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "voice_id"
+        }
+      ],
+      "destructive": false,
+      "group": "voices",
+      "name": "favorite",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "voices",
+        "favorite"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "voices",
+      "name": "list",
+      "options": [
+        {
+          "default": 50,
+          "flag": "--limit",
+          "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": false,
+          "flag": "--favorites-only",
+          "help": "Only favorited voices.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": null,
+          "flag": "--gender",
+          "help": "Filter by gender.",
+          "required": false,
+          "type": "choice[male,female,neutral]"
+        },
+        {
+          "default": null,
+          "flag": "--provider",
+          "help": "Filter by provider.",
+          "required": false,
+          "type": "choice[cartesia,elevenlabs,naver,respeecher,rime]"
+        },
+        {
+          "default": null,
+          "flag": "--language",
+          "help": "Filter by language code(s), comma-separated (e.g. en-us,ko-kr).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--search",
+          "help": "Substring search.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "voices",
+        "list"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "voice_id"
+        }
+      ],
+      "destructive": false,
+      "group": "voices",
+      "name": "show",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "voices",
+        "show"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "voice_id"
+        }
+      ],
+      "destructive": false,
+      "group": "voices",
+      "name": "similar",
+      "options": [
+        {
+          "default": null,
+          "flag": "--limit",
+          "help": "Max results.",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--language",
+          "help": "Language code(s), comma-separated.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "voices",
+        "similar"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "voice_id"
+        }
+      ],
+      "destructive": false,
+      "group": "voices",
+      "name": "unfavorite",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "voices",
+        "unfavorite"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "whoami",
+      "name": "whoami",
+      "options": [],
+      "path": [
+        "whoami"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "workflows",
+      "name": "create",
+      "options": [
+        {
+          "default": null,
+          "flag": "--name",
+          "help": "Workflow name.",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--description",
+          "help": "Workflow description.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--definition",
+          "help": "Workflow definition: inline JSON or @path/to/file.json. Recipe: `nodes list` -> `nodes show <type>` -> `workflows definition-schema`, or copy `.definition` from `templates show`/`workflows show`.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "create"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "workflows",
+      "name": "definition-schema",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON (default for this command).",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "definition-schema"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        }
+      ],
+      "destructive": true,
+      "group": "workflows",
+      "name": "delete",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--yes",
+          "help": "Skip the confirmation prompt.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "delete"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "duplicate",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "duplicate"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "workflows",
+      "name": "list",
+      "options": [
+        {
+          "default": 50,
+          "flag": "--limit",
+          "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--status",
+          "help": "Filter by workflow status.",
+          "required": false,
+          "type": "choice[draft,running,completed,failed,paused,cancelled,pending]"
+        },
+        {
+          "default": null,
+          "flag": "--search",
+          "help": "Substring search over names.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--sort",
+          "help": "Sort field.",
+          "required": false,
+          "type": "choice[name,updated_at,runs_count]"
+        },
+        {
+          "default": null,
+          "flag": "--order",
+          "help": "Sort direction.",
+          "required": false,
+          "type": "choice[asc,desc]"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "list"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "preview-run",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "preview-run"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "run",
+      "options": [
+        {
+          "default": false,
+          "flag": "--watch",
+          "help": "Poll run status until a terminal state.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": 300.0,
+          "flag": "--timeout",
+          "help": "Max seconds to watch before giving up.",
+          "required": false,
+          "type": "float"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "run"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        }
+      ],
+      "destructive": true,
+      "group": "workflows",
+      "name": "cancel",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--yes",
+          "help": "Skip the confirmation prompt.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "cancel"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "data",
+      "options": [
+        {
+          "default": null,
+          "flag": "--search",
+          "help": "Substring search over output rows.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--language",
+          "help": "Filter by language.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--limit",
+          "help": "Max rows.",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--offset",
+          "help": "Row offset.",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "data"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "download",
+      "options": [
+        {
+          "default": null,
+          "flag": "--out",
+          "help": "Destination file path (required).",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--force",
+          "help": "Overwrite an existing file.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "download"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        },
+        {
+          "name": "node_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "download-node",
+      "options": [
+        {
+          "default": null,
+          "flag": "--out",
+          "help": "Destination file path (required).",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--force",
+          "help": "Overwrite an existing file.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "download-node"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "list",
+      "options": [
+        {
+          "default": 50,
+          "flag": "--limit",
+          "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--status",
+          "help": "Filter by run status.",
+          "required": false,
+          "type": "choice[draft,running,completed,failed,paused,cancelled,pending]"
+        },
+        {
+          "default": null,
+          "flag": "--search",
+          "help": "Substring search.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--sort",
+          "help": "Sort field.",
+          "required": false,
+          "type": "choice[created_at,started_at,completed_at,status]"
+        },
+        {
+          "default": null,
+          "flag": "--order",
+          "help": "Sort direction.",
+          "required": false,
+          "type": "choice[asc,desc]"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "list"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "overview",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "overview"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "show",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "show"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "status",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "status"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "steps",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "steps"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "summary",
+      "options": [
+        {
+          "default": null,
+          "flag": "--from",
+          "help": "Start of window (ISO 8601).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--to",
+          "help": "End of window (ISO 8601).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "summary"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "show",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "show"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "update",
+      "options": [
+        {
+          "default": null,
+          "flag": "--name",
+          "help": "New name.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--description",
+          "help": "New description.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--definition",
+          "help": "New definition: inline JSON or @path/to/file.json.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "update"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "uploads",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "uploads"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "workspace",
+      "name": "create",
+      "options": [
+        {
+          "default": null,
+          "flag": "--name",
+          "help": "Workspace name.",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--slug",
+          "help": "URL slug.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--color-idx",
+          "help": "Color index.",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "create"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workspace_id"
+        }
+      ],
+      "destructive": true,
+      "group": "workspace",
+      "name": "delete",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--yes",
+          "help": "Skip the confirmation prompt.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "delete"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "workspace",
+      "name": "list",
+      "options": [
+        {
+          "default": 50,
+          "flag": "--limit",
+          "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "list"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "token"
+        }
+      ],
+      "destructive": false,
+      "group": "workspace",
+      "name": "accept",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "members",
+        "accept"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "ws_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workspace",
+      "name": "invite",
+      "options": [
+        {
+          "default": null,
+          "flag": "--email",
+          "help": "Invitee email.",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--role",
+          "help": "Role to grant.",
+          "required": true,
+          "type": "choice[admin,editor,viewer]"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "members",
+        "invite"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "ws_id"
+        },
+        {
+          "name": "invite_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workspace",
+      "name": "invite-role",
+      "options": [
+        {
+          "default": null,
+          "flag": "--role",
+          "help": "New role.",
+          "required": true,
+          "type": "choice[admin,editor,viewer]"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "members",
+        "invite-role"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "ws_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workspace",
+      "name": "list",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "members",
+        "list"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "ws_id"
+        },
+        {
+          "name": "member_id"
+        }
+      ],
+      "destructive": true,
+      "group": "workspace",
+      "name": "remove",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--yes",
+          "help": "Skip the confirmation prompt.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "members",
+        "remove"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "ws_id"
+        },
+        {
+          "name": "invite_id"
+        }
+      ],
+      "destructive": true,
+      "group": "workspace",
+      "name": "revoke-invite",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--yes",
+          "help": "Skip the confirmation prompt.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "members",
+        "revoke-invite"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "ws_id"
+        },
+        {
+          "name": "member_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workspace",
+      "name": "set-role",
+      "options": [
+        {
+          "default": null,
+          "flag": "--role",
+          "help": "New role.",
+          "required": true,
+          "type": "choice[admin,editor,viewer]"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "members",
+        "set-role"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "ws_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workspace",
+      "name": "settings",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "settings"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workspace_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workspace",
+      "name": "show",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "show"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "workspace",
+      "name": "runs",
+      "options": [
+        {
+          "default": null,
+          "flag": "--from",
+          "help": "Start (ISO 8601).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--to",
+          "help": "End (ISO 8601).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "stats",
+        "runs"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "workspace",
+      "name": "workflows",
+      "options": [
+        {
+          "default": null,
+          "flag": "--from",
+          "help": "Start (ISO 8601).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--to",
+          "help": "End (ISO 8601).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "stats",
+        "workflows"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workspace_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workspace",
+      "name": "update",
+      "options": [
+        {
+          "default": null,
+          "flag": "--name",
+          "help": "New name.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--slug",
+          "help": "New slug.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--color-idx",
+          "help": "New color index.",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workspace",
+        "update"
+      ]
+    }
+  ],
+  "name": "onepin",
+  "version": "<version>"
+}

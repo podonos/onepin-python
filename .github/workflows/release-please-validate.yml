@@ -1,0 +1,20 @@
+name: release-please validate
+on:
+  pull_request:
+    paths:
+      - 'release-please-config.json'
+      - '.release-please-manifest.json'
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: googleapis/release-please-action@v5
+        # Pure read-only validation: skip BOTH the release and the PR so the
+        # action never attempts a write (tree/branch creation) with the
+        # read-only token. Skipping only the release still builds the PR tree
+        # and fails with "Error adding to tree" under a read-only token.
+        with: { skip-github-release: true, skip-github-pull-request: true }

@@ -1,0 +1,354 @@
+name: Promote (PyPI)
+
+# PyPI lane — the PUBLIC, customer-facing index. This is the PUBLISH GATE: the only path
+# that serves customers, fired ONLY by the backend PRODUCTION deploy dispatch.
+#
+#   repository_dispatch[api-spec-updated]  -> act ONLY if client_payload.environment == 'prod'
+#   workflow_dispatch { tag? }             -> manual promote of an existing release tag
+#
+# Per-sha pinning (prod dispatch): the dispatch carries the prod-deployed spec commit S.
+# Rather than "latest tag", resolve the NEWEST vX.Y.Z release whose recorded .spec-sha is an
+# ancestor-or-equal of S in the spec repo (so the SDK's API is already in prod — never ahead).
+# Each release tag carries .spec-sha (stamped by regen.yml). Manual workflow_dispatch is the
+# human override / escape hatch and skips the ancestry check.
+#
+# Build-once-promote is really rebuild-from-the-release-tag: hatch-vcs stamps the clean
+# vX.Y.Z from the tagged commit (byte-for-byte deterministic), then PyPI's preflight makes
+# a double-publish to the immutable index impossible. dev/main + TestPyPI may lead this lane;
+# only a real prod deploy ever reaches PyPI. See docs/PUBLISH.md for the two-lane model.
+#
+# ┌─ PyPI Trusted Publisher PREREQ (one-time, manual PyPI settings change) ───────────────┐
+# │ The OIDC Trusted Publisher for the `onepin` PyPI project MUST be updated to point at   │
+# │ workflow filename `promote-prod.yml` (it was previously `publish.yml`) with GitHub     │
+# │ Environment `pypi`. Until that PyPI-side change lands, the `pypi` job's OIDC mint will  │
+# │ fail. This is a prerequisite, not something this workflow can self-configure.          │
+# └────────────────────────────────────────────────────────────────────────────────────────┘
+on:
+  repository_dispatch:
+    types: [api-spec-updated]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to promote to PyPI (e.g. v0.5.0). Default: latest vX.Y.Z tag.'
+        required: false
+        default: ''
+permissions:
+  contents: read
+
+# Never promote two releases to the immutable index concurrently; don't cancel an
+# in-flight promote (an aborted upload could leave a half-published version).
+concurrency:
+  group: promote-prod
+  cancel-in-progress: false
+
+jobs:
+  # Gate + target resolution. Decides whether to proceed and which tag to promote.
+  # Proceeds only when the pipeline App is configured AND the trigger is authorized:
+  #   - repository_dispatch with client_payload.environment == 'prod'  (the prod deploy), OR
+  #   - workflow_dispatch                                              (manual promote).
+  # A dev/unlabelled dispatch, or a missing App, warn-skips (fail-closed: customers > a
+  # throwaway run). Downstream jobs are gated on outputs.proceed.
+  resolve:
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      proceed: ${{ steps.gate.outputs.proceed }}
+      tag: ${{ steps.target.outputs.tag }}
+    steps:
+      - name: Gate — App configured + authorized trigger
+        id: gate
+        env:
+          APP_ID: ${{ secrets.PIPELINE_APP_ID }}
+          APP_KEY: ${{ secrets.PIPELINE_APP_PRIVATE_KEY }}
+          EVENT_NAME: ${{ github.event_name }}
+          PAYLOAD_ENV: ${{ github.event.client_payload.environment }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_ID:-}" ] || [ -z "${APP_KEY:-}" ]; then
+            echo "::warning::PIPELINE_APP_ID/PIPELINE_APP_PRIVATE_KEY not both set — skipping PyPI promote. Create the onepin-pipeline-bot GitHub App."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "${REF}" != "refs/heads/main" ]; then
+              echo "::error::Manual promote must be run from refs/heads/main (got '${REF}') — refusing to promote from a non-main branch."
+              echo "proceed=false" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+            echo "Manual promote authorized."
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_NAME" = "repository_dispatch" ] && [ "${PAYLOAD_ENV:-}" = "prod" ]; then
+            echo "Prod dispatch authorized (environment=prod)."
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::repository_dispatch environment='${PAYLOAD_ENV:-<missing>}' is not 'prod' — skipping PyPI promote (TestPyPI lane handles dev)."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Mint GitHub App token
+        id: app-token
+        if: steps.gate.outputs.proceed == 'true'
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.PIPELINE_APP_ID }}
+          private-key: ${{ secrets.PIPELINE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          # Also scope the spec repo (same SPEC_REPO secret regen.yml uses): per-sha
+          # resolution reads .spec-sha@<tag> here and compares each tag's spec commit
+          # against the dispatched prod spec sha in the spec-repo's history.
+          repositories: ${{ github.event.repository.name }},${{ secrets.SPEC_REPO }}
+
+      - name: Resolve target release tag
+        id: target
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          SPEC_REPO: ${{ secrets.SPEC_REPO }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          # Per-sha pinning: on a prod deploy the dispatch carries the prod-deployed spec
+          # commit S. Promote exactly the SDK release whose API is in prod (≤ S), never one
+          # ahead. Manual workflow_dispatch is a human override and is exempt from ancestry.
+          PAYLOAD_SHA: ${{ github.event.client_payload.sha }}
+          PAYLOAD_SPEC_VERSION: ${{ github.event.client_payload.spec_version }}
+        run: |
+          set -euo pipefail
+
+          # --- Manual override path: workflow_dispatch keeps its prior behavior ----------
+          # An explicit, validated tag is a human override (skip ancestry resolution); an
+          # empty tag falls back to the latest vX.Y.Z release tag, as the input documents.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ -n "${INPUT_TAG:-}" ]; then
+              echo "$INPUT_TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                || { echo "::error::INPUT_TAG '${INPUT_TAG}' does not match ^v[0-9]+\\.[0-9]+\\.[0-9]+\$ — must be a plain vX.Y.Z tag"; exit 1; }
+              TAG="$INPUT_TAG"
+              echo "::notice::Manual override — using dispatch-supplied tag: ${TAG} (ancestry check skipped)."
+            else
+              # Latest semver release tag (vX.Y.Z, newest by version). Reject the empty case
+              # loudly — promoting with no tag would build from a branch HEAD (a .devN), which
+              # the clean-semver assert below would catch, but failing here is clearer.
+              TAG="$(gh api "repos/${REPO}/git/refs/tags" --paginate \
+                --jq '.[].ref | sub("^refs/tags/"; "") | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))' \
+                | sort -V | tail -n1)"
+              [ -n "$TAG" ] || { echo "::error::no vX.Y.Z release tag found to promote"; exit 1; }
+              echo "::notice::Manual promote — resolved latest release tag: ${TAG}."
+            fi
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # --- Prod dispatch path: per-sha pinning by spec-commit ancestry ---------------
+          # Require the prod-deployed spec commit S; without it we cannot pin and must abort.
+          if [ -z "${PAYLOAD_SHA:-}" ]; then
+            echo "::error::repository_dispatch carried no client_payload.sha — cannot resolve which SDK release matches the prod spec. Aborting (fail closed)."
+            exit 1
+          fi
+          if [ -z "${SPEC_REPO:-}" ]; then
+            echo "::error::Secret SPEC_REPO is not set (name of the backend spec repo) — required for per-sha ancestry resolution."
+            exit 1
+          fi
+          S="$PAYLOAD_SHA"
+          echo "::notice::dispatched prod spec sha S=${S} spec_version=${PAYLOAD_SPEC_VERSION:-n/a} — resolving newest SDK release with .spec-sha ≤ S in ${SPEC_REPO} history."
+
+          # vX.Y.Z release tags, newest-first (reuse the existing jq filter + sort -V).
+          TAGS="$(gh api "repos/${REPO}/git/refs/tags" --paginate \
+            --jq '.[].ref | sub("^refs/tags/"; "") | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))' \
+            | sort -Vr)"
+          [ -n "$TAGS" ] || { echo "::error::no vX.Y.Z release tag found to promote"; exit 1; }
+
+          TAG=""
+          while IFS= read -r CANDIDATE; do
+            [ -n "$CANDIDATE" ] || continue
+            # Read the spec commit this release was generated from.
+            # Capture exit status + stderr so we can distinguish a clean 404 (tag predates
+            # .spec-sha, or sha was garbage-collected → SKIP this tag only) from any other
+            # failure (network error, 403, 429, 5xx → ABORT the whole resolve; promoting a
+            # stale version to the immutable index is worse than a clean abort+retry).
+            TAG_SPEC_ERR="$(mktemp)"
+            TAG_SPEC=""; SPEC_EXIT=0
+            TAG_SPEC="$(gh api "repos/${REPO}/contents/.spec-sha?ref=${CANDIDATE}" \
+              -H 'Accept: application/vnd.github.raw' 2>"$TAG_SPEC_ERR" \
+              | tr -d '[:space:]')" || SPEC_EXIT=$?
+            if [ $SPEC_EXIT -ne 0 ]; then
+              if grep -qiE 'HTTP 404|Not Found|404' "$TAG_SPEC_ERR" 2>/dev/null; then
+                echo "::notice::${CANDIDATE}: no .spec-sha recorded (predates per-sha pinning or GC'd) — skipping."
+                rm -f "$TAG_SPEC_ERR"; continue
+              else
+                echo "::error::${CANDIDATE}: failed to read .spec-sha (exit ${SPEC_EXIT}): $(head -3 "$TAG_SPEC_ERR" 2>/dev/null) — aborting resolve (fail closed; retry when the API is reachable)."
+                rm -f "$TAG_SPEC_ERR"; exit 1
+              fi
+            fi
+            rm -f "$TAG_SPEC_ERR"
+            if [ -z "$TAG_SPEC" ]; then
+              echo "::notice::${CANDIDATE}: .spec-sha is empty (tag predates per-sha pinning) — skipping."
+              continue
+            fi
+            # Classify TAG_SPEC relative to S in the spec repo's commit graph.
+            #   ahead/identical → TAG_SPEC is an ancestor-or-equal of S → the SDK's API is in
+            #                     prod → SAFE to promote.
+            #   behind/diverged → the SDK is AHEAD of (or off) prod → UNSAFE.
+            # Any non-zero exit that isn't a clean 404 aborts the whole resolve — silently
+            # falling through to an older tag would risk promoting a stale version.
+            COMPARE_ERR="$(mktemp)"
+            COMPARE_STATUS=""; COMPARE_EXIT=0
+            COMPARE_STATUS="$(gh api "repos/${OWNER}/${SPEC_REPO}/compare/${TAG_SPEC}...${S}" \
+              --jq '.status' 2>"$COMPARE_ERR")" || COMPARE_EXIT=$?
+            if [ $COMPARE_EXIT -ne 0 ]; then
+              # 404 from compare: one of the SHAs is unknown or garbage-collected → skip tag.
+              # Any other failure (403, 429, 5xx, network) → abort the whole resolve.
+              if grep -qiE 'HTTP 404|Not Found|404' "$COMPARE_ERR" 2>/dev/null; then
+                echo "::notice::${CANDIDATE}: compare(${TAG_SPEC}...${S}) 404 — spec sha unknown or GC'd, skipping this tag."
+                rm -f "$COMPARE_ERR"; continue
+              else
+                echo "::error::${CANDIDATE}: compare(${TAG_SPEC}...${S}) failed (exit ${COMPARE_EXIT}): $(head -3 "$COMPARE_ERR" 2>/dev/null) — aborting resolve (fail closed; retry when the API is reachable)."
+                rm -f "$COMPARE_ERR"; exit 1
+              fi
+            fi
+            rm -f "$COMPARE_ERR"
+            case "$COMPARE_STATUS" in
+              ahead|identical)
+                echo "::notice::${CANDIDATE}: spec=${TAG_SPEC} compare(${TAG_SPEC}...${S})=${COMPARE_STATUS} → SAFE (API ≤ prod)."
+                TAG="$CANDIDATE"
+                break
+                ;;
+              behind|diverged)
+                echo "::notice::${CANDIDATE}: spec=${TAG_SPEC} compare(${TAG_SPEC}...${S})=${COMPARE_STATUS} → ahead of prod, unsafe — skipping."
+                ;;
+              "")
+                echo "::error::${CANDIDATE}: compare(${TAG_SPEC}...${S}) returned empty status (unexpected API response) — aborting resolve (fail closed)."
+                exit 1
+                ;;
+              *)
+                echo "::error::${CANDIDATE}: compare(${TAG_SPEC}...${S}) returned unrecognised status '${COMPARE_STATUS}' — aborting resolve (fail closed)."
+                exit 1
+                ;;
+            esac
+          done <<< "$TAGS"
+
+          if [ -z "$TAG" ]; then
+            echo "::error::no released SDK matches or precedes the prod spec ${S} (all candidate tags are ahead of prod, or none carry .spec-sha). Re-run via workflow_dispatch with an explicit tag once a matching release exists."
+            exit 1
+          fi
+          echo "::notice::Per-sha pin → promoting ${TAG} (newest SDK whose spec ≤ prod ${S})."
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Check out the resolved release TAG (qualified as refs/tags/ so a same-named
+          # branch can never be selected). Full history + tags so hatch-vcs stamps the
+          # clean vX.Y.Z from the tagged commit.
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.12' }
+      - run: pip install build twine trove-classifiers check-wheel-contents pytest
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - run: check-wheel-contents dist/*.whl
+      - run: |
+          python -c "
+          from trove_classifiers import classifiers
+          import tomllib, pathlib
+          data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
+          for c in data['project'].get('classifiers', []):
+              assert c in classifiers, f'Unknown classifier: {c}'
+          print('All classifiers valid.')
+          "
+      - run: python -m pytest tests/build/test_dist_contents.py
+      - id: ver
+        # The built version MUST be a clean release X.Y.Z — never a .devN or a +local.
+        # A .devN here means we're building off a branch/untagged commit, NOT the release
+        # tag → abort before touching the public, immutable index.
+        run: |
+          set -euo pipefail
+          version="$(python -c "import re,glob,os; f=glob.glob('dist/*.tar.gz')[0]; print(re.match(r'onepin-(.+)\.tar\.gz', os.path.basename(f)).group(1))")"
+          echo "built version: $version"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || { echo "::error::built version '$version' is not a clean release X.Y.Z (got a .devN/local — not building from a release tag?)"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Preflight — version not already on PyPI (immutable index)
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        # PyPI never lets you re-upload a version. If onepin==<version> already exists,
+        # a publish would hard-fail mid-run; abort cleanly here instead.
+        # Fail CLOSED: ONLY a definitive 404 (confirmed absent) proceeds.
+        # 200 (exists) AND anything else (000/403/429/5xx = cannot confirm absent) abort.
+        run: |
+          set -euo pipefail
+          code="$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/onepin/${VERSION}/json")"
+          echo "pypi.org returned HTTP $code for onepin==${VERSION}"
+          if [ "$code" = "404" ]; then
+            echo "Version ${VERSION} not yet on PyPI — proceeding."
+          elif [ "$code" = "200" ]; then
+            echo "::error::onepin==${VERSION} is already published on PyPI — refusing to re-promote (the index is immutable)."
+            exit 1
+          else
+            echo "::error::PyPI preflight returned unexpected HTTP ${code} for onepin==${VERSION} — cannot confirm version is absent; aborting to fail closed (retry when PyPI is reachable)."
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v7
+        with: { name: dist, path: dist/* }
+
+  # PyPI publish — body reused verbatim from the original publish.yml `pypi` job
+  # (OIDC trusted publishing, environment: pypi, build-provenance attestation).
+  pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions: { id-token: write, contents: read, attestations: write }
+    steps:
+      - uses: actions/download-artifact@v8
+        with: { name: dist, path: dist }
+      # GitHub-stored build-provenance attestation for the exact published artifacts: a
+      # signed statement that these bytes were built by this workflow at this commit,
+      # which `gh attestation verify` (below) checks. The attestation API requires a
+      # public repo or a paid org plan, so BOTH steps are gated on repo visibility —
+      # they skip cleanly while this repo is private and light up automatically once it
+      # goes public. Attest runs before upload so the published bytes are what's covered.
+      # (pypa/gh-action-pypi-publish only writes PEP 740 attestations to PyPI, not here.)
+      - name: Attest build provenance
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'
+      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Verify provenance attestation
+        # Repo-scoped query: org-level endpoint returns 404 even when the
+        # attestation exists on the repo. `--repo` resolves correctly.
+        # Gated with the attest step above: nothing to verify while private.
+        if: ${{ !github.event.repository.private }}
+        run: gh attestation verify dist/*.whl --repo podonos/onepin-python
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  notify-failure:
+    if: failure()
+    needs: [resolve, build, pypi]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v3
+        with:
+          # v2+ requires the URL via the `webhook` input + an explicit `webhook-type`.
+          # SLACK_WEBHOOK_URL is a classic Incoming Webhook -> incoming-webhook.
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {"text":"PyPI promote failed for ${{ needs.resolve.outputs.tag }} in ${{ github.repository }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Skip Slack notification
+        if: env.SLACK_WEBHOOK_URL == ''
+        run: echo "SLACK_WEBHOOK_URL is not configured; skipping Slack notification."
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

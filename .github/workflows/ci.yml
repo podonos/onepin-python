@@ -1,0 +1,76 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # diff-cover needs origin/main; hatch-vcs needs full history + tags for the version
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-python@v6
+        with: { python-version: '${{ matrix.python }}' }
+      - run: pip install uv
+      - run: uv sync --all-extras
+      # Lint scope: hand-rolled code only. `src/onepin/` (except `_cli/`) is
+      # Fern-generated and not subject to project style rules.
+      - run: uv run ruff check src/onepin/_cli tests
+      - run: uv run ruff format --check src/onepin/_cli tests
+      - run: uv run mypy -p onepin._cli
+      - run: uv run pytest -q --cov=onepin._cli --cov-report=xml --cov-fail-under=80
+      - name: Diff coverage
+        if: github.event_name == 'pull_request'
+        run: uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=90
+    timeout-minutes: 20
+  fresh-venv-smoke:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # hatch-vcs derives the version from git history + tags; a shallow/tagless
+          # checkout would build a bogus low version (e.g. 0.1.dev1).
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.12' }
+      - run: pip install build
+      - run: python -m build
+      - run: python -m venv /tmp/v && /tmp/v/bin/pip install dist/*.whl && /tmp/v/bin/onepin --version
+      - run: python -m venv /tmp/vs && /tmp/vs/bin/pip install --no-binary onepin dist/onepin-*.tar.gz && /tmp/vs/bin/onepin --version
+      - name: Assert version is sane (no 0.0.0 fallback, no +local segment)
+        run: |
+          v=$(/tmp/v/bin/onepin --version | awk '{print $NF}')
+          echo "resolved version: $v"
+          case "$v" in
+            0.0.0*|*+*) echo "::error::insane version '$v' — hatch-vcs starved of tags/history (shallow checkout?)"; exit 1 ;;
+          esac
+  notify-failure:
+    if: failure()
+    needs: [test, fresh-venv-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v3
+        with:
+          payload: |
+            {"text":"CI failed in ${{ github.repository }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Skip Slack notification
+        if: env.SLACK_WEBHOOK_URL == ''
+        run: echo "SLACK_WEBHOOK_URL is not configured; skipping Slack notification."
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://docs.onepin.ai
+    about: Usage guides and API reference.
+  - name: Report a security vulnerability
+    url: https://github.com/podonos/onepin-python/security/advisories/new
+    about: Please report security issues privately, not as public issues.

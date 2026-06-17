@@ -1,0 +1,153 @@
+name: Publish (TestPyPI)
+
+# TestPyPI lane — the CONTINUOUS, internal index. Runs ahead of prod freely.
+#   - push to main (touching the SDK build inputs)  -> hatch-vcs stamps X.Y.Z.devN -> TestPyPI
+#   - push of a release tag (vX.Y.Z / onepin-vX.Y.Z) -> hatch-vcs stamps clean X.Y.Z   -> TestPyPI
+#   - workflow_dispatch                              -> manual TestPyPI publish from a ref
+#
+# Customers are NOT served here. The public PyPI publish is a SEPARATE, prod-gated lane
+# (promote-prod.yml), fired only by the backend production deploy dispatch. This file must
+# NEVER push to PyPI. See docs/PUBLISH.md for the two-lane model.
+on:
+  push:
+    branches: [main]
+    # Only rebuild when something that changes the shipped artifact moves. Docs/CI-only
+    # commits to main don't need a new .devN on TestPyPI.
+    paths:
+      - 'src/onepin/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+    # Accept both formats: release-please default `onepin-v0.2.0` (component
+    # prefix on single-package repos) and the plain `v0.2.0` shape used after
+    # `include-component-in-tag: false` lands in release-please-config.json.
+    tags: ['v*.*.*', 'onepin-v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to replay to TestPyPI, e.g. v0.5.0. Leave empty to build the triggering ref."
+        required: false
+        default: ""
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - name: Validate replay tag (if provided)
+        if: github.event.inputs.tag != ''
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          echo "$INPUT_TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            || { echo "::error::tag '${INPUT_TAG}' does not match ^v[0-9]+\\.[0-9]+\\.[0-9]+\$ — must be a plain vX.Y.Z tag"; exit 1; }
+      - uses: actions/checkout@v6
+        if: github.event.inputs.tag == ''
+        with:
+          # hatch-vcs derives the version from git history + tags. A shallow/tagless
+          # checkout would build a bogus low version (e.g. 0.1.dev1) — fetch everything
+          # so .devN (main) / clean vX.Y.Z (tag) resolve correctly.
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/checkout@v6
+        if: github.event.inputs.tag != ''
+        with:
+          # Replay: check out the exact release tag so hatch-vcs stamps clean vX.Y.Z.
+          ref: refs/tags/${{ github.event.inputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.12' }
+      - run: pip install build twine trove-classifiers check-wheel-contents pytest
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - run: check-wheel-contents dist/*.whl
+      - run: |
+          python -c "
+          from trove_classifiers import classifiers
+          import tomllib, pathlib
+          data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
+          for c in data['project'].get('classifiers', []):
+              assert c in classifiers, f'Unknown classifier: {c}'
+          print('All classifiers valid.')
+          "
+      - run: python -m pytest tests/build/test_dist_contents.py
+      - id: ver
+        # Derive the version from the BUILT sdist — the authoritative artifact hatch-vcs
+        # just produced — NOT the git ref. On a main push there is no tag, so the version
+        # is hatch-vcs's X.Y.Z.devN; on a tag push it's the clean X.Y.Z. Then fail LOUD if
+        # the version is insane: a 0.0.0 fallback (hatch-vcs starved of tags/history) or a
+        # PyPI-rejected +local segment must abort BEFORE any upload, never ship silently.
+        run: |
+          set -euo pipefail
+          version="$(python -c "import re,glob,os; f=glob.glob('dist/*.tar.gz')[0]; print(re.match(r'onepin-(.+)\.tar\.gz', os.path.basename(f)).group(1))")"
+          echo "built version: $version"
+          case "$version" in
+            0.0.0*|*+*)
+              echo "::error::insane built version '$version' — hatch-vcs starved of tags/history (shallow checkout?) or a local segment leaked"; exit 1 ;;
+          esac
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || { echo "::error::built version '$version' is not PEP 440 X.Y.Z[...]"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with: { name: dist, path: dist/* }
+  smoke-install:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with: { name: dist, path: dist }
+      - run: pip install dist/*.whl && onepin --version
+      - run: pip install --no-binary onepin dist/onepin-*.tar.gz && onepin --version
+  test-pypi:
+    needs: smoke-install
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions: { id-token: write }
+    steps:
+      - uses: actions/download-artifact@v8
+        with: { name: dist, path: dist }
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # Allow re-runs on the same ref: TestPyPI rejects identical-version
+          # re-uploads, but a re-run (e.g. after fixing a workflow bug) shouldn't
+          # cause the whole publish chain to fail. (Each main push yields a fresh
+          # .devN, so collisions are limited to genuine re-runs / retags.)
+          skip-existing: true
+  testpypi-smoke:
+    needs: [build, test-pypi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.12' }
+      - run: |
+          pip install \
+            --index-url https://test.pypi.org/simple/ \
+            --extra-index-url https://pypi.org/simple/ \
+            onepin==${{ needs.build.outputs.version }} \
+            && onepin --version
+  notify-failure:
+    if: failure()
+    needs: [build, smoke-install, test-pypi, testpypi-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v3
+        with:
+          # v2+ requires the URL via the `webhook` input + an explicit `webhook-type`
+          # (the v1 env-only style fails with "Missing input! The webhook type must be
+          # 'incoming-webhook' or 'webhook-trigger'"). SLACK_WEBHOOK_URL is a classic
+          # Incoming Webhook, which already targets its channel -> incoming-webhook.
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {"text":"TestPyPI publish failed for ${{ github.ref_name }} in ${{ github.repository }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Skip Slack notification
+        if: env.SLACK_WEBHOOK_URL == ''
+        run: echo "SLACK_WEBHOOK_URL is not configured; skipping Slack notification."
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
