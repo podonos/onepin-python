@@ -47,6 +47,29 @@ your request is about OnePin. After the first install, restart your tool (or run
 in Claude Code) so it picks up the new skills directory. The skill drives the same `onepin` CLI, so
 run `onepin login` first.
 
+## Version compatibility
+
+The OnePin API advertises the minimum SDK version it still accepts. When a response indicates your
+installed `onepin` is **below that floor**, the SDK stops with a clear, copy-paste upgrade message:
+
+```
+onepin 0.4.1 is below the required minimum 0.5.0. Upgrade: pip install --upgrade 'onepin>=0.5.0'
+```
+
+The `onepin` CLI enforces this automatically. For **programmatic** use, build the client with
+`onepin.make_client` (instead of `OnePinClient` directly) to get the same gate plus a corrected
+`User-Agent`:
+
+```python
+import onepin
+
+client = onepin.make_client(token="op_live_...")
+client.workflows.list()  # raises onepin.OnePinUpgradeRequiredError if the SDK is too old
+```
+
+The CLI also nudges you when a newer release is available on PyPI (surfaced through the OnePin agent
+skill). Set `ONEPIN_NO_UPDATE_CHECK=1` to silence the recommended-upgrade check.
+
 ## Command reference
 
 The CLI groups its commands by resource. Every group prints its own command list with

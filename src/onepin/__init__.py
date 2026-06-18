@@ -517,6 +517,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "workspace_aggregates": ".workspace_aggregates",
     "workspace_members": ".workspace_members",
     "workspaces": ".workspaces",
+    # Hand-rolled version gate, re-exported here. Also declared in
+    # fern/generators.yml `additional_init_exports`, so `fern generate` reproduces these.
+    "OnePinUpgradeRequiredError": "._version_gate",
+    "make_async_client": "._version_gate",
+    "make_client": "._version_gate",
 }
 
 
@@ -795,4 +800,7 @@ __all__ = [
     "workspace_aggregates",
     "workspace_members",
     "workspaces",
+    "OnePinUpgradeRequiredError",
+    "make_async_client",
+    "make_client",
 ]

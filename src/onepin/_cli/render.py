@@ -12,11 +12,11 @@ import sys
 from typing import Any, Dict, List, Optional
 
 
-def _use_color() -> bool:
-    """Return True if ANSI color should be used.
+def _use_color(stream: Any = None) -> bool:
+    """Return True if ANSI color should be used for ``stream`` (defaults to stdout).
 
     Honors the ``--no-color`` flag (captured in root state), then the W3C
-    ``NO_COLOR`` env var, then TTY detection.
+    ``NO_COLOR`` env var, then TTY detection on the target stream.
     """
     from onepin._cli import _state
 
@@ -24,9 +24,17 @@ def _use_color() -> bool:
         return False
     if os.environ.get("NO_COLOR"):
         return False
-    if not sys.stdout.isatty():
+    target = sys.stdout if stream is None else stream
+    isatty = getattr(target, "isatty", None)
+    if not (callable(isatty) and isatty()):
         return False
     return True
+
+
+def echo_warning(message: str) -> None:
+    """Write a warning to stderr, yellow when color is enabled (NO_COLOR / non-TTY safe)."""
+    text = f"\033[33m{message}\033[0m" if _use_color(sys.stderr) else message
+    print(text, file=sys.stderr)
 
 
 def render_json(data: Any) -> None:

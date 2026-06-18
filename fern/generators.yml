@@ -26,3 +26,12 @@ groups:
           client_class_name: OnePinClient
           package_name: onepin
           flat_layout: false
+          # Re-export the hand-rolled version gate (src/onepin/_version_gate.py, preserved by
+          # .fernignore) from the generated package __init__ on every regen, so programmatic
+          # users get `from onepin import make_client` (a version-gated OnePinClient).
+          additional_init_exports:
+            - from: _version_gate
+              imports:
+                - make_client
+                - make_async_client
+                - OnePinUpgradeRequiredError
