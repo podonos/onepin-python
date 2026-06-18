@@ -60,6 +60,12 @@ class NodesClient:
         """
         Return full node definition + runtime options for the canvas node-config UI.
 
+        **Deprecated (POD-612):** this version inlines the model catalog as
+        `options.models_by_provider`. Use `GET /api/v2/nodes/{node_type}`, which
+        replaces the inline tree with a `providers` HATEOAS href to the standalone
+        catalog `/api/v1/providers`. This endpoint is kept for one release while the
+        FE migrates, then removed.
+
         Unlike `GET /nodes` (which returns only port schemas), this endpoint returns the
         actual runtime values a user picks: available target languages (from settings),
         the TTS model catalog grouped by provider, and a HATEOAS link to the workspace-
@@ -91,6 +97,53 @@ class NodesClient:
         )
         """
         _response = self._raw_client.get_node_detail(
+            node_type, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    def get_node_detail_v2(
+        self,
+        node_type: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseNodeDetailOut:
+        """
+        Return full node definition + runtime options (v2 — HATEOAS catalog href).
+
+        POD-612: replaces the deprecated v1 ``options.models_by_provider`` inline tree
+        with a ``providers`` HATEOAS href to the standalone catalog
+        ``/api/v1/providers``. The FE follows that href to fetch each model's
+        ``config_schema`` lazily. The ``voices`` href (with its provider/model/language
+        filter enums) is unchanged, so the voice picker never needs the catalog call.
+        Requires ``X-Workspace-Id`` for a uniform FE contract.
+
+        Parameters
+        ----------
+        node_type : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseNodeDetailOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.nodes.get_node_detail_v2(
+            node_type="node_type",
+        )
+        """
+        _response = self._raw_client.get_node_detail_v2(
             node_type, workspace_id=workspace_id, request_options=request_options
         )
         return _response.data
@@ -157,6 +210,12 @@ class AsyncNodesClient:
         """
         Return full node definition + runtime options for the canvas node-config UI.
 
+        **Deprecated (POD-612):** this version inlines the model catalog as
+        `options.models_by_provider`. Use `GET /api/v2/nodes/{node_type}`, which
+        replaces the inline tree with a `providers` HATEOAS href to the standalone
+        catalog `/api/v1/providers`. This endpoint is kept for one release while the
+        FE migrates, then removed.
+
         Unlike `GET /nodes` (which returns only port schemas), this endpoint returns the
         actual runtime values a user picks: available target languages (from settings),
         the TTS model catalog grouped by provider, and a HATEOAS link to the workspace-
@@ -196,6 +255,61 @@ class AsyncNodesClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get_node_detail(
+            node_type, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    async def get_node_detail_v2(
+        self,
+        node_type: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseNodeDetailOut:
+        """
+        Return full node definition + runtime options (v2 — HATEOAS catalog href).
+
+        POD-612: replaces the deprecated v1 ``options.models_by_provider`` inline tree
+        with a ``providers`` HATEOAS href to the standalone catalog
+        ``/api/v1/providers``. The FE follows that href to fetch each model's
+        ``config_schema`` lazily. The ``voices`` href (with its provider/model/language
+        filter enums) is unchanged, so the voice picker never needs the catalog call.
+        Requires ``X-Workspace-Id`` for a uniform FE contract.
+
+        Parameters
+        ----------
+        node_type : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseNodeDetailOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.nodes.get_node_detail_v2(
+                node_type="node_type",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_node_detail_v2(
             node_type, workspace_id=workspace_id, request_options=request_options
         )
         return _response.data

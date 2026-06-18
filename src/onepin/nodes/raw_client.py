@@ -72,6 +72,12 @@ class RawNodesClient:
         """
         Return full node definition + runtime options for the canvas node-config UI.
 
+        **Deprecated (POD-612):** this version inlines the model catalog as
+        `options.models_by_provider`. Use `GET /api/v2/nodes/{node_type}`, which
+        replaces the inline tree with a `providers` HATEOAS href to the standalone
+        catalog `/api/v1/providers`. This endpoint is kept for one release while the
+        FE migrates, then removed.
+
         Unlike `GET /nodes` (which returns only port schemas), this endpoint returns the
         actual runtime values a user picks: available target languages (from settings),
         the TTS model catalog grouped by provider, and a HATEOAS link to the workspace-
@@ -93,6 +99,86 @@ class RawNodesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/nodes/{encode_path_param(node_type)}",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseNodeDetailOut,
+                    parse_obj_as(
+                        type_=ApiResponseNodeDetailOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_node_detail_v2(
+        self,
+        node_type: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseNodeDetailOut]:
+        """
+        Return full node definition + runtime options (v2 — HATEOAS catalog href).
+
+        POD-612: replaces the deprecated v1 ``options.models_by_provider`` inline tree
+        with a ``providers`` HATEOAS href to the standalone catalog
+        ``/api/v1/providers``. The FE follows that href to fetch each model's
+        ``config_schema`` lazily. The ``voices`` href (with its provider/model/language
+        filter enums) is unchanged, so the voice picker never needs the catalog call.
+        Requires ``X-Workspace-Id`` for a uniform FE contract.
+
+        Parameters
+        ----------
+        node_type : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseNodeDetailOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v2/nodes/{encode_path_param(node_type)}",
             method="GET",
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
@@ -195,6 +281,12 @@ class AsyncRawNodesClient:
         """
         Return full node definition + runtime options for the canvas node-config UI.
 
+        **Deprecated (POD-612):** this version inlines the model catalog as
+        `options.models_by_provider`. Use `GET /api/v2/nodes/{node_type}`, which
+        replaces the inline tree with a `providers` HATEOAS href to the standalone
+        catalog `/api/v1/providers`. This endpoint is kept for one release while the
+        FE migrates, then removed.
+
         Unlike `GET /nodes` (which returns only port schemas), this endpoint returns the
         actual runtime values a user picks: available target languages (from settings),
         the TTS model catalog grouped by provider, and a HATEOAS link to the workspace-
@@ -216,6 +308,86 @@ class AsyncRawNodesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/nodes/{encode_path_param(node_type)}",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseNodeDetailOut,
+                    parse_obj_as(
+                        type_=ApiResponseNodeDetailOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_node_detail_v2(
+        self,
+        node_type: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseNodeDetailOut]:
+        """
+        Return full node definition + runtime options (v2 — HATEOAS catalog href).
+
+        POD-612: replaces the deprecated v1 ``options.models_by_provider`` inline tree
+        with a ``providers`` HATEOAS href to the standalone catalog
+        ``/api/v1/providers``. The FE follows that href to fetch each model's
+        ``config_schema`` lazily. The ``voices`` href (with its provider/model/language
+        filter enums) is unchanged, so the voice picker never needs the catalog call.
+        Requires ``X-Workspace-Id`` for a uniform FE contract.
+
+        Parameters
+        ----------
+        node_type : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseNodeDetailOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v2/nodes/{encode_path_param(node_type)}",
             method="GET",
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,

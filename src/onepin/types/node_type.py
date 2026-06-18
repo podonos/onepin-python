@@ -10,6 +10,7 @@ NodeType = typing.Union[
         "processing_generator",
         "sink_preview",
         "validator_error_rate",
+        "validator_naturalness",
     ],
     typing.Any,
 ]

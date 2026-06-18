@@ -17,6 +17,7 @@ if typing.TYPE_CHECKING:
     from .health.client import AsyncHealthClient, HealthClient
     from .nodes.client import AsyncNodesClient, NodesClient
     from .provider_keys.client import AsyncProviderKeysClient, ProviderKeysClient
+    from .providers.client import AsyncProvidersClient, ProvidersClient
     from .templates.client import AsyncTemplatesClient, TemplatesClient
     from .uploads.client import AsyncUploadsClient, UploadsClient
     from .usage.client import AsyncUsageClient, UsageClient
@@ -113,6 +114,7 @@ class OnePinClient:
         self._dictionary: typing.Optional[DictionaryClient] = None
         self._nodes: typing.Optional[NodesClient] = None
         self._provider_keys: typing.Optional[ProviderKeysClient] = None
+        self._providers: typing.Optional[ProvidersClient] = None
         self._templates: typing.Optional[TemplatesClient] = None
         self._voices: typing.Optional[VoicesClient] = None
         self._workspace: typing.Optional[WorkspaceClient] = None
@@ -180,6 +182,14 @@ class OnePinClient:
 
             self._provider_keys = ProviderKeysClient(client_wrapper=self._client_wrapper)
         return self._provider_keys
+
+    @property
+    def providers(self):
+        if self._providers is None:
+            from .providers.client import ProvidersClient  # noqa: E402
+
+            self._providers = ProvidersClient(client_wrapper=self._client_wrapper)
+        return self._providers
 
     @property
     def templates(self):
@@ -374,6 +384,7 @@ class AsyncOnePinClient:
         self._dictionary: typing.Optional[AsyncDictionaryClient] = None
         self._nodes: typing.Optional[AsyncNodesClient] = None
         self._provider_keys: typing.Optional[AsyncProviderKeysClient] = None
+        self._providers: typing.Optional[AsyncProvidersClient] = None
         self._templates: typing.Optional[AsyncTemplatesClient] = None
         self._voices: typing.Optional[AsyncVoicesClient] = None
         self._workspace: typing.Optional[AsyncWorkspaceClient] = None
@@ -441,6 +452,14 @@ class AsyncOnePinClient:
 
             self._provider_keys = AsyncProviderKeysClient(client_wrapper=self._client_wrapper)
         return self._provider_keys
+
+    @property
+    def providers(self):
+        if self._providers is None:
+            from .providers.client import AsyncProvidersClient  # noqa: E402
+
+            self._providers = AsyncProvidersClient(client_wrapper=self._client_wrapper)
+        return self._providers
 
     @property
     def templates(self):
