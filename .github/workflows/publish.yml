@@ -121,12 +121,30 @@ jobs:
     steps:
       - uses: actions/setup-python@v6
         with: { python-version: '3.12' }
-      - run: |
-          pip install \
-            --index-url https://test.pypi.org/simple/ \
-            --extra-index-url https://pypi.org/simple/ \
-            onepin==${{ needs.build.outputs.version }} \
-            && onepin --version
+      - name: Install just-published version from TestPyPI (tolerate index propagation lag)
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        # TestPyPI's /simple/ index is eventually-consistent (Fastly CDN): a version can
+        # take tens of seconds to a couple minutes to become installable after the
+        # test-pypi job uploads it. This job runs seconds later, so a single pip install
+        # races the index and spuriously fails with "No matching distribution". Retry
+        # until it propagates; --no-cache-dir avoids replaying a cached negative response.
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 10); do
+            if pip install --no-cache-dir \
+                --index-url https://test.pypi.org/simple/ \
+                --extra-index-url https://pypi.org/simple/ \
+                "onepin==${VERSION}"; then
+              echo "installed onepin==${VERSION} on attempt ${attempt}"
+              onepin --version
+              exit 0
+            fi
+            echo "attempt ${attempt}/10: onepin==${VERSION} not on TestPyPI index yet; sleeping 30s"
+            sleep 30
+          done
+          echo "::error::onepin==${VERSION} never became installable from TestPyPI after 10 attempts (~5 min)"
+          exit 1
   notify-failure:
     if: failure()
     needs: [build, smoke-install, test-pypi, testpypi-smoke]
