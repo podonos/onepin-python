@@ -1,6 +1,6 @@
 # Support
 
-Need help with the OnePin Python SDK or CLI?
+Need help with the Onepin Python SDK or CLI?
 
 - 📖 **Docs:** https://docs.onepin.ai
 - 💬 **Questions & bugs:** open an [issue](https://github.com/podonos/onepin-python/issues) using the bug-report or feature-request template
