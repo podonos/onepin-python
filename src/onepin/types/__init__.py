@@ -7,6 +7,7 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .api_counted_list_response_api_key_out import ApiCountedListResponseApiKeyOut
+    from .api_counted_list_response_catalog_voice_out import ApiCountedListResponseCatalogVoiceOut
     from .api_counted_list_response_voice_out import ApiCountedListResponseVoiceOut
     from .api_counted_list_response_workflow_list_item import ApiCountedListResponseWorkflowListItem
     from .api_counted_list_response_workflow_run_list_item import ApiCountedListResponseWorkflowRunListItem
@@ -18,6 +19,8 @@ if typing.TYPE_CHECKING:
     from .api_key_out import ApiKeyOut
     from .api_key_rotate_out import ApiKeyRotateOut
     from .api_key_scope import ApiKeyScope
+    from .api_list_response_catalog_model_out import ApiListResponseCatalogModelOut
+    from .api_list_response_catalog_provider_out import ApiListResponseCatalogProviderOut
     from .api_list_response_customer_plan_response import ApiListResponseCustomerPlanResponse
     from .api_list_response_dictionary_out import ApiListResponseDictionaryOut
     from .api_list_response_node_ports_out import ApiListResponseNodePortsOut
@@ -32,6 +35,8 @@ if typing.TYPE_CHECKING:
     from .api_response_api_key_rotate_out import ApiResponseApiKeyRotateOut
     from .api_response_auth_whoami_out import ApiResponseAuthWhoamiOut
     from .api_response_balance_response import ApiResponseBalanceResponse
+    from .api_response_catalog_model_out import ApiResponseCatalogModelOut
+    from .api_response_catalog_provider_out import ApiResponseCatalogProviderOut
     from .api_response_checkout_response import ApiResponseCheckoutResponse
     from .api_response_customer_plan_change_preview_response import ApiResponseCustomerPlanChangePreviewResponse
     from .api_response_customer_subscription_response import ApiResponseCustomerSubscriptionResponse
@@ -74,6 +79,10 @@ if typing.TYPE_CHECKING:
     from .auth_whoami_out import AuthWhoamiOut
     from .auth_whoami_out_auth_kind import AuthWhoamiOutAuthKind
     from .balance_response import BalanceResponse
+    from .catalog_link import CatalogLink
+    from .catalog_model_out import CatalogModelOut
+    from .catalog_provider_out import CatalogProviderOut
+    from .catalog_voice_out import CatalogVoiceOut
     from .checkout_response import CheckoutResponse
     from .counted_pagination_meta import CountedPaginationMeta
     from .customer_plan_change_preview_response import CustomerPlanChangePreviewResponse
@@ -183,8 +192,8 @@ if typing.TYPE_CHECKING:
     from .workflow_run_data_row_out import WorkflowRunDataRowOut
     from .workflow_run_data_row_out_auto_corrected_status import WorkflowRunDataRowOutAutoCorrectedStatus
     from .workflow_run_data_row_out_script_status import WorkflowRunDataRowOutScriptStatus
-    from .workflow_run_data_scores_out import WorkflowRunDataScoresOut
-    from .workflow_run_data_scores_out_accuracy_status import WorkflowRunDataScoresOutAccuracyStatus
+    from .workflow_run_data_validation_out import WorkflowRunDataValidationOut
+    from .workflow_run_data_validation_out_status import WorkflowRunDataValidationOutStatus
     from .workflow_run_data_voice_out import WorkflowRunDataVoiceOut
     from .workflow_run_data_voice_out_status import WorkflowRunDataVoiceOutStatus
     from .workflow_run_detail_out import WorkflowRunDetailOut
@@ -217,6 +226,7 @@ if typing.TYPE_CHECKING:
     from .workspace_workflows_stats_out import WorkspaceWorkflowsStatsOut
 _dynamic_imports: typing.Dict[str, str] = {
     "ApiCountedListResponseApiKeyOut": ".api_counted_list_response_api_key_out",
+    "ApiCountedListResponseCatalogVoiceOut": ".api_counted_list_response_catalog_voice_out",
     "ApiCountedListResponseVoiceOut": ".api_counted_list_response_voice_out",
     "ApiCountedListResponseWorkflowListItem": ".api_counted_list_response_workflow_list_item",
     "ApiCountedListResponseWorkflowRunListItem": ".api_counted_list_response_workflow_run_list_item",
@@ -228,6 +238,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiKeyOut": ".api_key_out",
     "ApiKeyRotateOut": ".api_key_rotate_out",
     "ApiKeyScope": ".api_key_scope",
+    "ApiListResponseCatalogModelOut": ".api_list_response_catalog_model_out",
+    "ApiListResponseCatalogProviderOut": ".api_list_response_catalog_provider_out",
     "ApiListResponseCustomerPlanResponse": ".api_list_response_customer_plan_response",
     "ApiListResponseDictionaryOut": ".api_list_response_dictionary_out",
     "ApiListResponseNodePortsOut": ".api_list_response_node_ports_out",
@@ -242,6 +254,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiResponseApiKeyRotateOut": ".api_response_api_key_rotate_out",
     "ApiResponseAuthWhoamiOut": ".api_response_auth_whoami_out",
     "ApiResponseBalanceResponse": ".api_response_balance_response",
+    "ApiResponseCatalogModelOut": ".api_response_catalog_model_out",
+    "ApiResponseCatalogProviderOut": ".api_response_catalog_provider_out",
     "ApiResponseCheckoutResponse": ".api_response_checkout_response",
     "ApiResponseCustomerPlanChangePreviewResponse": ".api_response_customer_plan_change_preview_response",
     "ApiResponseCustomerSubscriptionResponse": ".api_response_customer_subscription_response",
@@ -282,6 +296,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AuthWhoamiOut": ".auth_whoami_out",
     "AuthWhoamiOutAuthKind": ".auth_whoami_out_auth_kind",
     "BalanceResponse": ".balance_response",
+    "CatalogLink": ".catalog_link",
+    "CatalogModelOut": ".catalog_model_out",
+    "CatalogProviderOut": ".catalog_provider_out",
+    "CatalogVoiceOut": ".catalog_voice_out",
     "CheckoutResponse": ".checkout_response",
     "CountedPaginationMeta": ".counted_pagination_meta",
     "CustomerPlanChangePreviewResponse": ".customer_plan_change_preview_response",
@@ -389,8 +407,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WorkflowRunDataRowOut": ".workflow_run_data_row_out",
     "WorkflowRunDataRowOutAutoCorrectedStatus": ".workflow_run_data_row_out_auto_corrected_status",
     "WorkflowRunDataRowOutScriptStatus": ".workflow_run_data_row_out_script_status",
-    "WorkflowRunDataScoresOut": ".workflow_run_data_scores_out",
-    "WorkflowRunDataScoresOutAccuracyStatus": ".workflow_run_data_scores_out_accuracy_status",
+    "WorkflowRunDataValidationOut": ".workflow_run_data_validation_out",
+    "WorkflowRunDataValidationOutStatus": ".workflow_run_data_validation_out_status",
     "WorkflowRunDataVoiceOut": ".workflow_run_data_voice_out",
     "WorkflowRunDataVoiceOutStatus": ".workflow_run_data_voice_out_status",
     "WorkflowRunDetailOut": ".workflow_run_detail_out",
@@ -447,6 +465,7 @@ def __dir__():
 
 __all__ = [
     "ApiCountedListResponseApiKeyOut",
+    "ApiCountedListResponseCatalogVoiceOut",
     "ApiCountedListResponseVoiceOut",
     "ApiCountedListResponseWorkflowListItem",
     "ApiCountedListResponseWorkflowRunListItem",
@@ -458,6 +477,8 @@ __all__ = [
     "ApiKeyOut",
     "ApiKeyRotateOut",
     "ApiKeyScope",
+    "ApiListResponseCatalogModelOut",
+    "ApiListResponseCatalogProviderOut",
     "ApiListResponseCustomerPlanResponse",
     "ApiListResponseDictionaryOut",
     "ApiListResponseNodePortsOut",
@@ -472,6 +493,8 @@ __all__ = [
     "ApiResponseApiKeyRotateOut",
     "ApiResponseAuthWhoamiOut",
     "ApiResponseBalanceResponse",
+    "ApiResponseCatalogModelOut",
+    "ApiResponseCatalogProviderOut",
     "ApiResponseCheckoutResponse",
     "ApiResponseCustomerPlanChangePreviewResponse",
     "ApiResponseCustomerSubscriptionResponse",
@@ -512,6 +535,10 @@ __all__ = [
     "AuthWhoamiOut",
     "AuthWhoamiOutAuthKind",
     "BalanceResponse",
+    "CatalogLink",
+    "CatalogModelOut",
+    "CatalogProviderOut",
+    "CatalogVoiceOut",
     "CheckoutResponse",
     "CountedPaginationMeta",
     "CustomerPlanChangePreviewResponse",
@@ -619,8 +646,8 @@ __all__ = [
     "WorkflowRunDataRowOut",
     "WorkflowRunDataRowOutAutoCorrectedStatus",
     "WorkflowRunDataRowOutScriptStatus",
-    "WorkflowRunDataScoresOut",
-    "WorkflowRunDataScoresOutAccuracyStatus",
+    "WorkflowRunDataValidationOut",
+    "WorkflowRunDataValidationOutStatus",
     "WorkflowRunDataVoiceOut",
     "WorkflowRunDataVoiceOutStatus",
     "WorkflowRunDetailOut",

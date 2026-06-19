@@ -2,6 +2,6 @@
 
 import typing
 
-WorkflowRunDataScoresOutAccuracyStatus = typing.Union[
+WorkflowRunDataValidationOutStatus = typing.Union[
     typing.Literal["available", "not_ready", "unsupported", "unavailable"], typing.Any
 ]

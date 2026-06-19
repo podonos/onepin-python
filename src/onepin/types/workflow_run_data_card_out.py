@@ -6,7 +6,7 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .workflow_run_data_audio_out import WorkflowRunDataAudioOut
 from .workflow_run_data_card_out_waveform_status import WorkflowRunDataCardOutWaveformStatus
-from .workflow_run_data_scores_out import WorkflowRunDataScoresOut
+from .workflow_run_data_validation_out import WorkflowRunDataValidationOut
 from .workflow_run_data_voice_out import WorkflowRunDataVoiceOut
 
 
@@ -18,7 +18,7 @@ class WorkflowRunDataCardOut(UniversalBaseModel):
     locale_code: typing.Optional[str] = None
     script: typing.Optional[str] = None
     audio: WorkflowRunDataAudioOut
-    scores: WorkflowRunDataScoresOut
+    validations: typing.Optional[typing.List[WorkflowRunDataValidationOut]] = None
     voice: WorkflowRunDataVoiceOut
     waveform_url: typing.Optional[str] = None
     waveform_status: typing.Optional[WorkflowRunDataCardOutWaveformStatus] = None

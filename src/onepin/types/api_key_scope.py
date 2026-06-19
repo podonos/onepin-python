@@ -14,6 +14,7 @@ ApiKeyScope = typing.Union[
         "uploads:write",
         "workspace:read",
         "templates:read",
+        "catalog:read",
     ],
     typing.Any,
 ]

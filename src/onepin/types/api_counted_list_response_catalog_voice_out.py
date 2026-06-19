@@ -4,16 +4,15 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .workflow_run_data_scores_out_accuracy_status import WorkflowRunDataScoresOutAccuracyStatus
+from .catalog_voice_out import CatalogVoiceOut
+from .counted_pagination_meta import CountedPaginationMeta
+from .meta import Meta
 
 
-class WorkflowRunDataScoresOut(UniversalBaseModel):
-    accuracy: typing.Optional[float] = None
-    accuracy_status: WorkflowRunDataScoresOutAccuracyStatus
-    accuracy_reason: typing.Optional[str] = None
-    wer: typing.Optional[float] = None
-    cer: typing.Optional[float] = None
-    transcript: typing.Optional[str] = None
+class ApiCountedListResponseCatalogVoiceOut(UniversalBaseModel):
+    data: typing.List[CatalogVoiceOut]
+    meta: Meta
+    pagination: CountedPaginationMeta
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

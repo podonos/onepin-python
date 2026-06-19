@@ -5,9 +5,19 @@
   "generatorConfig": {
     "client_class_name": "OnePinClient",
     "package_name": "onepin",
-    "flat_layout": false
+    "flat_layout": false,
+    "additional_init_exports": [
+      {
+        "from": "_version_gate",
+        "imports": [
+          "make_client",
+          "make_async_client",
+          "OnePinUpgradeRequiredError"
+        ]
+      }
+    ]
   },
-  "originGitCommit": "2bb9115ea1292fce9ca3019bd7c90ba226cc58b6",
+  "originGitCommit": "e61a07d289073104a086ed6aec6161a6169f829a",
   "originGitCommitIsDirty": false,
   "invokedBy": "ci",
   "ciProvider": "github"

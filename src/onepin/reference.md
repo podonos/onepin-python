@@ -1713,6 +1713,12 @@ client.nodes.list_nodes()
 
 Return full node definition + runtime options for the canvas node-config UI.
 
+**Deprecated (POD-612):** this version inlines the model catalog as
+`options.models_by_provider`. Use `GET /api/v2/nodes/{node_type}`, which
+replaces the inline tree with a `providers` HATEOAS href to the standalone
+catalog `/api/v1/providers`. This endpoint is kept for one release while the
+FE migrates, then removed.
+
 Unlike `GET /nodes` (which returns only port schemas), this endpoint returns the
 actual runtime values a user picks: available target languages (from settings),
 the TTS model catalog grouped by provider, and a HATEOAS link to the workspace-
@@ -1740,6 +1746,94 @@ client = OnePinClient(
 )
 
 client.nodes.get_node_detail(
+    node_type="node_type",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**node_type:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.nodes.<a href="src/onepin/nodes/client.py">get_node_detail_v2</a>(...) -> ApiResponseNodeDetailOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Return full node definition + runtime options (v2 — HATEOAS catalog href).
+
+POD-612: replaces the deprecated v1 ``options.models_by_provider`` inline tree
+with a ``providers`` HATEOAS href to the standalone catalog
+``/api/v1/providers``. The FE follows that href to fetch each model's
+``config_schema`` lazily. The ``voices`` href (with its provider/model/language
+filter enums) is unchanged, so the voice picker never needs the catalog call.
+Requires ``X-Workspace-Id`` for a uniform FE contract.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.nodes.get_node_detail_v2(
     node_type="node_type",
 )
 
@@ -2006,6 +2100,445 @@ client.provider_keys.delete_provider_key(
 <dd>
 
 **provider:** `ProviderKeyProvider` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## providers
+<details><summary><code>client.providers.<a href="src/onepin/providers/client.py">list_catalog_providers</a>(...) -> ApiListResponseCatalogProviderOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List TTS providers in the public catalog.
+
+Returns the processing (TTS) provider catalog with a per-provider model count
+and a HATEOAS link to each provider's models. Lean / customer-safe — cost,
+credentials, and base URLs are never exposed. Requires `X-Workspace-Id` (or a
+workspace-bound API key with the `catalog:read` scope), matching `/voices`.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.providers.list_catalog_providers()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.providers.<a href="src/onepin/providers/client.py">get_catalog_provider</a>(...) -> ApiResponseCatalogProviderOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get a single TTS provider by canonical name (e.g. `cartesia`).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.providers.get_catalog_provider(
+    provider="provider",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**provider:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.providers.<a href="src/onepin/providers/client.py">list_catalog_provider_models</a>(...) -> ApiListResponseCatalogModelOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List a provider's TTS models, each with its `config_schema` and live `voice_count`.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.providers.list_catalog_provider_models(
+    provider="provider",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**provider:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.providers.<a href="src/onepin/providers/client.py">list_catalog_provider_model_voices</a>(...) -> ApiCountedListResponseCatalogVoiceOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List platform voices catalogued under an exact `(provider, model)`.
+
+Lean voice shape with a presigned `preview_url`. Platform catalog voices only
+(System workspace); model-less voices are excluded. Paginated via `offset` /
+`limit`. The flat `/voices?provider=&model=` endpoint remains for the picker.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.providers.list_catalog_provider_model_voices(
+    provider="provider",
+    model="model",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**provider:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**model:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**offset:** `typing.Optional[int]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**limit:** `typing.Optional[int]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.providers.<a href="src/onepin/providers/client.py">get_catalog_provider_model</a>(...) -> ApiResponseCatalogModelOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get a single TTS model — `config_schema` + live `voice_count`.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.providers.get_catalog_provider_model(
+    provider="provider",
+    model="model",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**provider:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**model:** `str` 
     
 </dd>
 </dl>
