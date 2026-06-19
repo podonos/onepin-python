@@ -1,6 +1,6 @@
 # Contributing to onepin
 
-Thanks for your interest in improving the OnePin Python SDK + CLI.
+Thanks for your interest in improving the Onepin Python SDK + CLI.
 
 ## What lives here
 

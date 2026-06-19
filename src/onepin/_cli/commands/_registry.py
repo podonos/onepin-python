@@ -53,13 +53,13 @@ def register(app: typer.Typer) -> None:
 
     app.command(name="schema", help="Emit the machine-readable JSON manifest of all commands.")(_manifest.schema)
 
-    skill_app = typer.Typer(help="Manage the OnePin agent skill for AI coding tools.", no_args_is_help=True)
+    skill_app = typer.Typer(help="Manage the Onepin agent skill for AI coding tools.", no_args_is_help=True)
     skill_app.command(
-        name="install", help="Install the OnePin agent skill (Claude Code, Cursor, Codex, Gemini, Copilot)."
+        name="install", help="Install the Onepin agent skill (Claude Code, Cursor, Codex, Gemini, Copilot)."
     )(skill.install)
     skill_app.command(name="path", help="Show where the skill is or would be installed.")(skill.path)
-    skill_app.command(name="uninstall", help="Remove the installed OnePin agent skill.")(skill.uninstall)
-    app.add_typer(skill_app, name="skill", help="Manage the OnePin agent skill for AI coding tools.")
+    skill_app.command(name="uninstall", help="Remove the installed Onepin agent skill.")(skill.uninstall)
+    app.add_typer(skill_app, name="skill", help="Manage the Onepin agent skill for AI coding tools.")
 
     # health (live/ready): hand-written so it can surface SDK/API/recommended/required versions.
     health_app = typer.Typer(help=_GROUP_HELP["health"], no_args_is_help=True)

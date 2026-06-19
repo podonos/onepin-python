@@ -5,8 +5,13 @@ build-backend = "hatchling.build"
 [project]
 name = "onepin"
 dynamic = ["version"]
-description = "OnePin Python SDK + CLI"
+description = "Onepin Python SDK + CLI — orchestrate, validate & ship production-ready voice audio across 100+ TTS models"
 readme = "README.md"
+keywords = [
+    "onepin", "tts", "text-to-speech", "speech-synthesis", "voice",
+    "voice-ai", "voice-agents", "audio", "workflow", "sdk", "cli",
+    "elevenlabs", "cartesia",
+]
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
@@ -32,13 +37,18 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
 ]
 
 [project.scripts]
 onepin = "onepin._cli.main:app"
 
 [project.urls]
-Documentation = "https://docs.onepin.ai"
+Homepage = "https://onepin.ai"
+Documentation = "https://onepin.ai/docs"
 Source = "https://github.com/podonos/onepin-python"
 Issues = "https://github.com/podonos/onepin-python/issues"
 Changelog = "https://github.com/podonos/onepin-python/blob/main/CHANGELOG.md"
