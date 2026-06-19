@@ -68,6 +68,31 @@ def test_bundled_skill_files_missing_raises(monkeypatch: pytest.MonkeyPatch) -> 
     assert exc.value.code == "SKILL_PAYLOAD_MISSING"
 
 
+def test_bundled_skill_files_empty_payload_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Dir resolves but yields nothing shippable (all .py / non-files) -> SKILL_PAYLOAD_MISSING."""
+    import importlib.resources
+
+    class _Entry:
+        def __init__(self, name: str, is_file: bool) -> None:
+            self.name = name
+            self._is_file = is_file
+
+        def is_file(self) -> bool:
+            return self._is_file
+
+    class _Root:
+        def joinpath(self, *_parts: str) -> _Root:
+            return self
+
+        def iterdir(self) -> list[_Entry]:
+            return [_Entry("helper.py", is_file=True), _Entry("nested", is_file=False)]
+
+    monkeypatch.setattr(importlib.resources, "files", lambda _pkg: _Root())
+    with pytest.raises(CliError) as exc:
+        skill._bundled_skill_files()
+    assert exc.value.code == "SKILL_PAYLOAD_MISSING"
+
+
 def test_write_maps_oserror_to_write_failed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(dest: Path, content: bytes, *, force: bool) -> None:
         raise OSError("disk full")

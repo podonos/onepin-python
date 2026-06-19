@@ -1,15 +1,15 @@
 ---
 name: onepin
 description: >-
-  Use when the user mentions OnePin or wants to operate a OnePin voice-workflow
+  Use when the user mentions Onepin or wants to operate a Onepin voice-workflow
   workspace from the terminal — list / inspect / run workflows, check run status,
-  browse voices or templates, inspect usage. OnePin is an AI voice-workflow
+  browse voices or templates, inspect usage. Onepin is an AI voice-workflow
   platform with a `onepin` CLI; this skill drives it safely.
 ---
 
-# OnePin
+# Onepin
 
-Drive a OnePin voice-workflow workspace through the `onepin` CLI. The CLI is the only
+Drive a Onepin voice-workflow workspace through the `onepin` CLI. The CLI is the only
 integration surface — this skill teaches its contract, not a frozen command list.
 
 ## Golden rules
@@ -33,7 +33,7 @@ integration surface — this skill teaches its contract, not a frozen command li
 1. `onepin --version` — if "command not found", tell the user to `pip install onepin`, then stop.
 2. `onepin --json whoami` — confirms authentication. On success note `workspace_id`, `scopes`.
    - Unauthenticated (`NOT_LOGGED_IN` / `INVALID_API_KEY`) → tell the user to run `onepin login`
-     (mint a key at https://app.onepin.ai/settings/api-keys), then stop.
+     (mint a key at https://app.onepin.ai/workspace/~/settings/api), then stop.
    - Pass `--workspace <uuid>` (or set `ONEPIN_WORKSPACE_ID`) only if the user has more than one
      workspace and the wrong one is active.
 3. If `onepin schema` errors or the command is missing, the CLI is old — suggest

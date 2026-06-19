@@ -1,6 +1,6 @@
 """``onepin skill install / path / uninstall`` -- manage the bundled cross-tool agent skill.
 
-These commands materialize the OnePin agent skill (an open `Agent Skills <https://agentskills.io>`_
+These commands materialize the Onepin agent skill (an open `Agent Skills <https://agentskills.io>`_
 ``SKILL.md`` folder bundled in the wheel) into each AI coding tool's skills directory, so the
 skill is usable from Claude Code (as ``/onepin``), Cursor, OpenAI Codex, Gemini CLI, and Copilot.
 
@@ -67,7 +67,7 @@ def install(
     force: bool = typer.Option(False, "--force", help="Overwrite existing skill files."),
     json_output_local: bool = typer.Option(False, "--json", help="Emit JSON instead of text."),
 ) -> None:
-    """Install the OnePin agent skill into your AI coding tool(s).
+    """Install the Onepin agent skill into your AI coding tool(s).
 
     Writes the bundled ``SKILL.md`` folder into each target's skills directory. In Claude Code the
     skill is then invocable as ``/onepin``; other tools load it on demand by relevance. Refuses to
@@ -94,7 +94,7 @@ def install(
         render_json({"ok": True, "command": "/onepin", "targets": written})
         return
     for labels, directory in targets:
-        typer.echo(f"Installed OnePin skill → {directory}  ({', '.join(labels)})")
+        typer.echo(f"Installed Onepin skill → {directory}  ({', '.join(labels)})")
     typer.echo("In Claude Code, invoke it with /onepin; other tools load it by relevance.")
     typer.echo("If your tool is already running, restart it (or run /reload-plugins) to pick up a new skills dir.")
 
@@ -105,7 +105,7 @@ def path(
     project: bool = typer.Option(False, "--project", help="Show project paths instead of HOME."),
     json_output_local: bool = typer.Option(False, "--json", help="Emit JSON instead of text."),
 ) -> None:
-    """Show where the OnePin skill is (or would be) installed, without writing anything."""
+    """Show where the Onepin skill is (or would be) installed, without writing anything."""
     json_on = output_json(json_output_local)
     try:
         targets = _target_dirs(_select_tools(tool, all_tools), project)
@@ -129,7 +129,7 @@ def uninstall(
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
     json_output_local: bool = typer.Option(False, "--json", help="Emit JSON instead of text."),
 ) -> None:
-    """Remove the installed OnePin skill folder(s). Idempotent; only deletes the ``onepin/`` leaf dir."""
+    """Remove the installed Onepin skill folder(s). Idempotent; only deletes the ``onepin/`` leaf dir."""
     json_on = output_json(json_output_local)
     try:
         targets = _target_dirs(_select_tools(tool, all_tools), project)
@@ -141,7 +141,7 @@ def uninstall(
                     "CONFIRMATION_REQUIRED",
                     "Pass --yes to remove the skill (no interactive prompt under --json).",
                 )
-            typer.confirm(f"Remove the OnePin skill from {len(present)} location(s)?", abort=True, err=True)
+            typer.confirm(f"Remove the Onepin skill from {len(present)} location(s)?", abort=True, err=True)
 
         removed: list[dict[str, object]] = []
         for labels, directory in present:
@@ -158,7 +158,7 @@ def uninstall(
         typer.echo("Nothing to remove.")
         return
     for entry in removed:
-        typer.echo(f"Removed OnePin skill ← {entry['path']}")
+        typer.echo(f"Removed Onepin skill ← {entry['path']}")
 
 
 # === helpers =============================================================================
@@ -210,13 +210,13 @@ def _bundled_skill_files() -> list[tuple[str, bytes]]:
     try:
         entries = sorted(root.iterdir(), key=lambda entry: entry.name)
     except (FileNotFoundError, NotADirectoryError) as exc:
-        raise CliError("SKILL_PAYLOAD_MISSING", "The bundled OnePin skill is missing from the package.") from exc
+        raise CliError("SKILL_PAYLOAD_MISSING", "The bundled Onepin skill is missing from the package.") from exc
     for entry in entries:
         if not entry.is_file() or entry.name.endswith(".py"):
             continue
         files.append((entry.name, entry.read_bytes()))
     if not files:
-        raise CliError("SKILL_PAYLOAD_MISSING", "The bundled OnePin skill is missing from the package.")
+        raise CliError("SKILL_PAYLOAD_MISSING", "The bundled Onepin skill is missing from the package.")
     return files
 
 

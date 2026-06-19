@@ -161,7 +161,7 @@ class TestLoginErrors:
 
         assert result.exit_code == 1
         assert "INVALID_API_KEY" in result.output
-        assert "app.onepin.ai/settings/api-keys" in result.output
+        assert "app.onepin.ai/workspace/~/settings/api" in result.output
 
     @respx.mock
     def test_network_error_exits_1_with_network_error_message(self, tmp_home: Path) -> None:

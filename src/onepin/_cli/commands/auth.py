@@ -12,7 +12,7 @@ from onepin._cli._http import OnePinAuthError, OnePinHTTPError, OnePinNetworkErr
 from onepin._cli.auth.credentials import delete_credentials, write_credentials
 
 _DEFAULT_BASE_URL = "https://api.onepin.ai"
-_DASHBOARD_URL = "https://app.onepin.ai/settings/api-keys"
+_DASHBOARD_URL = "https://app.onepin.ai/workspace/~/settings/api"
 
 
 def _resolve_login_base_url(local_flag: str | None) -> str:

@@ -118,7 +118,7 @@ def _call_whoami(key: str, base_url: str, timeout: float = 10.0, *, verbose: boo
 
     Args:
         key: API key to authenticate with.
-        base_url: Base URL of the OnePin API (no trailing slash).
+        base_url: Base URL of the Onepin API (no trailing slash).
         timeout: Request timeout in seconds.
         verbose: If True, log the request and response status to stderr.
 
