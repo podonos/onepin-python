@@ -48,7 +48,7 @@ onepin = "onepin._cli.main:app"
 
 [project.urls]
 Homepage = "https://onepin.ai"
-Documentation = "https://docs.onepin.ai"
+Documentation = "https://onepin.ai/docs"
 Source = "https://github.com/podonos/onepin-python"
 Issues = "https://github.com/podonos/onepin-python/issues"
 Changelog = "https://github.com/podonos/onepin-python/blob/main/CHANGELOG.md"
