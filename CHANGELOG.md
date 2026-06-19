@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0](https://github.com/podonos/onepin-python/compare/v0.6.0...v0.7.0) (2026-06-19)
+
+
+### Features
+
+* SDK version-compat gate, health version surface, upgrade nudge ([#52](https://github.com/podonos/onepin-python/issues/52)) ([e61a07d](https://github.com/podonos/onepin-python/commit/e61a07d289073104a086ed6aec6161a6169f829a))
+* sync SDK to OnePin API v0.38.12 ([#54](https://github.com/podonos/onepin-python/issues/54)) ([0338590](https://github.com/podonos/onepin-python/commit/0338590eb1439b8e4051dd506da479d6b1317cab))
+
 ## [0.6.0](https://github.com/podonos/onepin-python/compare/v0.5.0...v0.6.0) (2026-06-15)
 
 
