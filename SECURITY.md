@@ -34,7 +34,7 @@ Out of scope:
 - The upstream OpenAPI spec and Fern generator configuration (reported separately)
 - Issues that require an already-compromised local environment (e.g., an attacker
   with shell access to the user's machine)
-- Denial-of-service against the OnePin API itself (report to the API team directly)
+- Denial-of-service against the Onepin API itself (report to the API team directly)
 
 ## Disclosure
 

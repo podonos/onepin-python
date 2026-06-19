@@ -12,7 +12,7 @@ from onepin._cli.commands import _registry
 
 app = typer.Typer(
     name="onepin",
-    help="OnePin Python SDK CLI.",
+    help="Onepin Python SDK CLI.",
     invoke_without_command=True,
     no_args_is_help=True,
     rich_markup_mode="markdown",
@@ -89,7 +89,7 @@ def _main(
     verbose: bool = typer.Option(False, "-v", "--verbose", help="Log HTTP requests/responses to stderr."),
     debug: bool = typer.Option(False, "--debug", help="Enable verbose logging (implies --verbose)."),
 ) -> None:
-    """OnePin CLI -- control workflows, voices, templates, and uploads from your terminal."""
+    """Onepin CLI -- control workflows, voices, templates, and uploads from your terminal."""
     _state.root_options = {
         "api_key": api_key,
         "api_key_source": ctx.get_parameter_source("api_key"),

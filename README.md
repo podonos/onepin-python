@@ -7,6 +7,16 @@
 [![CI](https://github.com/podonos/onepin-python/actions/workflows/ci.yml/badge.svg)](https://github.com/podonos/onepin-python/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+## What Onepin does
+
+TTS turns text into speech. Onepin runs the production around it: plan the line, pick the model, generate, score, retry, ship.
+
+- **Orchestrate** voice workflows as graphs — sources, generators, validators, destinations — from Python or the CLI.
+- **Validate** every line. Word accuracy and naturalness are scored against your thresholds, with automatic retries on a miss.
+- **Reach 100+ TTS models** through one definition: ElevenLabs, Cartesia, Google, Naver, and more, with no per-vendor rewrite.
+- **Ship publish-ready voice.** Pull a full-run export or a single node's output straight from a run.
+- **Drive it from your agent.** The bundled Agent Skill runs Onepin from Claude Code, Cursor, Codex, Gemini, and Copilot.
+
 ## Installation
 
 ```bash
@@ -115,9 +125,9 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 
 ### skill
 
-- `onepin skill install` — Install the OnePin agent skill (Claude Code, Cursor, Codex, Gemini, Copilot).
+- `onepin skill install` — Install the Onepin agent skill (Claude Code, Cursor, Codex, Gemini, Copilot).
 - `onepin skill path` — Show where the skill is or would be installed.
-- `onepin skill uninstall` — Remove the installed OnePin agent skill.
+- `onepin skill uninstall` — Remove the installed Onepin agent skill.
 
 ### templates
 
@@ -493,6 +503,32 @@ except ApiError as e:
 - `src/onepin/reference.md` — full per-endpoint API reference
 - `examples/` — runnable SDK snippets
 - `scripts/post_fern.sh` — restores `py.typed` markers after Fern overwrites `src/onepin/`
+
+## FAQ
+
+### What is Onepin?
+
+Onepin is a voice workflow platform: the agent layer for AI voice. It plans each line, picks a TTS model, generates the audio, validates it for accuracy and naturalness, retries on a miss, and ships the result. This package is the official Python SDK and `onepin` CLI for that platform.
+
+### How many TTS models does Onepin support?
+
+Over 100, across providers including ElevenLabs, Cartesia, Google, and Naver. You target them through one workflow definition, so switching a model is a field change, not a rewrite.
+
+### Does Onepin support ElevenLabs and Cartesia?
+
+Yes. Both are first-class providers, alongside Google, Naver, and others. List what's available with `onepin voices list --provider elevenlabs` (swap in any provider).
+
+### How is Onepin different from calling a TTS API directly?
+
+A TTS API returns whatever it generates. Onepin gates the result. You set accuracy and naturalness thresholds, the pipeline scores each line and retries the ones that miss, and only lines that clear the bar ship — across 100+ models behind one interface instead of a separate integration per vendor.
+
+### Do I need a Onepin account?
+
+Yes. Mint an API key at [app.onepin.ai/settings/api-keys](https://app.onepin.ai/settings/api-keys), then run `onepin login`. See [Authentication](#authentication).
+
+### Can my AI coding agent run Onepin?
+
+Yes. `onepin skill install` adds an [Agent Skill](https://agentskills.io) that drives the CLI from Claude Code, Cursor, Codex, Gemini CLI, and GitHub Copilot. See [Use from your AI coding tool](#use-from-your-ai-coding-tool).
 
 ## License
 

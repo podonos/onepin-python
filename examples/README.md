@@ -1,6 +1,6 @@
 # Examples
 
-Runnable snippets for the OnePin Python SDK. Each reads your API key from the
+Runnable snippets for the Onepin Python SDK. Each reads your API key from the
 `ONEPIN_API_KEY` environment variable.
 
 ```sh

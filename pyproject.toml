@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "onepin"
 dynamic = ["version"]
-description = "Onepin Python SDK + CLI — orchestrate, validate & ship production-ready voice (TTS) audio across 100+ models"
+description = "Onepin Python SDK + CLI — orchestrate, validate & ship production-ready voice audio across 100+ TTS models"
 readme = "README.md"
 keywords = [
     "onepin", "tts", "text-to-speech", "speech-synthesis", "voice",
