@@ -1,6 +1,6 @@
 # onepin
 
-Python SDK + CLI for [OnePin](https://onepin.ai) — the AI-powered voice workflow platform.
+**Onepin is a voice workflow platform that orchestrates, validates, and ships production-ready audio across 100+ TTS models.** This is the official Python SDK + CLI for [Onepin](https://onepin.ai).
 
 [![PyPI version](https://img.shields.io/pypi/v/onepin)](https://pypi.org/project/onepin/)
 [![Python versions](https://img.shields.io/pypi/pyversions/onepin)](https://pypi.org/project/onepin/)
@@ -33,7 +33,7 @@ Credential resolution order: `--api-key` flag → `ONEPIN_API_KEY` env var → s
 
 ## Use from your AI coding tool
 
-OnePin ships an [Agent Skill](https://agentskills.io) that teaches AI coding tools to drive the
+Onepin ships an [Agent Skill](https://agentskills.io) that teaches AI coding tools to drive the
 `onepin` CLI for you — list and run workflows, check run status, browse voices and templates —
 without leaving your editor. It works in Claude Code, Cursor, OpenAI Codex, Gemini CLI, and GitHub
 Copilot. Install it with the CLI (it auto-detects which tools you have):
@@ -48,13 +48,13 @@ onepin skill uninstall                              # remove it
 ```
 
 In **Claude Code** the skill is then invocable as `/onepin`; other tools load it automatically when
-your request is about OnePin. After the first install, restart your tool (or run `/reload-plugins`
+your request is about Onepin. After the first install, restart your tool (or run `/reload-plugins`
 in Claude Code) so it picks up the new skills directory. The skill drives the same `onepin` CLI, so
 run `onepin login` first.
 
 ## Version compatibility
 
-The OnePin API advertises the minimum SDK version it still accepts. When a response indicates your
+The Onepin API advertises the minimum SDK version it still accepts. When a response indicates your
 installed `onepin` is **below that floor**, the SDK stops with a clear, copy-paste upgrade message:
 
 ```
@@ -72,7 +72,7 @@ client = onepin.make_client(token="op_live_...")
 client.workflows.list()  # raises onepin.OnePinUpgradeRequiredError if the SDK is too old
 ```
 
-The CLI also nudges you when a newer release is available on PyPI (surfaced through the OnePin agent
+The CLI also nudges you when a newer release is available on PyPI (surfaced through the Onepin agent
 skill). Set `ONEPIN_NO_UPDATE_CHECK=1` to silence the recommended-upgrade check.
 
 ## Command reference
