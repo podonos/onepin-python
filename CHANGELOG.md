@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.1](https://github.com/podonos/onepin-python/compare/v0.7.0...v0.7.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* **cli:** correct dead api-key dashboard url and align brand to Onepin ([#61](https://github.com/podonos/onepin-python/issues/61)) ([ffd5649](https://github.com/podonos/onepin-python/commit/ffd5649c50b0982b68b232d9c51e28afa483cfeb))
+
 ## [0.7.0](https://github.com/podonos/onepin-python/compare/v0.6.0...v0.7.0) (2026-06-19)
 
 
