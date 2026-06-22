@@ -268,9 +268,9 @@ def _classify_other_error(exc: Exception) -> tuple[str | None, str]:
     from pydantic import ValidationError
 
     if isinstance(exc, httpx.ConnectError):
-        return "NETWORK_ERROR", "Could not connect to the OnePin API."
+        return "NETWORK_ERROR", "Could not connect to the Onepin API."
     if isinstance(exc, httpx.TimeoutException):
-        return "TIMEOUT", "The request to the OnePin API timed out."
+        return "TIMEOUT", "The request to the Onepin API timed out."
     if isinstance(exc, httpx.TransportError):
         return "NETWORK_ERROR", "A network transport error occurred."
     if isinstance(exc, json.JSONDecodeError):

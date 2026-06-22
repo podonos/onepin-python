@@ -1,4 +1,4 @@
-# OnePin CLI reference
+# Onepin CLI reference
 
 `onepin schema` (JSON manifest of every command: `path`, `args`, `options`, `destructive`) is the
 **authoritative** source — when this file and `schema` disagree, trust `schema`. This file is a

@@ -1,6 +1,6 @@
 """Client-side SDK version gate (hand-written; preserved across ``fern generate`` via ``.fernignore``).
 
-The OnePin API advertises the minimum SDK version it still accepts via the
+The Onepin API advertises the minimum SDK version it still accepts via the
 ``X-OnePin-Required-Version`` response header (and enforces it with HTTP 426). This module reads
 that header off every response and stops the caller when the installed ``onepin`` package is
 older than the floor.

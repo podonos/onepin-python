@@ -1,4 +1,4 @@
-"""OnePin CLI entry point -- `onepin = "onepin._cli.main:app"`."""
+"""Onepin CLI entry point -- `onepin = "onepin._cli.main:app"`."""
 
 from __future__ import annotations
 

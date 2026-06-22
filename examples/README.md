@@ -5,7 +5,7 @@ Runnable snippets for the Onepin Python SDK. Each reads your API key from the
 
 ```sh
 pip install onepin
-export ONEPIN_API_KEY="op_..."        # create one at https://app.onepin.ai/settings/api-keys
+export ONEPIN_API_KEY="op_..."        # create one at https://app.onepin.ai/workspace/~/settings/api
 python examples/quickstart.py
 ```
 

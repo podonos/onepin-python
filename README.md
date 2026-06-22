@@ -29,7 +29,7 @@ Full documentation: [onepin.ai/docs](https://onepin.ai/docs)
 
 ## Authentication
 
-Mint an API key at [app.onepin.ai/settings/api-keys](https://app.onepin.ai/settings/api-keys), then:
+Mint an API key at [app.onepin.ai/workspace/~/settings/api](https://app.onepin.ai/workspace/~/settings/api), then:
 
 ```bash
 onepin login
@@ -524,7 +524,7 @@ A TTS API returns whatever it generates. Onepin gates the result. You set accura
 
 ### Do I need a Onepin account?
 
-Yes. Mint an API key at [app.onepin.ai/settings/api-keys](https://app.onepin.ai/settings/api-keys), then run `onepin login`. See [Authentication](#authentication).
+Yes. Mint an API key at [app.onepin.ai/workspace/~/settings/api](https://app.onepin.ai/workspace/~/settings/api), then run `onepin login`. See [Authentication](#authentication).
 
 ### Can my AI coding agent run Onepin?
 
