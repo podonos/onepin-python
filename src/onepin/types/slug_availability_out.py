@@ -4,16 +4,17 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .slug_availability_out_reason import SlugAvailabilityOutReason
 
 
-class UsageRunsOut(UniversalBaseModel):
-    total: int
-    completed: int
-    failed: int
-    cancelled: int
-    running: int
-    pending: int
-    paused: typing.Optional[int] = None
+class SlugAvailabilityOut(UniversalBaseModel):
+    """
+    POD-557: result of GET /workspaces/slug-available. `reason` is set only
+    when `available` is False (first failure in order format → reserved → taken).
+    """
+
+    available: bool
+    reason: typing.Optional[SlugAvailabilityOutReason] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

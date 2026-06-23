@@ -24,8 +24,8 @@ from ..types.api_response_estimate_response import ApiResponseEstimateResponse
 from ..types.api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
 from ..types.api_response_runs_summary_out import ApiResponseRunsSummaryOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
+from ..types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
-from ..types.http_validation_error import HttpValidationError
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
@@ -74,7 +74,7 @@ class RawWorkflowsClient:
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` means FINISHED — it matches workflows whose latest run is completed, failed, or cancelled, so it overlaps `failed` on failed runs. `paused` is accepted for forward compatibility and currently returns no rows.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -137,9 +137,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -214,9 +214,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -276,9 +276,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -356,9 +356,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -418,9 +418,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -498,9 +498,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -570,9 +570,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -632,9 +632,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -694,9 +694,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -773,9 +773,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -838,9 +838,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -903,9 +903,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -991,9 +991,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1078,9 +1078,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1168,9 +1168,145 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def pause_run(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseWorkflowRunOut]:
+        """
+        Pause a workflow run.
+
+        A running run finishes its current wave (preserving in-flight work) and parks at the
+        next wave boundary; a pending run parks immediately. Fire-and-forget and idempotent.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseWorkflowRunOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/pause",
+            method="POST",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowRunOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowRunOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def resume_run(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseWorkflowRunOut]:
+        """
+        Resume a paused workflow run from its last completed wave.
+
+        Best-effort: if the workflow already has another active run, or the caller is at their
+        concurrent-run limit, the run stays paused and a 409 explains why (retry later).
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseWorkflowRunOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/resume",
+            method="POST",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowRunOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowRunOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1230,9 +1366,9 @@ class RawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1284,7 +1420,7 @@ class AsyncRawWorkflowsClient:
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` means FINISHED — it matches workflows whose latest run is completed, failed, or cancelled, so it overlaps `failed` on failed runs. `paused` is accepted for forward compatibility and currently returns no rows.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -1347,9 +1483,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1424,9 +1560,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1486,9 +1622,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1566,9 +1702,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1628,9 +1764,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1708,9 +1844,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1780,9 +1916,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1842,9 +1978,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1904,9 +2040,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1983,9 +2119,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -2048,9 +2184,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -2113,9 +2249,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -2201,9 +2337,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -2288,9 +2424,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -2378,9 +2514,145 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def pause_run(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseWorkflowRunOut]:
+        """
+        Pause a workflow run.
+
+        A running run finishes its current wave (preserving in-flight work) and parks at the
+        next wave boundary; a pending run parks immediately. Fire-and-forget and idempotent.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseWorkflowRunOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/pause",
+            method="POST",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowRunOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowRunOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def resume_run(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseWorkflowRunOut]:
+        """
+        Resume a paused workflow run from its last completed wave.
+
+        Best-effort: if the workflow already has another active run, or the caller is at their
+        concurrent-run limit, the run stays paused and a 409 explains why (retry later).
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseWorkflowRunOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/resume",
+            method="POST",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowRunOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowRunOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -2440,9 +2712,9 @@ class AsyncRawWorkflowsClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

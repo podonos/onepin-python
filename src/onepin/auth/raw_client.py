@@ -11,7 +11,6 @@ from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_response_auth_whoami_out import ApiResponseAuthWhoamiOut
-from ..types.http_validation_error import HttpValidationError
 from pydantic import ValidationError
 
 
@@ -54,9 +53,9 @@ class RawAuthClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -110,9 +109,9 @@ class AsyncRawAuthClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

@@ -13,7 +13,6 @@ from ..core.request_options import RequestOptions
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_response_provider_key_item_out import ApiResponseProviderKeyItemOut
 from ..types.api_response_provider_keys_manifest_out import ApiResponseProviderKeysManifestOut
-from ..types.http_validation_error import HttpValidationError
 from ..types.provider_key_provider import ProviderKeyProvider
 from pydantic import ValidationError
 
@@ -65,9 +64,9 @@ class RawProviderKeysClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -136,9 +135,9 @@ class RawProviderKeysClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -198,9 +197,9 @@ class RawProviderKeysClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -259,9 +258,9 @@ class AsyncRawProviderKeysClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -330,9 +329,9 @@ class AsyncRawProviderKeysClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -392,9 +391,9 @@ class AsyncRawProviderKeysClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

@@ -56,6 +56,7 @@ if typing.TYPE_CHECKING:
     from .api_response_provider_keys_manifest_out import ApiResponseProviderKeysManifestOut
     from .api_response_runs_summary_out import ApiResponseRunsSummaryOut
     from .api_response_setup_intent_response import ApiResponseSetupIntentResponse
+    from .api_response_slug_availability_out import ApiResponseSlugAvailabilityOut
     from .api_response_template_estimate_response import ApiResponseTemplateEstimateResponse
     from .api_response_template_out import ApiResponseTemplateOut
     from .api_response_union_customer_subscription_response_none_type import (
@@ -137,6 +138,8 @@ if typing.TYPE_CHECKING:
     from .provider_keys_manifest_out import ProviderKeysManifestOut
     from .runs_summary_out import RunsSummaryOut
     from .setup_intent_response import SetupIntentResponse
+    from .slug_availability_out import SlugAvailabilityOut
+    from .slug_availability_out_reason import SlugAvailabilityOutReason
     from .template_category import TemplateCategory
     from .template_estimate_response import TemplateEstimateResponse
     from .template_estimate_response_cache_status import TemplateEstimateResponseCacheStatus
@@ -275,6 +278,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiResponseProviderKeysManifestOut": ".api_response_provider_keys_manifest_out",
     "ApiResponseRunsSummaryOut": ".api_response_runs_summary_out",
     "ApiResponseSetupIntentResponse": ".api_response_setup_intent_response",
+    "ApiResponseSlugAvailabilityOut": ".api_response_slug_availability_out",
     "ApiResponseTemplateEstimateResponse": ".api_response_template_estimate_response",
     "ApiResponseTemplateOut": ".api_response_template_out",
     "ApiResponseUnionCustomerSubscriptionResponseNoneType": ".api_response_union_customer_subscription_response_none_type",
@@ -352,6 +356,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ProviderKeysManifestOut": ".provider_keys_manifest_out",
     "RunsSummaryOut": ".runs_summary_out",
     "SetupIntentResponse": ".setup_intent_response",
+    "SlugAvailabilityOut": ".slug_availability_out",
+    "SlugAvailabilityOutReason": ".slug_availability_out_reason",
     "TemplateCategory": ".template_category",
     "TemplateEstimateResponse": ".template_estimate_response",
     "TemplateEstimateResponseCacheStatus": ".template_estimate_response_cache_status",
@@ -514,6 +520,7 @@ __all__ = [
     "ApiResponseProviderKeysManifestOut",
     "ApiResponseRunsSummaryOut",
     "ApiResponseSetupIntentResponse",
+    "ApiResponseSlugAvailabilityOut",
     "ApiResponseTemplateEstimateResponse",
     "ApiResponseTemplateOut",
     "ApiResponseUnionCustomerSubscriptionResponseNoneType",
@@ -591,6 +598,8 @@ __all__ = [
     "ProviderKeysManifestOut",
     "RunsSummaryOut",
     "SetupIntentResponse",
+    "SlugAvailabilityOut",
+    "SlugAvailabilityOutReason",
     "TemplateCategory",
     "TemplateEstimateResponse",
     "TemplateEstimateResponseCacheStatus",

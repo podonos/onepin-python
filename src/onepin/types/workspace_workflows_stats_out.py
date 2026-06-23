@@ -10,14 +10,13 @@ class WorkspaceWorkflowsStatsOut(UniversalBaseModel):
     """
     Workflow counts grouped by derived ``WorkflowListStatus`` for a workspace.
 
-    **Bucket coverage (V1, by design):**
-    ``total >= draft + running + completed + failed + paused``. Workflows
-    whose latest run is ``cancelled`` map to **no** bucket because the spec
-    exposes only the 5 ``WorkflowListStatus`` values. The UI must use
-    ``total`` for the headline count, not the sum of buckets.
+    **Bucket semantics (POD-634):** ``completed`` means FINISHED — its latest
+    run ended (completed, failed, or cancelled). ``failed`` counts failed-only
+    and is therefore a SUBSET of ``completed`` (a failed run is counted in
+    both). The buckets OVERLAP, so their sum can exceed ``total``; the UI must
+    rely on ``total`` for the headline count, not the sum of buckets.
 
-    ``paused`` is always ``0`` (spec Non-Goal — UI exposes the bucket for
-    forward compatibility).
+    ``paused`` is always 0 — paused workflows fold into ``running`` (POD-417: a parked run is still active work).
     """
 
     total: int

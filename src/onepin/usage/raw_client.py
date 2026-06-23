@@ -13,7 +13,6 @@ from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_list_response_usage_activity_out import ApiListResponseUsageActivityOut
 from ..types.api_response_usage_by_language_out import ApiResponseUsageByLanguageOut
 from ..types.api_response_usage_summary_out import ApiResponseUsageSummaryOut
-from ..types.http_validation_error import HttpValidationError
 from ..types.usage_activity_action import UsageActivityAction
 from .types.usage_activity_api_v1usage_activity_get_request_range import UsageActivityApiV1UsageActivityGetRequestRange
 from .types.usage_by_language_api_v1usage_by_language_get_request_activity_view import (
@@ -93,9 +92,9 @@ class RawUsageClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -173,9 +172,9 @@ class RawUsageClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -263,9 +262,9 @@ class RawUsageClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -344,9 +343,9 @@ class AsyncRawUsageClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -424,9 +423,9 @@ class AsyncRawUsageClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -514,9 +513,9 @@ class AsyncRawUsageClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

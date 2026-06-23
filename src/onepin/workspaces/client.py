@@ -6,6 +6,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.api_list_response_workspace_out import ApiListResponseWorkspaceOut
 from ..types.api_response_dict import ApiResponseDict
+from ..types.api_response_slug_availability_out import ApiResponseSlugAvailabilityOut
 from ..types.api_response_workspace_out import ApiResponseWorkspaceOut
 from .raw_client import AsyncRawWorkspacesClient, RawWorkspacesClient
 
@@ -108,6 +109,57 @@ class WorkspacesClient:
         """
         _response = self._raw_client.create_workspace(
             name=name, slug=slug, color_idx=color_idx, request_options=request_options
+        )
+        return _response.data
+
+    def slug_available(
+        self,
+        *,
+        slug: str,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseSlugAvailabilityOut:
+        """
+        POD-557: admin-only live availability check for a workspace slug.
+
+        Declared before `/{workspace_id}` so the literal path wins over the UUID
+        route. Auth is hard 4xx (missing/invalid X-Workspace-Id -> 400, not a member
+        -> 404, not admin -> 403, missing ?slug -> 422). Slug content is soft 200
+        `{available, reason?: invalid|reserved|taken}`, self-excluded against the
+        X-Workspace-Id workspace's own current slug. Global across tenants.
+
+        Advisory only — a point-in-time snapshot. A concurrent request can claim the
+        slug between this check and the caller's POST/PATCH, so callers must still
+        handle 409 WORKSPACE_SLUG_TAKEN on the write path.
+
+        Parameters
+        ----------
+        slug : str
+            Candidate slug; normalized (strip().lower()) before checks.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseSlugAvailabilityOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workspaces.slug_available(
+            slug="slug",
+        )
+        """
+        _response = self._raw_client.slug_available(
+            slug=slug, workspace_id=workspace_id, request_options=request_options
         )
         return _response.data
 
@@ -333,6 +385,65 @@ class AsyncWorkspacesClient:
         """
         _response = await self._raw_client.create_workspace(
             name=name, slug=slug, color_idx=color_idx, request_options=request_options
+        )
+        return _response.data
+
+    async def slug_available(
+        self,
+        *,
+        slug: str,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseSlugAvailabilityOut:
+        """
+        POD-557: admin-only live availability check for a workspace slug.
+
+        Declared before `/{workspace_id}` so the literal path wins over the UUID
+        route. Auth is hard 4xx (missing/invalid X-Workspace-Id -> 400, not a member
+        -> 404, not admin -> 403, missing ?slug -> 422). Slug content is soft 200
+        `{available, reason?: invalid|reserved|taken}`, self-excluded against the
+        X-Workspace-Id workspace's own current slug. Global across tenants.
+
+        Advisory only — a point-in-time snapshot. A concurrent request can claim the
+        slug between this check and the caller's POST/PATCH, so callers must still
+        handle 409 WORKSPACE_SLUG_TAKEN on the write path.
+
+        Parameters
+        ----------
+        slug : str
+            Candidate slug; normalized (strip().lower()) before checks.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseSlugAvailabilityOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workspaces.slug_available(
+                slug="slug",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.slug_available(
+            slug=slug, workspace_id=workspace_id, request_options=request_options
         )
         return _response.data
 

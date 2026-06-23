@@ -4,16 +4,13 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .meta import Meta
+from .slug_availability_out import SlugAvailabilityOut
 
 
-class UsageRunsOut(UniversalBaseModel):
-    total: int
-    completed: int
-    failed: int
-    cancelled: int
-    running: int
-    pending: int
-    paused: typing.Optional[int] = None
+class ApiResponseSlugAvailabilityOut(UniversalBaseModel):
+    data: SlugAvailabilityOut
+    meta: Meta
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

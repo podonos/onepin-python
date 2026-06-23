@@ -10,11 +10,16 @@ from ..core.jsonable_encoder import encode_path_param
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from ..errors.bad_request_error import BadRequestError
+from ..errors.conflict_error import ConflictError
+from ..errors.forbidden_error import ForbiddenError
+from ..errors.not_found_error import NotFoundError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
+from ..types.api_error_response import ApiErrorResponse
 from ..types.api_list_response_workspace_out import ApiListResponseWorkspaceOut
 from ..types.api_response_dict import ApiResponseDict
+from ..types.api_response_slug_availability_out import ApiResponseSlugAvailabilityOut
 from ..types.api_response_workspace_out import ApiResponseWorkspaceOut
-from ..types.http_validation_error import HttpValidationError
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -72,9 +77,9 @@ class RawWorkspacesClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -143,13 +148,133 @@ class RawWorkspacesClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def slug_available(
+        self,
+        *,
+        slug: str,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseSlugAvailabilityOut]:
+        """
+        POD-557: admin-only live availability check for a workspace slug.
+
+        Declared before `/{workspace_id}` so the literal path wins over the UUID
+        route. Auth is hard 4xx (missing/invalid X-Workspace-Id -> 400, not a member
+        -> 404, not admin -> 403, missing ?slug -> 422). Slug content is soft 200
+        `{available, reason?: invalid|reserved|taken}`, self-excluded against the
+        X-Workspace-Id workspace's own current slug. Global across tenants.
+
+        Advisory only — a point-in-time snapshot. A concurrent request can claim the
+        slug between this check and the caller's POST/PATCH, so callers must still
+        handle 409 WORKSPACE_SLUG_TAKEN on the write path.
+
+        Parameters
+        ----------
+        slug : str
+            Candidate slug; normalized (strip().lower()) before checks.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseSlugAvailabilityOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v1/workspaces/slug-available",
+            method="GET",
+            params={
+                "slug": slug,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseSlugAvailabilityOut,
+                    parse_obj_as(
+                        type_=ApiResponseSlugAvailabilityOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ApiErrorResponse,
+                        parse_obj_as(
+                            type_=ApiErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ApiErrorResponse,
+                        parse_obj_as(
+                            type_=ApiErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -200,9 +325,9 @@ class RawWorkspacesClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -253,9 +378,9 @@ class RawWorkspacesClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -323,13 +448,24 @@ class RawWorkspacesClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -395,9 +531,9 @@ class AsyncRawWorkspacesClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -466,13 +602,133 @@ class AsyncRawWorkspacesClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def slug_available(
+        self,
+        *,
+        slug: str,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseSlugAvailabilityOut]:
+        """
+        POD-557: admin-only live availability check for a workspace slug.
+
+        Declared before `/{workspace_id}` so the literal path wins over the UUID
+        route. Auth is hard 4xx (missing/invalid X-Workspace-Id -> 400, not a member
+        -> 404, not admin -> 403, missing ?slug -> 422). Slug content is soft 200
+        `{available, reason?: invalid|reserved|taken}`, self-excluded against the
+        X-Workspace-Id workspace's own current slug. Global across tenants.
+
+        Advisory only — a point-in-time snapshot. A concurrent request can claim the
+        slug between this check and the caller's POST/PATCH, so callers must still
+        handle 409 WORKSPACE_SLUG_TAKEN on the write path.
+
+        Parameters
+        ----------
+        slug : str
+            Candidate slug; normalized (strip().lower()) before checks.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseSlugAvailabilityOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v1/workspaces/slug-available",
+            method="GET",
+            params={
+                "slug": slug,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseSlugAvailabilityOut,
+                    parse_obj_as(
+                        type_=ApiResponseSlugAvailabilityOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ApiErrorResponse,
+                        parse_obj_as(
+                            type_=ApiErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ApiErrorResponse,
+                        parse_obj_as(
+                            type_=ApiErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -523,9 +779,9 @@ class AsyncRawWorkspacesClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -576,9 +832,9 @@ class AsyncRawWorkspacesClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -646,13 +902,24 @@ class AsyncRawWorkspacesClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

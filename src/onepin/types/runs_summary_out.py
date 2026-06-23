@@ -13,6 +13,7 @@ class RunsSummaryOut(UniversalBaseModel):
     cancelled: int
     pending: int
     running: int
+    paused: int
     pass_rate: typing.Optional[float] = None
     average_duration_seconds: typing.Optional[float] = None
 

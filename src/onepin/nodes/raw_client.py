@@ -14,7 +14,6 @@ from ..errors.not_found_error import NotFoundError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_list_response_node_ports_out import ApiListResponseNodePortsOut
 from ..types.api_response_node_detail_out import ApiResponseNodeDetailOut
-from ..types.http_validation_error import HttpValidationError
 from pydantic import ValidationError
 
 
@@ -130,9 +129,9 @@ class RawNodesClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -210,9 +209,9 @@ class RawNodesClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -339,9 +338,9 @@ class AsyncRawNodesClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -419,9 +418,9 @@ class AsyncRawNodesClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        HttpValidationError,
+                        typing.Any,
                         parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

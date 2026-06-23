@@ -15,6 +15,7 @@ from ..types.api_response_estimate_response import ApiResponseEstimateResponse
 from ..types.api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
 from ..types.api_response_runs_summary_out import ApiResponseRunsSummaryOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
+from ..types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from ..types.workflow_list_status import WorkflowListStatus
@@ -79,7 +80,7 @@ class WorkflowsClient:
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` means FINISHED — it matches workflows whose latest run is completed, failed, or cancelled, so it overlaps `failed` on failed runs. `paused` is accepted for forward compatibility and currently returns no rows.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -798,6 +799,100 @@ class WorkflowsClient:
         )
         return _response.data
 
+    def pause_run(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseWorkflowRunOut:
+        """
+        Pause a workflow run.
+
+        A running run finishes its current wave (preserving in-flight work) and parks at the
+        next wave boundary; a pending run parks immediately. Fire-and-forget and idempotent.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseWorkflowRunOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workflows.pause_run(
+            workflow_id="workflow_id",
+            run_id="run_id",
+        )
+        """
+        _response = self._raw_client.pause_run(
+            workflow_id, run_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    def resume_run(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseWorkflowRunOut:
+        """
+        Resume a paused workflow run from its last completed wave.
+
+        Best-effort: if the workflow already has another active run, or the caller is at their
+        concurrent-run limit, the run stays paused and a 409 explains why (retry later).
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseWorkflowRunOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workflows.resume_run(
+            workflow_id="workflow_id",
+            run_id="run_id",
+        )
+        """
+        _response = self._raw_client.resume_run(
+            workflow_id, run_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
     def duplicate_workflow(
         self,
         workflow_id: str,
@@ -897,7 +992,7 @@ class AsyncWorkflowsClient:
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` means FINISHED — it matches workflows whose latest run is completed, failed, or cancelled, so it overlaps `failed` on failed runs. `paused` is accepted for forward compatibility and currently returns no rows.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -1733,6 +1828,116 @@ class AsyncWorkflowsClient:
         """
         _response = await self._raw_client.download_run_node(
             workflow_id, run_id, node_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    async def pause_run(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseWorkflowRunOut:
+        """
+        Pause a workflow run.
+
+        A running run finishes its current wave (preserving in-flight work) and parks at the
+        next wave boundary; a pending run parks immediately. Fire-and-forget and idempotent.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseWorkflowRunOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workflows.pause_run(
+                workflow_id="workflow_id",
+                run_id="run_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.pause_run(
+            workflow_id, run_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    async def resume_run(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseWorkflowRunOut:
+        """
+        Resume a paused workflow run from its last completed wave.
+
+        Best-effort: if the workflow already has another active run, or the caller is at their
+        concurrent-run limit, the run stays paused and a 409 explains why (retry later).
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseWorkflowRunOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workflows.resume_run(
+                workflow_id="workflow_id",
+                run_id="run_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.resume_run(
+            workflow_id, run_id, workspace_id=workspace_id, request_options=request_options
         )
         return _response.data
 
