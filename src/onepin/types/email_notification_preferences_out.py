@@ -12,8 +12,7 @@ class EmailNotificationPreferencesOut(UniversalBaseModel):
     """
 
     completed_generation_email: bool
-    weekly_usage_summary_email: bool
-    product_updates_email: bool
+    failed_generation_email: bool
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -19,6 +19,8 @@ class WorkflowRunListItem(UniversalBaseModel):
     usage_summary: typing.Optional[typing.Dict[str, typing.Any]] = None
     started_at: typing.Optional[dt.datetime] = None
     completed_at: typing.Optional[dt.datetime] = None
+    pause_requested_at: typing.Optional[dt.datetime] = None
+    paused_at: typing.Optional[dt.datetime] = None
     created_at: dt.datetime
     triggered_by: typing.Optional[TriggeredByOut] = None
 

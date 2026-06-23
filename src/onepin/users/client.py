@@ -434,8 +434,7 @@ class UsersClient:
         self,
         *,
         completed_generation_email: typing.Optional[bool] = OMIT,
-        weekly_usage_summary_email: typing.Optional[bool] = OMIT,
-        product_updates_email: typing.Optional[bool] = OMIT,
+        failed_generation_email: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEmailNotificationPreferencesOut:
         """
@@ -445,9 +444,7 @@ class UsersClient:
         ----------
         completed_generation_email : typing.Optional[bool]
 
-        weekly_usage_summary_email : typing.Optional[bool]
-
-        product_updates_email : typing.Optional[bool]
+        failed_generation_email : typing.Optional[bool]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -468,8 +465,7 @@ class UsersClient:
         """
         _response = self._raw_client.update_current_notification_preferences(
             completed_generation_email=completed_generation_email,
-            weekly_usage_summary_email=weekly_usage_summary_email,
-            product_updates_email=product_updates_email,
+            failed_generation_email=failed_generation_email,
             request_options=request_options,
         )
         return _response.data
@@ -1059,8 +1055,7 @@ class AsyncUsersClient:
         self,
         *,
         completed_generation_email: typing.Optional[bool] = OMIT,
-        weekly_usage_summary_email: typing.Optional[bool] = OMIT,
-        product_updates_email: typing.Optional[bool] = OMIT,
+        failed_generation_email: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEmailNotificationPreferencesOut:
         """
@@ -1070,9 +1065,7 @@ class AsyncUsersClient:
         ----------
         completed_generation_email : typing.Optional[bool]
 
-        weekly_usage_summary_email : typing.Optional[bool]
-
-        product_updates_email : typing.Optional[bool]
+        failed_generation_email : typing.Optional[bool]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1101,8 +1094,7 @@ class AsyncUsersClient:
         """
         _response = await self._raw_client.update_current_notification_preferences(
             completed_generation_email=completed_generation_email,
-            weekly_usage_summary_email=weekly_usage_summary_email,
-            product_updates_email=product_updates_email,
+            failed_generation_email=failed_generation_email,
             request_options=request_options,
         )
         return _response.data

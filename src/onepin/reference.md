@@ -4974,6 +4974,97 @@ client.workspaces.create_workspace(
 </dl>
 </details>
 
+<details><summary><code>client.workspaces.<a href="src/onepin/workspaces/client.py">slug_available</a>(...) -> ApiResponseSlugAvailabilityOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+POD-557: admin-only live availability check for a workspace slug.
+
+Declared before `/{workspace_id}` so the literal path wins over the UUID
+route. Auth is hard 4xx (missing/invalid X-Workspace-Id -> 400, not a member
+-> 404, not admin -> 403, missing ?slug -> 422). Slug content is soft 200
+`{available, reason?: invalid|reserved|taken}`, self-excluded against the
+X-Workspace-Id workspace's own current slug. Global across tenants.
+
+Advisory only — a point-in-time snapshot. A concurrent request can claim the
+slug between this check and the caller's POST/PATCH, so callers must still
+handle 409 WORKSPACE_SLUG_TAKEN on the write path.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workspaces.slug_available(
+    slug="slug",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**slug:** `str` — Candidate slug; normalized (strip().lower()) before checks.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.workspaces.<a href="src/onepin/workspaces/client.py">get_workspace</a>(...) -> ApiResponseWorkspaceOut</code></summary>
 <dl>
 <dd>
@@ -6979,15 +7070,7 @@ client.users.update_current_notification_preferences()
 <dl>
 <dd>
 
-**weekly_usage_summary_email:** `typing.Optional[bool]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**product_updates_email:** `typing.Optional[bool]` 
+**failed_generation_email:** `typing.Optional[bool]` 
     
 </dd>
 </dl>
@@ -7196,7 +7279,7 @@ client.workflows.list()
 <dl>
 <dd>
 
-**status:** `typing.Optional[WorkflowListStatus]` — UI workflow status filter. `paused` is accepted for forward compatibility and currently returns no rows.
+**status:** `typing.Optional[WorkflowListStatus]` — UI workflow status filter. `completed` means FINISHED — it matches workflows whose latest run is completed, failed, or cancelled, so it overlaps `failed` on failed runs. `paused` is accepted for forward compatibility and currently returns no rows.
     
 </dd>
 </dl>
@@ -8579,6 +8662,192 @@ client.workflows.download_run_node(
 <dd>
 
 **node_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">pause_run</a>(...) -> ApiResponseWorkflowRunOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Pause a workflow run.
+
+A running run finishes its current wave (preserving in-flight work) and parks at the
+next wave boundary; a pending run parks immediately. Fire-and-forget and idempotent.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workflows.pause_run(
+    workflow_id="workflow_id",
+    run_id="run_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workflow_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**run_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">resume_run</a>(...) -> ApiResponseWorkflowRunOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Resume a paused workflow run from its last completed wave.
+
+Best-effort: if the workflow already has another active run, or the caller is at their
+concurrent-run limit, the run stays paused and a 409 explains why (retry later).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workflows.resume_run(
+    workflow_id="workflow_id",
+    run_id="run_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workflow_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**run_id:** `str` 
     
 </dd>
 </dl>
