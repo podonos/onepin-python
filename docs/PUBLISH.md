@@ -60,9 +60,9 @@ must only ever receive a build that a real production deploy blessed.**
                           │            behind / diverged ⇒ skip (SDK ahead of prod)                         │
                           │            404 ⇒ skip (SHA GC'd); other error ⇒ ABORT (fail closed)             │
                           │        no tag passes ⇒ ABORT                                                     │
+                          │      idempotency check (resolve): 200 ⇒ skip no-op · 404 ⇒ publish · else abort │
                           │      build resolved tag (fetch-depth:0, hatch-vcs → clean X.Y.Z)                │
                           │      assert ^[0-9]+\.[0-9]+\.[0-9]+$  (NO .devN / NO +local)                    │
-                          │      idempotency check (resolve): 200 ⇒ skip no-op · 404 ⇒ publish · else abort │
                           │                                  │                                               │
                           │                                  ▼                                               │
                           │              ✦ PyPI ✦  (OIDC trusted publishing, environment: pypi,             │

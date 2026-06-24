@@ -248,7 +248,7 @@ jobs:
           VERSION="${TAG#v}"
           # --retry + --max-time so a transient pypi.org blip (5xx/429/connrefused) doesn't trip
           # the fail-closed red. A persistent outage still aborts (set -e) — correct (can't confirm).
-          code="$(curl -s --retry 3 --retry-connrefused --retry-delay 2 --max-time 20 -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/onepin/${VERSION}/json")"
+          code="$(curl -s -L --max-redirs 3 --retry 3 --retry-connrefused --retry-delay 2 --max-time 20 -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/onepin/${VERSION}/json")"
           echo "pypi.org returned HTTP $code for onepin==${VERSION}"
           if [ "$code" = "404" ]; then
             echo "Version ${VERSION} not yet on PyPI — proceeding to build + publish."
