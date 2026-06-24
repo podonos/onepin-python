@@ -13,8 +13,8 @@ name: Promote (PyPI)
 # human override / escape hatch and skips the ancestry check.
 #
 # Build-once-promote is really rebuild-from-the-release-tag: hatch-vcs stamps the clean
-# vX.Y.Z from the tagged commit (byte-for-byte deterministic), then PyPI's preflight makes
-# a double-publish to the immutable index impossible. dev/main + TestPyPI may lead this lane;
+# vX.Y.Z from the tagged commit (byte-for-byte deterministic); resolve's idempotency check
+# (already-on-PyPI ⇒ skip) + PyPI's immutable index make a double-publish impossible. dev/main + TestPyPI may lead this lane;
 # only a real prod deploy ever reaches PyPI. See docs/PUBLISH.md for the two-lane model.
 #
 # ┌─ PyPI Trusted Publisher PREREQ (one-time, manual PyPI settings change) ───────────────┐
@@ -54,6 +54,7 @@ jobs:
     outputs:
       proceed: ${{ steps.gate.outputs.proceed }}
       tag: ${{ steps.target.outputs.tag }}
+      already_published: ${{ steps.published.outputs.already_published }}
     steps:
       - name: Gate — App configured + authorized trigger
         id: gate
@@ -233,9 +234,37 @@ jobs:
           echo "::notice::Per-sha pin → promoting ${TAG} (newest SDK whose spec ≤ prod ${S})."
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      - name: Skip if already on PyPI (idempotent no-op)
+        id: published
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+        # The promote target is immutable + deterministic from its tag. If onepin==<version>
+        # already exists, this is a benign re-dispatch (per-sha resolve re-picks the newest
+        # SDK ≤ prod, still published) → no-op SUCCESS, skip the whole build, don't page Slack.
+        # Fail CLOSED only on AMBIGUITY: 000/403/429/5xx = cannot confirm absent → abort.
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          # --retry + --max-time so a transient pypi.org blip (5xx/429/connrefused) doesn't trip
+          # the fail-closed red. A persistent outage still aborts (set -e) — correct (can't confirm).
+          code="$(curl -s --retry 3 --retry-connrefused --retry-delay 2 --max-time 20 -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/onepin/${VERSION}/json")"
+          echo "pypi.org returned HTTP $code for onepin==${VERSION}"
+          if [ "$code" = "404" ]; then
+            echo "Version ${VERSION} not yet on PyPI — proceeding to build + publish."
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          elif [ "$code" = "200" ]; then
+            echo "::notice::onepin==${VERSION} already on PyPI — idempotent no-op, skipping build + publish (immutable index)."
+            { echo "### PyPI promote — no-op"; echo "\`onepin==${VERSION}\` already published. Nothing to do."; } >> "$GITHUB_STEP_SUMMARY"
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::PyPI check returned unexpected HTTP ${code} for onepin==${VERSION} — cannot confirm absence; aborting (fail closed; retry when PyPI is reachable)."
+            exit 1
+          fi
+
   build:
     needs: resolve
-    if: needs.resolve.outputs.proceed == 'true'
+    if: ${{ needs.resolve.outputs.proceed == 'true' && needs.resolve.outputs.already_published == 'false' }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.ver.outputs.version }}
@@ -275,26 +304,6 @@ jobs:
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
             || { echo "::error::built version '$version' is not a clean release X.Y.Z (got a .devN/local — not building from a release tag?)"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
-      - name: Preflight — version not already on PyPI (immutable index)
-        env:
-          VERSION: ${{ steps.ver.outputs.version }}
-        # PyPI never lets you re-upload a version. If onepin==<version> already exists,
-        # a publish would hard-fail mid-run; abort cleanly here instead.
-        # Fail CLOSED: ONLY a definitive 404 (confirmed absent) proceeds.
-        # 200 (exists) AND anything else (000/403/429/5xx = cannot confirm absent) abort.
-        run: |
-          set -euo pipefail
-          code="$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/onepin/${VERSION}/json")"
-          echo "pypi.org returned HTTP $code for onepin==${VERSION}"
-          if [ "$code" = "404" ]; then
-            echo "Version ${VERSION} not yet on PyPI — proceeding."
-          elif [ "$code" = "200" ]; then
-            echo "::error::onepin==${VERSION} is already published on PyPI — refusing to re-promote (the index is immutable)."
-            exit 1
-          else
-            echo "::error::PyPI preflight returned unexpected HTTP ${code} for onepin==${VERSION} — cannot confirm version is absent; aborting to fail closed (retry when PyPI is reachable)."
-            exit 1
-          fi
       - uses: actions/upload-artifact@v7
         with: { name: dist, path: dist/* }
 
@@ -329,6 +338,27 @@ jobs:
         run: gh attestation verify dist/*.whl --repo podonos/onepin-python
         env:
           GH_TOKEN: ${{ github.token }}
+
+  notify-success:
+    needs: [resolve, build, pypi]
+    if: ${{ needs.pypi.result == 'success' }}   # ONLY when pypi actually published — skipped on the no-op path
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v3
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {"text":"✅ PyPI promote succeeded: onepin==${{ needs.build.outputs.version }} (${{ needs.resolve.outputs.tag }}) in ${{ github.repository }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Skip Slack notification
+        if: env.SLACK_WEBHOOK_URL == ''
+        run: echo "SLACK_WEBHOOK_URL not configured; skipping success notification."
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   notify-failure:
     if: failure()

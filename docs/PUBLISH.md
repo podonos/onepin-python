@@ -11,7 +11,7 @@ must only ever receive a build that a real production deploy blessed.**
 | Cadence | **continuous** | **prod-gated** |
 | Trigger | push to `main` (SDK inputs) · release tag `vX.Y.Z` · `workflow_dispatch` | `repository_dispatch[api-spec-updated]` with `environment == 'prod'` · `workflow_dispatch` |
 | Version | `X.Y.Z.devN` on main · clean `X.Y.Z` on a tag (hatch-vcs) | clean `X.Y.Z` only (built from the release tag) |
-| Gate | none (internal) | App-token guard **+** prod-environment trigger **+** PyPI preflight |
+| Gate | none (internal) | App-token guard **+** prod-environment trigger **+** PyPI idempotency check |
 
 ## Version ownership
 
@@ -62,7 +62,7 @@ must only ever receive a build that a real production deploy blessed.**
                           │        no tag passes ⇒ ABORT                                                     │
                           │      build resolved tag (fetch-depth:0, hatch-vcs → clean X.Y.Z)                │
                           │      assert ^[0-9]+\.[0-9]+\.[0-9]+$  (NO .devN / NO +local)                    │
-                          │      preflight: GET pypi.org/pypi/onepin/<version>/json → 200 ⇒ abort           │
+                          │      idempotency check (resolve): 200 ⇒ skip no-op · 404 ⇒ publish · else abort │
                           │                                  │                                               │
                           │                                  ▼                                               │
                           │              ✦ PyPI ✦  (OIDC trusted publishing, environment: pypi,             │
@@ -116,9 +116,9 @@ a manual settings change in the PyPI project — the workflow cannot self-config
 | 2 | **Prod trigger missing / GitHub App absent** → customer release silently skipped | The `onepin-pipeline-bot` App / `PIPELINE_APP_ID`+`PIPELINE_APP_PRIVATE_KEY` secrets aren't set yet at a real prod deploy | `promote-prod.yml`'s gate warn-skips (`::warning::`) instead of failing, and emits a visible notice. **Replay:** once the App exists, run `promote-prod.yml` via `workflow_dispatch` with the tag. (The backend's `notify-sdk-repos` dispatch carries the same guard.) |
 | 3 | **release-PR-merge gating** — "prod deployed but PyPI got nothing" | A regen `chore:` PR is invisible to release-please → no tag → nothing to promote | regen PRs are now **`feat:`** → release-please cuts a `vX.Y.Z` tag (`bump-minor-pre-major`). The promote iterates all `vX.Y.Z` tags newest-first; if none carry a valid `.spec-sha` ≤ S it aborts loudly (`::error::no released SDK matches`). |
 | 4 | **`.devN` non-monotonic / collides on TestPyPI** | Two builds of the same commit, or out-of-order history, produce a stale/duplicate `.devN` | hatch-vcs derives `.devN` from **git distance** (monotonic with history under `fetch-depth: 0`); TestPyPI publish uses `skip-existing: true` so a genuine re-run/retag never breaks the chain. TestPyPI is internal-only — a non-monotonic dev number never reaches customers. |
-| 5 | **Double-publish to the immutable PyPI index** | A re-dispatch / re-run / rollback re-fires the promote for an already-published version | `promote-prod.yml` **preflight**: `GET https://pypi.org/pypi/onepin/<version>/json`; HTTP `200` ⇒ `::error::` abort before upload. `concurrency: { group: promote-prod, cancel-in-progress: false }` serializes promotes. PyPI itself is the final backstop (rejects re-uploads). |
+| 5 | **Double-publish to the immutable PyPI index** | A re-dispatch / re-run / rollback re-fires the promote for an already-published version | `promote-prod.yml` **`resolve` idempotency check**: `GET https://pypi.org/pypi/onepin/<version>/json`; HTTP `200` ⇒ **skip `build` + `pypi` as an idempotent no-op** (green run, no Slack) — not an abort. `concurrency: { group: promote-prod, cancel-in-progress: false }` serializes promotes. PyPI itself is the final backstop (rejects re-uploads). |
 | 6 | **Wrong-version / wrong-sha promoted** to customers | Promote builds off a branch HEAD (a `.devN`), or promotes a tag whose API is ahead of the deployed spec | The build checks out `refs/tags/<resolved tag>` (qualified — never a same-named branch) and **asserts a clean `^[0-9]+\.[0-9]+\.[0-9]+$`** (a `.devN`/local aborts). **Per-sha pinning** (shipped): on a prod dispatch carrying spec commit S, the resolver iterates tags newest-first and promotes the newest tag whose `.spec-sha` is an ancestor-or-equal of S in the spec repo (`compare` base...head → `ahead`/`identical` = safe); any tag ahead of prod is skipped. Any API error during classification aborts the whole resolve (fail closed) — the immutable index is never touched with an uncertain result. |
-| 7 | **Rollback re-dispatch republishes/downgrades** | A non-forward dispatch (e.g. a rollback) reaches the receiver | The PyPI lane only acts on `environment == 'prod'` dispatches; the immutable-index preflight (row 5) blocks a re-publish of an existing version. (The backend additionally gates `notify-sdk-repos` on `github.event_name == 'push'` so a rollback `workflow_dispatch` doesn't re-dispatch.) |
+| 7 | **Rollback re-dispatch republishes/downgrades** | A non-forward dispatch (e.g. a rollback) reaches the receiver | The PyPI lane only acts on `environment == 'prod'` dispatches; the `resolve` idempotency check (row 5) skips a re-publish of an existing version as a no-op. (The backend additionally gates `notify-sdk-repos` on `github.event_name == 'push'` so a rollback `workflow_dispatch` doesn't re-dispatch.) |
 | 8 | **`testpypi-smoke` flakes on a fresh `.devN`** — TestPyPI publish succeeds but the post-publish smoke install fails with `No matching distribution` | TestPyPI's `/simple/` index is eventually-consistent (Fastly CDN); the smoke job runs seconds after `test-pypi` uploads and **races the index** before the new version propagates | `testpypi-smoke` **retries** the install (10×30s, ~5 min ceiling, early-exit on success) with `--no-cache-dir` so pip never replays a cached negative index response. A genuinely uninstallable artifact still fails after the budget (the install never succeeds); the version flows via `env:` for script-injection safety. Note: `--no-cache-dir` covers pip's *client* cache, not Fastly *edge* caching — the time budget, not the flag, is what outlasts CDN lag. |
 
 ## Test plan (4 layers)
@@ -143,16 +143,16 @@ a manual settings change in the PyPI project — the workflow cannot self-config
 - **PyPI lane gate** — `workflow_dispatch` `promote-prod.yml` **with no App secrets**: assert
   it `::warning::` warn-skips (no PyPI mutation). Dispatch a simulated `repository_dispatch`
   with `environment: dev`: assert it `::notice::` skips.
-- **Preflight** — `workflow_dispatch` `promote-prod.yml` with `tag` = an **already-published**
-  version: assert the preflight returns `200` and the job aborts with `::error::` *before* the
-  `pypi` job.
+- **Idempotency (no-op)** — `workflow_dispatch` `promote-prod.yml` with `tag` = an **already-published**
+  version: assert `resolve` logs `200`, sets `already_published=true`, and **`build` + `pypi` skip**
+  (green run, no Slack) — not an abort.
 - **actionlint** — `actionlint .github/workflows/*.yml` clean (CI-enforceable).
 
 ### 3. End-to-end (real release, gated on the App existing)
 - Merge a `feat:` regen PR → release-please opens a release PR → merge it → tag `vX.Y.Z` →
   `publish.yml` fires → TestPyPI gets the clean `X.Y.Z`.
 - Real backend **prod** deploy (`deploy-prod.yml`) → `repository_dispatch{environment:prod}`
-  → `promote-prod.yml` resolves the tag, builds clean `X.Y.Z`, preflight passes, **PyPI**
+  → `promote-prod.yml` resolves the tag (PyPI check: `404` ⇒ absent), builds clean `X.Y.Z`, **PyPI**
   publish + provenance attestation. Verify `pip install onepin==X.Y.Z` from pypi.org and
   `onepin --version`.
 - **Manual replay** path: `gh workflow run promote-prod.yml -f tag=vX.Y.Z` reaches PyPI
@@ -162,11 +162,15 @@ a manual settings change in the PyPI project — the workflow cannot self-config
 - **Slack failure notifier** on both lanes (`notify-failure`, gated on `SLACK_WEBHOOK_URL`):
   fires on any build/publish failure with a direct run link. A clean warn-skip does **not**
   fire (skipped ≠ failed).
+- **Slack success notifier** (PyPI lane, `notify-success`, `if: needs.pypi.result == 'success'`):
+  pings only on an actual publish — **silent on the idempotent no-op** (a skipped `pypi` is not a
+  success), so a redundant re-promote is a quiet green run.
 - **Build-provenance attestation** (PyPI lane, public-repo-gated): `actions/attest-build-provenance`
   + `gh attestation verify dist/*.whl --repo podonos/onepin-python` — a signed, verifiable
   record of exactly which commit/workflow produced the published bytes.
 - **Traceability log** — the promote logs the dispatched `client_payload.sha` + `spec_version`
   and the resolved tag, so a published version can always be traced back to the prod deploy
   that triggered it.
-- **PyPI preflight log** — the `GET …/json` HTTP code is echoed every run (visible proof the
+- **PyPI idempotency log** — `resolve` echoes the `GET …/json` HTTP code every run, and writes a
+  job-summary "no-op" line when it skips an already-published version (visible proof the
   immutable-index guard ran).
