@@ -25,7 +25,7 @@ twine unyank onepin==0.1.3
 A bad tag reaches **TestPyPI** via `publish.yml` but does **not** reach customers until a
 prod promote (`promote-prod.yml`). Deleting the tag is viable any time before that promote
 runs. After the version is on **PyPI**, the tag delete no longer helps — use `twine yank`
-instead (and PyPI's immutable index / the promote preflight already block a re-upload).
+instead (and PyPI's immutable index / the promote `resolve` idempotency check already make a re-upload a no-op).
 
 ```bash
 git tag -d v0.X.Y
@@ -68,8 +68,8 @@ The package publishes from **two independent lanes** (full model + diagram:
 - **PyPI lane — `promote-prod.yml`** (customers, prod-gated). Fires on
   `repository_dispatch[api-spec-updated]` **only when `environment == 'prod'`** (the
   backend production deploy dispatch), or manually via `workflow_dispatch`.
-  Resolves the latest `vX.Y.Z` tag, builds a clean `X.Y.Z`, runs the immutable-index
-  preflight, then publishes to **PyPI** (OIDC trusted publishing + provenance).
+  Resolves the latest `vX.Y.Z` tag, runs the immutable-index idempotency check (in `resolve`),
+  builds a clean `X.Y.Z`, then publishes to **PyPI** (OIDC trusted publishing + provenance).
 
 > **PyPI Trusted Publisher prereq:** the `onepin` PyPI project's Trusted Publisher must
 > point at workflow filename **`promote-prod.yml`** with environment **`pypi`** (it was
@@ -107,7 +107,7 @@ Manual fallback / replay — **PyPI** (promote an existing release tag to custom
 ```bash
 # Used when the pipeline App was absent at the prod deploy, or to re-drive a promote.
 # Supplying -f tag= bypasses the per-sha ancestry resolver (human override).
-# The preflight refuses a version that already exists on PyPI.
+# resolve skips (no-op success) a version already on PyPI; only ambiguous PyPI responses abort.
 gh workflow run promote-prod.yml --ref main -f tag=vX.Y.Z
 ```
 
