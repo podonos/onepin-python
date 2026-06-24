@@ -346,6 +346,7 @@ jobs:
     steps:
       - name: Notify Slack
         if: env.SLACK_WEBHOOK_URL != ''
+        continue-on-error: true   # a Slack hiccup must never red an already-published release
         uses: slackapi/slack-github-action@v3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
