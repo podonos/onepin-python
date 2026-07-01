@@ -2378,11 +2378,12 @@ client.providers.list_catalog_provider_models(
 <dl>
 <dd>
 
-List platform voices catalogued under an exact `(provider, model)`.
+List platform voices whose `supported_models` contains `model`.
 
 Lean voice shape with a presigned `preview_url`. Platform catalog voices only
-(System workspace); model-less voices are excluded. Paginated via `offset` /
-`limit`. The flat `/voices?provider=&model=` endpoint remains for the picker.
+(System workspace); a voice surfaces under every model in its `supported_models`
+array (JSONB `@>`), and voices with no models (NULL) surface under none. Paginated
+via `offset` / `limit`. The flat `/voices?provider=&model=` endpoint remains for the picker.
 </dd>
 </dl>
 </dd>
