@@ -17,7 +17,6 @@ class VoiceSimilarOut(UniversalBaseModel):
     name: str
     provider: str
     provider_voice_id: str
-    model: typing.Optional[str] = None
     description: typing.Optional[str] = None
     is_active: bool
     gender: typing.Optional[VoiceGender] = None
@@ -33,6 +32,7 @@ class VoiceSimilarOut(UniversalBaseModel):
     duration_seconds: typing.Optional[float] = None
     sample_url: typing.Optional[str] = None
     supported_languages: typing.Optional[typing.List[str]] = None
+    supported_models: typing.Optional[typing.List[str]] = None
     is_favorite: typing.Optional[bool] = None
     created_at: dt.datetime
     updated_at: dt.datetime
