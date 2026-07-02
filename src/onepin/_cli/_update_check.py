@@ -132,10 +132,7 @@ def _parse_cache(line: str) -> Optional[tuple[str, str]]:
 
 
 def cached_latest() -> Optional[str]:
-    """Latest version recorded in the cache (any freshness); ``None`` if unknown.
-
-    Used by ``onepin health`` to show the recommended version without a network call.
-    """
+    """Latest version recorded in the cache (any freshness); ``None`` if unknown."""
     parsed = _parse_cache(_read_text(_cache_path()))
     return parsed[1] if parsed else None
 
@@ -160,9 +157,8 @@ def _resolve_latest(current: str) -> Optional[str]:
         return fresh
     latest = _fetch_latest()
     if latest is None:
-        # Offline / fetch error: do not cache. A failure must not masquerade as "up to date"
-        # (which would also mislead `onepin health`), and the next run should retry rather than
-        # stay silent for the full TTL.
+        # Offline / fetch error: do not cache. A failure must not masquerade as "up to date",
+        # and the next run should retry rather than stay silent for the full TTL.
         return None
     if is_older(current, latest):
         _write_cache(f"UPGRADE_AVAILABLE {current} {latest}")

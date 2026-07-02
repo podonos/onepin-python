@@ -11,11 +11,10 @@ python examples/quickstart.py
 
 | File | Shows |
 |------|-------|
-| `quickstart.py` | Construct a client, readiness probe, list workflows |
+| `quickstart.py` | Construct a client, list workflows |
 | `list_workflows.py` | Paginate workflows, fetch one by id |
 | `async_client.py` | `AsyncOnePinClient` + async pagination |
 | `error_handling.py` | `ApiError`, retries, timeouts |
-| `provider_keys.py` | Bring-your-own provider keys (BYO-key) |
 
 By default the client targets **PROD** (`https://api.onepin.ai`). Pass
 `environment=OnePinClientEnvironment.DEV` or `base_url="https://dev-api.onepin.ai"` to

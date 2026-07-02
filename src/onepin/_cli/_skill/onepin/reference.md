@@ -25,21 +25,18 @@ position.
 | `templates` | `list`, `show`, `create`, `update`, `delete`, `clone`, `favorite`, `unfavorite` |
 | `voices` | `list`, `show`, `similar`, `favorite`, `unfavorite` |
 | `uploads` | `create` (presigned S3), `confirm`, `delete` |
-| `workspace` | `list`, `show`, `create`, `update`, `delete`, `settings`; subgroups `members`, `stats` |
+| `workspace` | `list`, `show`, `create`, `update`, `delete`, `settings`; subgroup `members` |
 | `workspace members` | `list`, `invite`, `set-role`, `remove`, `accept`, `invite-role`, `revoke-invite` |
-| `workspace stats` | `runs`, `workflows` (accept `--from`/`--to` ISO datetimes) |
 | `usage` | `summary`, `by-language`, `activity` (`--range 30d/60d/90d`) |
-| `provider-keys` | `list`, `put <provider>`, `delete <provider>` (secrets are redacted on read) |
 | `nodes` | `list`, `show <node_type>` (workflow node types + runtime options) |
-| `health` | `live`, `ready` |
 | `auth` | `login`, `logout`, `whoami` |
 | `schema` | the JSON manifest (the contract) |
 
 ## Destructive commands (need `--yes`; confirm with the user first)
 
 `workflows delete` · `workflows runs cancel` · `templates delete` · `uploads delete` ·
-`workspace delete` · `workspace members remove` · `workspace members revoke-invite` ·
-`provider-keys delete`. Under `--json` without `--yes` they return `CONFIRMATION_REQUIRED` — that
+`workspace delete` · `workspace members remove` · `workspace members revoke-invite`.
+Under `--json` without `--yes` they return `CONFIRMATION_REQUIRED` — that
 means stop and ask, not retry. `templates unfavorite` / `voices unfavorite` are *not* destructive.
 
 ## Recipe: build a workflow definition

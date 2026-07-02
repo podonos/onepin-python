@@ -3,44 +3,6 @@
     {
       "args": [],
       "destructive": false,
-      "group": "health",
-      "name": "live",
-      "options": [
-        {
-          "default": false,
-          "flag": "--json",
-          "help": "Emit JSON instead of a table.",
-          "required": false,
-          "type": "bool"
-        }
-      ],
-      "path": [
-        "health",
-        "live"
-      ]
-    },
-    {
-      "args": [],
-      "destructive": false,
-      "group": "health",
-      "name": "ready",
-      "options": [
-        {
-          "default": false,
-          "flag": "--json",
-          "help": "Emit JSON instead of a table.",
-          "required": false,
-          "type": "bool"
-        }
-      ],
-      "path": [
-        "health",
-        "ready"
-      ]
-    },
-    {
-      "args": [],
-      "destructive": false,
       "group": "login",
       "name": "login",
       "options": [
@@ -113,85 +75,6 @@
       "path": [
         "nodes",
         "show"
-      ]
-    },
-    {
-      "args": [
-        {
-          "name": "provider"
-        }
-      ],
-      "destructive": true,
-      "group": "provider-keys",
-      "name": "delete",
-      "options": [
-        {
-          "default": false,
-          "flag": "--json",
-          "help": "Emit JSON instead of a table.",
-          "required": false,
-          "type": "bool"
-        },
-        {
-          "default": false,
-          "flag": "--yes",
-          "help": "Skip the confirmation prompt.",
-          "required": false,
-          "type": "bool"
-        }
-      ],
-      "path": [
-        "provider-keys",
-        "delete"
-      ]
-    },
-    {
-      "args": [],
-      "destructive": false,
-      "group": "provider-keys",
-      "name": "list",
-      "options": [
-        {
-          "default": false,
-          "flag": "--json",
-          "help": "Emit JSON instead of a table.",
-          "required": false,
-          "type": "bool"
-        }
-      ],
-      "path": [
-        "provider-keys",
-        "list"
-      ]
-    },
-    {
-      "args": [
-        {
-          "name": "provider"
-        }
-      ],
-      "destructive": false,
-      "group": "provider-keys",
-      "name": "put",
-      "options": [
-        {
-          "default": null,
-          "flag": "--key",
-          "help": "Credential payload: a raw key string (wrapped as {\"api_key\": ...}) or inline JSON.",
-          "required": true,
-          "type": "text"
-        },
-        {
-          "default": false,
-          "flag": "--json",
-          "help": "Emit JSON instead of a table.",
-          "required": false,
-          "type": "bool"
-        }
-      ],
-      "path": [
-        "provider-keys",
-        "put"
       ]
     },
     {
@@ -2095,74 +1978,6 @@
       "path": [
         "workspace",
         "show"
-      ]
-    },
-    {
-      "args": [],
-      "destructive": false,
-      "group": "workspace",
-      "name": "runs",
-      "options": [
-        {
-          "default": null,
-          "flag": "--from",
-          "help": "Start (ISO 8601).",
-          "required": false,
-          "type": "text"
-        },
-        {
-          "default": null,
-          "flag": "--to",
-          "help": "End (ISO 8601).",
-          "required": false,
-          "type": "text"
-        },
-        {
-          "default": false,
-          "flag": "--json",
-          "help": "Emit JSON instead of a table.",
-          "required": false,
-          "type": "bool"
-        }
-      ],
-      "path": [
-        "workspace",
-        "stats",
-        "runs"
-      ]
-    },
-    {
-      "args": [],
-      "destructive": false,
-      "group": "workspace",
-      "name": "workflows",
-      "options": [
-        {
-          "default": null,
-          "flag": "--from",
-          "help": "Start (ISO 8601).",
-          "required": false,
-          "type": "text"
-        },
-        {
-          "default": null,
-          "flag": "--to",
-          "help": "End (ISO 8601).",
-          "required": false,
-          "type": "text"
-        },
-        {
-          "default": false,
-          "flag": "--json",
-          "help": "Emit JSON instead of a table.",
-          "required": false,
-          "type": "bool"
-        }
-      ],
-      "path": [
-        "workspace",
-        "stats",
-        "workflows"
       ]
     },
     {

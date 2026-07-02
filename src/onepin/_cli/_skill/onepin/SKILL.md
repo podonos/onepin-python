@@ -100,7 +100,7 @@ rather than dumping raw JSON.
 ## Destructive operations (require explicit confirmation)
 
 `workflows delete`, `templates delete`, `uploads delete`, `workspace delete`,
-`provider-keys delete`, `workflows runs cancel`, `workspace members remove`,
+`workflows runs cancel`, `workspace members remove`,
 `workspace members revoke-invite` — all irreversible. Procedure:
 
 1. **Resolve the exact target.** Confirm the id/name actually exists (via `--search` or a `show`);
@@ -119,4 +119,4 @@ rather than dumping raw JSON.
 - Report failures to the user as `code: message`, plainly.
 
 For the full command catalog and recipes (workflow definitions, uploads, workspace + members,
-usage, provider-keys, nodes, health), see [reference.md](reference.md) or run `onepin schema`.
+usage, nodes), see [reference.md](reference.md) or run `onepin schema`.

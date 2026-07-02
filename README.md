@@ -95,11 +95,6 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 <!-- BEGIN GENERATED: cli-commands -->
 ## CLI command reference
 
-### health
-
-- `onepin health live` — Liveness probe.
-- `onepin health ready` — Readiness probe.
-
 ### login
 
 - `onepin login` — Validate an API key and write it to ~/.onepin/credentials.
@@ -112,12 +107,6 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 
 - `onepin nodes list` — List available node types.
 - `onepin nodes show <node_type>` — Show a node type's detail (runtime options).
-
-### provider-keys
-
-- `onepin provider-keys delete <provider>` — Delete a provider key.
-- `onepin provider-keys list` — List configured provider keys.
-- `onepin provider-keys put <provider>` — Create or replace a provider key.
 
 ### schema
 
@@ -208,11 +197,6 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 - `onepin workspace members remove <ws_id> <member_id>` — Remove a member.
 - `onepin workspace members revoke-invite <ws_id> <invite_id>` — Revoke a pending invite.
 - `onepin workspace members set-role <ws_id> <member_id>` — Change a member's role.
-
-#### workspace stats
-
-- `onepin workspace stats runs` — Workspace run statistics.
-- `onepin workspace stats workflows` — Workspace workflow statistics.
 <!-- END GENERATED: cli-commands -->
 
 ### Global flags
@@ -332,13 +316,6 @@ onepin workspace members accept <token>
 
 See `onepin workspace members --help` for the full list (`invite-role`, `revoke-invite`).
 
-#### workspace stats — aggregate statistics
-
-```bash
-onepin workspace stats runs --from 2026-01-01 --to 2026-02-01
-onepin workspace stats workflows
-```
-
 ### usage — inspect workspace usage and activity
 
 ```bash
@@ -349,28 +326,11 @@ onepin usage by-language --range 90d
 
 See `onepin usage --help` for the full list.
 
-### provider-keys — manage bring-your-own-key credentials
-
-```bash
-onepin provider-keys list
-onepin provider-keys put <provider> --key '{"api_key": "..."}'
-onepin provider-keys delete <provider> --yes
-```
-
-Stored credentials are never echoed back; reads return redacted metadata only.
-
 ### nodes — inspect available workflow node types
 
 ```bash
 onepin nodes list
 onepin nodes show <node_type>
-```
-
-### health — API liveness and readiness probes
-
-```bash
-onepin health live
-onepin health ready
 ```
 
 ### schema — machine-readable command manifest
@@ -448,7 +408,6 @@ client = OnePinClient(token="op_...")   # your API key, used as the bearer token
 
 workflows = client.workflows.list()     # paginated — iterate items directly
 voices = client.voices.list()
-ready = client.health.readiness()
 ```
 
 ### Environments
