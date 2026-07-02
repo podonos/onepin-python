@@ -11,9 +11,11 @@ name: Regenerate SDK
 #   workflow_dispatch  -> manual regen PR from a given spec-repo SHA (default: main HEAD)
 #
 # Requires a GitHub App (org secrets PIPELINE_APP_ID / PIPELINE_APP_PRIVATE_KEY) and the
-# repo secret SPEC_REPO (name of the backend repo that publishes api-spec.yaml). The App
-# is installed with Contents read on the spec repo and Contents + Pull-requests write here
-# (the default GITHUB_TOKEN would not fire CI on the opened PR).
+# repo secret SPEC_REPO (name of the backend repo). Fetches public-spec.yaml -- the
+# narrowed customer-facing export; NOT api-spec.yaml, which is the backend's full
+# internal-dashboard spec and includes internal-only endpoints never meant for the
+# public SDK. The App is installed with Contents read on the spec repo and Contents +
+# Pull-requests write here (the default GITHUB_TOKEN would not fire CI on the opened PR).
 
 on:
   repository_dispatch:
@@ -99,13 +101,27 @@ jobs:
           RESOLVED_SHA=$(gh api "repos/${OWNER}/${SPEC_REPO}/commits/${REF}" --jq '.sha')
           echo "resolved_sha=$RESOLVED_SHA" >> "$GITHUB_OUTPUT"
           mkdir -p fern/openapi
-          gh api "repos/${OWNER}/${SPEC_REPO}/contents/api-spec.yaml?ref=${RESOLVED_SHA}" \
+          # public-spec.yaml is the backend's narrowed customer-facing export -- NOT
+          # api-spec.yaml, the backend's full internal-dashboard spec, which includes
+          # internal-only endpoints never meant for the public SDK surface.
+          gh api "repos/${OWNER}/${SPEC_REPO}/contents/public-spec.yaml?ref=${RESOLVED_SHA}" \
             -H "Accept: application/vnd.github.raw" > fern/openapi/openapi.yml
-          echo "Fetched api-spec.yaml @ ${RESOLVED_SHA} ($(wc -l < fern/openapi/openapi.yml) lines)"
+          echo "Fetched public-spec.yaml @ ${RESOLVED_SHA} ($(wc -l < fern/openapi/openapi.yml) lines)"
           # The spec must be SHAPED (x-fern shaping present). A raw spec would silently
           # produce an unshaped SDK — fail loudly instead.
           if ! grep -q 'x-fern-sdk-group-name' fern/openapi/openapi.yml; then
             echo "::error::Fetched spec carries no x-fern shaping — backend SDK-shaping export missing at ${RESOLVED_SHA}."
+            exit 1
+          fi
+          # The spec must be NARROWED, not just shaped -- this is the whole point of
+          # fetching public-spec.yaml instead of api-spec.yaml. A regression upstream (or
+          # this workflow accidentally repointed at the wrong file/repo) should fail loudly
+          # here rather than silently publish internal endpoints into the public SDK. Keep
+          # this list in sync with the backend spec repo's exclusion list if either changes.
+          INTERNAL_LEAK_RE='^[[:space:]]*-[[:space:]]+(name:[[:space:]]+)?(health|webhooks|api-keys|billing|provider-keys|workspace-aggregates)[[:space:]]*$|^[[:space:]]{2}/api/v1/users/me/(subscription|payment-methods|invoices)(/|:)'
+          if grep -qE "$INTERNAL_LEAK_RE" fern/openapi/openapi.yml; then
+            echo "::error::Fetched spec contains an internal-only tag/path — expected public-spec.yaml to exclude these at ${RESOLVED_SHA}."
+            grep -nE "$INTERNAL_LEAK_RE" fern/openapi/openapi.yml | head -5
             exit 1
           fi
 
