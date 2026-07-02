@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0](https://github.com/podonos/onepin-python/compare/v0.7.1...v0.8.0) (2026-07-02)
+
+
+### Features
+
+* sync SDK to OnePin API v0.40.2 ([#64](https://github.com/podonos/onepin-python/issues/64)) ([aa97888](https://github.com/podonos/onepin-python/commit/aa97888912968233d7b8278a5e028789d15ef281))
+* sync SDK to OnePin API v0.40.3 ([#66](https://github.com/podonos/onepin-python/issues/66)) ([2f2e765](https://github.com/podonos/onepin-python/commit/2f2e7652d49fd266ba50ede69669196f3e254659))
+
+
+### Bug Fixes
+
+* **ci:** make PyPI promote idempotent for already-published versions ([#67](https://github.com/podonos/onepin-python/issues/67)) ([9acc656](https://github.com/podonos/onepin-python/commit/9acc656075c4ab37342d99405b9e12debae3aa64))
+* **ci:** regenerate SDK from public-spec.yaml, add narrowing guard ([#69](https://github.com/podonos/onepin-python/issues/69)) ([76a0b71](https://github.com/podonos/onepin-python/commit/76a0b71893b02defdab9fb41fea3c42d842d4578))
+
 ## [0.7.1](https://github.com/podonos/onepin-python/compare/v0.7.0...v0.7.1) (2026-06-22)
 
 
