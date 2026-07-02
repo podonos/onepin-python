@@ -796,6 +796,4 @@ TABLE: list[Cmd] = [
         options=[_JSON],
         unwrap="data",
     ),
-    # health (live/ready) is hand-written in commands/health.py -- it blends local SDK version,
-    # the API's reported version, and version-gate headers, which the table model can't express.
 ]
