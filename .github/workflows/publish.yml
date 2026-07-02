@@ -42,7 +42,7 @@ jobs:
         run: |
           echo "$INPUT_TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$' \
             || { echo "::error::tag '${INPUT_TAG}' does not match ^v[0-9]+\\.[0-9]+\\.[0-9]+\$ — must be a plain vX.Y.Z tag"; exit 1; }
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: github.event.inputs.tag == ''
         with:
           # hatch-vcs derives the version from git history + tags. A shallow/tagless
@@ -50,7 +50,7 @@ jobs:
           # so .devN (main) / clean vX.Y.Z (tag) resolve correctly.
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: github.event.inputs.tag != ''
         with:
           # Replay: check out the exact release tag so hatch-vcs stamps clean vX.Y.Z.
