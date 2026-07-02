@@ -709,33 +709,6 @@ TABLE: list[Cmd] = [
         unwrap="action",
         success_msg="Accepted invite.",
     ),
-    # --- workspace stats (subgroup) -----------------------------------------------------
-    Cmd(
-        "workspace",
-        "runs",
-        "workspace_aggregates.workspace_runs_stats",
-        "Workspace run statistics.",
-        subgroup="stats",
-        options=[
-            Opt("--from", "datetime", None, dest="from_", transform="datetime", help="Start (ISO 8601)."),
-            Opt("--to", "datetime", None, dest="to", transform="datetime", help="End (ISO 8601)."),
-            _JSON,
-        ],
-        unwrap="data",
-    ),
-    Cmd(
-        "workspace",
-        "workflows",
-        "workspace_aggregates.workspace_workflows_stats",
-        "Workspace workflow statistics.",
-        subgroup="stats",
-        options=[
-            Opt("--from", "datetime", None, dest="from_", transform="datetime", help="Start (ISO 8601)."),
-            Opt("--to", "datetime", None, dest="to", transform="datetime", help="End (ISO 8601)."),
-            _JSON,
-        ],
-        unwrap="data",
-    ),
     # --- usage --------------------------------------------------------------------------
     Cmd(
         "usage",
@@ -803,50 +776,6 @@ TABLE: list[Cmd] = [
         ],
         unwrap="list",
         columns=[],
-    ),
-    # --- provider-keys (secret redaction) -----------------------------------------------
-    Cmd(
-        "provider-keys",
-        "list",
-        "provider_keys.list_provider_keys",
-        "List configured provider keys.",
-        options=[_JSON],
-        unwrap="data",
-        redact=True,
-    ),
-    Cmd(
-        "provider-keys",
-        "put",
-        "provider_keys.put_provider_key",
-        "Create or replace a provider key.",
-        args=[("provider", "Provider name (e.g. elevenlabs).")],
-        options=[
-            Opt(
-                "--key",
-                "str",
-                None,
-                dest="request",
-                required=True,
-                transform="provider_key_request",
-                help='Credential payload: a raw key string (wrapped as {"api_key": ...}) or inline JSON.',
-            ),
-            _JSON,
-        ],
-        unwrap="data",
-        redact=True,
-        success_msg="Saved provider key for {provider}.",
-    ),
-    Cmd(
-        "provider-keys",
-        "delete",
-        "provider_keys.delete_provider_key",
-        "Delete a provider key.",
-        args=[("provider", "Provider name.")],
-        options=[_JSON],
-        unwrap="data",
-        redact=True,
-        success_msg="Deleted provider key for {provider}.",
-        destructive=True,
     ),
     # --- nodes --------------------------------------------------------------------------
     Cmd(

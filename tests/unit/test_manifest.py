@@ -50,7 +50,7 @@ def test_render_markdown_structure() -> None:
     # A command WITH a positional arg renders the <arg> form and a help tail (em dash).
     assert "- `onepin workflows show <workflow_id>` — " in md
     # A no-arg leaf command renders without angle brackets.
-    assert "- `onepin health live`" in md
+    assert "- `onepin templates list`" in md
 
 
 def test_render_markdown_deterministic() -> None:

@@ -3,7 +3,7 @@
 Wires:
 - ``auth`` (login/logout/whoami) -- existing raw-httpx commands, untouched.
 - Every table-driven command from :data:`onepin._cli._spec.TABLE`, grouped into sub-Typers
-  (with nested sub-Typers for ``workflows runs`` and ``workspace members``/``stats``).
+  (with a nested sub-Typer for ``workflows runs``).
 - Hand-written composites (``workflows run``, ``uploads create``, run downloads,
   ``workflows definition-schema``).
 - The top-level ``schema`` manifest command.
@@ -16,7 +16,7 @@ import typer
 from onepin._cli import _dispatch, _manifest
 from onepin._cli._spec import TABLE, Cmd
 from onepin._cli._update_check import upgrade_check
-from onepin._cli.commands import auth, composites, health, skill
+from onepin._cli.commands import auth, composites, skill
 
 # Per-group help text. Groups not listed fall back to a generic header.
 _GROUP_HELP = {
@@ -26,15 +26,12 @@ _GROUP_HELP = {
     "uploads": "Manage file uploads (presigned-S3 flow).",
     "workspace": "Manage workspaces, members, and statistics.",
     "usage": "Inspect workspace usage and activity.",
-    "provider-keys": "Manage bring-your-own-key provider credentials.",
     "nodes": "Inspect available workflow node types.",
-    "health": "API liveness and readiness probes.",
 }
 
 _SUBGROUP_HELP = {
     ("workflows", "runs"): "Inspect and control workflow runs.",
     ("workspace", "members"): "Manage workspace members and invites.",
-    ("workspace", "stats"): "Workspace aggregate statistics.",
 }
 
 
@@ -60,12 +57,6 @@ def register(app: typer.Typer) -> None:
     skill_app.command(name="path", help="Show where the skill is or would be installed.")(skill.path)
     skill_app.command(name="uninstall", help="Remove the installed Onepin agent skill.")(skill.uninstall)
     app.add_typer(skill_app, name="skill", help="Manage the Onepin agent skill for AI coding tools.")
-
-    # health (live/ready): hand-written so it can surface SDK/API/recommended/required versions.
-    health_app = typer.Typer(help=_GROUP_HELP["health"], no_args_is_help=True)
-    health_app.command(name="live", help="Liveness probe.")(health.live)
-    health_app.command(name="ready", help="Readiness probe.")(health.ready)
-    app.add_typer(health_app, name="health", help=_GROUP_HELP["health"])
 
     # Hidden: the /onepin agent skill runs this to drive the upgrade prompt (not user-facing).
     app.command(name="upgrade-check", hidden=True)(upgrade_check)

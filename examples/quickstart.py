@@ -14,9 +14,6 @@ from onepin import OnePinClient
 def main() -> None:
     client = OnePinClient(token=os.environ["ONEPIN_API_KEY"])
 
-    # Health probe — a cheap first call to confirm connectivity.
-    print("readiness:", client.health.readiness())
-
     # Workflows in your workspace. `list()` returns a pager you can iterate directly.
     for workflow in client.workflows.list():
         print("workflow:", workflow)

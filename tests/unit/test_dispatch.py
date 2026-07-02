@@ -235,7 +235,7 @@ class TestSynthesizedCommandValidity:
             ["workflows", "runs", "list", "--help"],
             ["templates", "create", "--help"],
             ["voices", "list", "--help"],
-            ["provider-keys", "put", "--help"],
+            ["nodes", "list", "--help"],
             ["workspace", "members", "invite", "--help"],
             ["usage", "summary", "--help"],
         ],

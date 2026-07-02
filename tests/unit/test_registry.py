@@ -28,7 +28,7 @@ def test_register_is_idempotent_shape() -> None:
 
     ctx = click.Context(cli)
     names = set(cli.list_commands(ctx))
-    assert {"login", "logout", "whoami", "schema", "skill", "workflows", "provider-keys", "health"} <= names
+    assert {"login", "logout", "whoami", "schema", "skill", "workflows", "templates"} <= names
 
 
 def test_skill_group_has_install_path_uninstall() -> None:
