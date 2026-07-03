@@ -4,12 +4,12 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .customer_subscription_response import CustomerSubscriptionResponse
 from .meta import Meta
+from .voice_facets_out import VoiceFacetsOut
 
 
-class ApiResponseUnionCustomerSubscriptionResponseNoneType(UniversalBaseModel):
-    data: typing.Optional[CustomerSubscriptionResponse] = None
+class ApiResponseVoiceFacetsOut(UniversalBaseModel):
+    data: VoiceFacetsOut
     meta: Meta
 
     if IS_PYDANTIC_V2:

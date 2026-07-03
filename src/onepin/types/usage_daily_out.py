@@ -7,11 +7,30 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class UsageDailyOut(UniversalBaseModel):
-    date: str
-    credits: int
-    characters: int
-    lines: int
-    runs: int
+    date: str = pydantic.Field()
+    """
+    Local calendar date for this bucket in `YYYY-MM-DD` format, computed in the requested timezone.
+    """
+
+    credits: int = pydantic.Field()
+    """
+    Credits consumed on this date.
+    """
+
+    characters: int = pydantic.Field()
+    """
+    Characters processed on this date.
+    """
+
+    lines: int = pydantic.Field()
+    """
+    Script lines generated on this date.
+    """
+
+    runs: int = pydantic.Field()
+    """
+    Workflow runs started on this date.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

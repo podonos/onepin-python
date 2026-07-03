@@ -8,15 +8,50 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class WorkspaceMemberOut(UniversalBaseModel):
-    id: str
-    user_id: typing.Optional[str] = None
-    email: str
-    first_name: typing.Optional[str] = None
-    last_name: typing.Optional[str] = None
-    image_url: typing.Optional[str] = None
-    role: str
-    last_active_at: typing.Optional[dt.datetime] = None
-    status: str
+    id: str = pydantic.Field()
+    """
+    Member or invite record ID.
+    """
+
+    user_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    User ID of the member. Null for pending invites (invitee has not yet accepted).
+    """
+
+    email: str = pydantic.Field()
+    """
+    Email address. For active members this is their primary account email; for invites it is the address the invite was sent to.
+    """
+
+    first_name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    First name. Null for pending invites.
+    """
+
+    last_name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Last name. Null for pending invites.
+    """
+
+    image_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Profile image URL. Null for pending invites.
+    """
+
+    role: str = pydantic.Field()
+    """
+    Workspace role: `admin`, `editor`, or `viewer`.
+    """
+
+    last_active_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
+    """
+    When the member last accessed the workspace (UTC). Null for pending invites.
+    """
+
+    status: str = pydantic.Field()
+    """
+    Membership status: `active` for confirmed members, `invited` for pending invites.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

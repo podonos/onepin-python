@@ -39,13 +39,35 @@ class UploadsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseUploadCreateResponse:
         """
-        Request a presigned URL for uploading a file.
+        Request a presigned URL to upload a file to object storage (step 1 of 2).
+
+        The two-step upload flow:
+        1. `POST /uploads` — register the file and receive a short-lived `upload_url`.
+           PUT your file bytes directly to that URL (do not send them to this API).
+        2. `POST /uploads/{id}` — confirm the upload completed and bind the file to a
+           resource (e.g. a workflow). The file is moved to its final location and the
+           upload record transitions from `pending` to `uploaded`.
+
+        `category` controls which file formats are accepted:
+        - `script` — text-based formats (txt, srt, csv, json, xliff, docx)
+        - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+
+        The presigned URL expires within a short window (see `upload_url` TTL in the
+        response). If the URL expires before the PUT completes, discard this upload
+        record and start over with a fresh `POST /uploads` call.
+
+        `X-Workspace-Id` is optional but recommended for workspace-scoped storage
+        quota tracking. API keys with a bound workspace attach automatically.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------
         filename : str
+            Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
+            File category. Determines which formats are accepted: `script` for text formats (txt, srt, csv, json, xliff, docx); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
 
         workspace_id : typing.Optional[str]
 
@@ -84,20 +106,37 @@ class UploadsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseUploadOut:
         """
-        Confirm upload and move file to final location.
+        Confirm a completed upload and bind it to a resource (step 2 of 2).
 
-        POD-301: gates the file size against `storage_bytes_per_workspace` whenever
-        the upload binds to a workspace-scoped resource (header OR derived from
-        context_id). Records the storage_charge event in the same transaction as the
-        upload row update.
+        Call this after successfully PUTting your file to the presigned URL returned
+        by `POST /uploads`. Provide `context_type` and `context_id` to associate the
+        file with an existing resource (currently `workflow` is the supported context
+        type). The file is moved to its final location and `status` transitions from
+        `pending` to `uploaded`.
+
+        This endpoint is idempotent: if the upload was already confirmed, the current
+        state is returned without re-processing.
+
+        Storage quota is checked against the workspace at confirm time. If confirming
+        would exceed the workspace storage limit, a 402 is returned and the file
+        remains in its staging location (the upload record stays `pending` so you can
+        delete the staging file and try a smaller file).
+
+        Binding to a workspace-scoped resource requires the caller to be a member of
+        that workspace. Workspace is inferred from the resource when `X-Workspace-Id`
+        is omitted.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------
         upload_id : str
 
         context_type : UploadConfirmRequestContextType
+            Type of resource this upload is being attached to. Currently only `workflow` is supported.
 
         context_id : str
+            ID of the resource to attach this upload to. Must be an existing resource of the given `context_type` that the caller has access to.
 
         workspace_id : typing.Optional[str]
 
@@ -139,17 +178,21 @@ class UploadsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseDict:
         """
-        Delete an upload and its S3 object.
+        Delete an upload and its associated file.
 
-        DB record is deleted first (committed on response). S3 cleanup runs
-        after the response via a background task so the file is only removed
-        once the DB commit succeeds.
+        Permanently removes the upload record and schedules the stored file for
+        deletion. The record is removed first; the file is cleaned up asynchronously
+        after the response so storage removal only happens after a successful commit.
 
-        POD-301: if the upload was confirmed against a workspace-scoped resource,
-        release the bytes back to that workspace's storage counter. Without this,
-        storage_bytes_used drifts upward forever and customers stay capped after
-        deleting files. Read upload state BEFORE delete_for_user — the row is gone
-        after that call.
+        If the upload was previously confirmed against a workspace-scoped resource,
+        the consumed storage bytes are released back to the workspace quota, keeping
+        the workspace storage counter accurate.
+
+        Callers can delete uploads in any state (`pending` or `uploaded`). Deleting
+        a `pending` upload (e.g. after an expired presigned URL) is the correct way
+        to clean up an abandoned upload attempt.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------
@@ -204,13 +247,35 @@ class AsyncUploadsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseUploadCreateResponse:
         """
-        Request a presigned URL for uploading a file.
+        Request a presigned URL to upload a file to object storage (step 1 of 2).
+
+        The two-step upload flow:
+        1. `POST /uploads` — register the file and receive a short-lived `upload_url`.
+           PUT your file bytes directly to that URL (do not send them to this API).
+        2. `POST /uploads/{id}` — confirm the upload completed and bind the file to a
+           resource (e.g. a workflow). The file is moved to its final location and the
+           upload record transitions from `pending` to `uploaded`.
+
+        `category` controls which file formats are accepted:
+        - `script` — text-based formats (txt, srt, csv, json, xliff, docx)
+        - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+
+        The presigned URL expires within a short window (see `upload_url` TTL in the
+        response). If the URL expires before the PUT completes, discard this upload
+        record and start over with a fresh `POST /uploads` call.
+
+        `X-Workspace-Id` is optional but recommended for workspace-scoped storage
+        quota tracking. API keys with a bound workspace attach automatically.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------
         filename : str
+            Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
+            File category. Determines which formats are accepted: `script` for text formats (txt, srt, csv, json, xliff, docx); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
 
         workspace_id : typing.Optional[str]
 
@@ -257,20 +322,37 @@ class AsyncUploadsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseUploadOut:
         """
-        Confirm upload and move file to final location.
+        Confirm a completed upload and bind it to a resource (step 2 of 2).
 
-        POD-301: gates the file size against `storage_bytes_per_workspace` whenever
-        the upload binds to a workspace-scoped resource (header OR derived from
-        context_id). Records the storage_charge event in the same transaction as the
-        upload row update.
+        Call this after successfully PUTting your file to the presigned URL returned
+        by `POST /uploads`. Provide `context_type` and `context_id` to associate the
+        file with an existing resource (currently `workflow` is the supported context
+        type). The file is moved to its final location and `status` transitions from
+        `pending` to `uploaded`.
+
+        This endpoint is idempotent: if the upload was already confirmed, the current
+        state is returned without re-processing.
+
+        Storage quota is checked against the workspace at confirm time. If confirming
+        would exceed the workspace storage limit, a 402 is returned and the file
+        remains in its staging location (the upload record stays `pending` so you can
+        delete the staging file and try a smaller file).
+
+        Binding to a workspace-scoped resource requires the caller to be a member of
+        that workspace. Workspace is inferred from the resource when `X-Workspace-Id`
+        is omitted.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------
         upload_id : str
 
         context_type : UploadConfirmRequestContextType
+            Type of resource this upload is being attached to. Currently only `workflow` is supported.
 
         context_id : str
+            ID of the resource to attach this upload to. Must be an existing resource of the given `context_type` that the caller has access to.
 
         workspace_id : typing.Optional[str]
 
@@ -320,17 +402,21 @@ class AsyncUploadsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseDict:
         """
-        Delete an upload and its S3 object.
+        Delete an upload and its associated file.
 
-        DB record is deleted first (committed on response). S3 cleanup runs
-        after the response via a background task so the file is only removed
-        once the DB commit succeeds.
+        Permanently removes the upload record and schedules the stored file for
+        deletion. The record is removed first; the file is cleaned up asynchronously
+        after the response so storage removal only happens after a successful commit.
 
-        POD-301: if the upload was confirmed against a workspace-scoped resource,
-        release the bytes back to that workspace's storage counter. Without this,
-        storage_bytes_used drifts upward forever and customers stay capped after
-        deleting files. Read upload state BEFORE delete_for_user — the row is gone
-        after that call.
+        If the upload was previously confirmed against a workspace-scoped resource,
+        the consumed storage bytes are released back to the workspace quota, keeping
+        the workspace storage counter accurate.
+
+        Callers can delete uploads in any state (`pending` or `uploaded`). Deleting
+        a `pending` upload (e.g. after an expired presigned URL) is the correct way
+        to clean up an abandoned upload attempt.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------

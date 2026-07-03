@@ -16,16 +16,55 @@ from .usage_summary_out_range import UsageSummaryOutRange
 
 
 class UsageSummaryOut(UniversalBaseModel):
-    range: UsageSummaryOutRange
-    activity_view: UsageSummaryOutActivityView
-    timezone: str
-    period: UsagePeriodOut
-    credits: UsageCreditsOut
-    characters: UsageCharactersOut
-    lines: UsageLinesOut
-    runs: UsageRunsOut
-    activity: UsageActivitySummaryOut
-    daily: typing.Optional[typing.List[UsageDailyOut]] = None
+    range: UsageSummaryOutRange = pydantic.Field()
+    """
+    Rolling window applied to aggregate totals: `30d`, `60d`, or `90d`.
+    """
+
+    activity_view: UsageSummaryOutActivityView = pydantic.Field()
+    """
+    Chart bucketing period applied to the `activity` series.
+    """
+
+    timezone: str = pydantic.Field()
+    """
+    IANA timezone used for local day/week/month boundary computation.
+    """
+
+    period: UsagePeriodOut = pydantic.Field()
+    """
+    Absolute UTC start and end of the rolling window.
+    """
+
+    credits: UsageCreditsOut = pydantic.Field()
+    """
+    Credit consumption and quota for the authenticated user's billing period.
+    """
+
+    characters: UsageCharactersOut = pydantic.Field()
+    """
+    Total characters processed across the workspace in the rolling window.
+    """
+
+    lines: UsageLinesOut = pydantic.Field()
+    """
+    Total script lines generated across the workspace in the rolling window.
+    """
+
+    runs: UsageRunsOut = pydantic.Field()
+    """
+    Workflow run counts by status across the workspace in the rolling window.
+    """
+
+    activity: UsageActivitySummaryOut = pydantic.Field()
+    """
+    Bucketed activity chart data for the selected `activity_view`.
+    """
+
+    daily: typing.Optional[typing.List[UsageDailyOut]] = pydantic.Field(default=None)
+    """
+    Per-calendar-day breakdown for the rolling window, ordered oldest first.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

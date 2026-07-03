@@ -8,13 +8,50 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class WorkspaceOut(UniversalBaseModel):
-    id: str
-    name: str
-    slug: str
-    color_idx: int
-    created_by: str
-    created_at: dt.datetime
-    updated_at: dt.datetime
+    id: str = pydantic.Field()
+    """
+    Unique workspace identifier. Pass as `X-Workspace-Id` header to scope resource requests.
+    """
+
+    name: str = pydantic.Field()
+    """
+    Human-readable workspace name.
+    """
+
+    slug: str = pydantic.Field()
+    """
+    URL-safe workspace identifier (lowercase kebab-case).
+    """
+
+    color_idx: int = pydantic.Field()
+    """
+    Index into the workspace color palette.
+    """
+
+    created_by: str = pydantic.Field()
+    """
+    User ID of the workspace owner.
+    """
+
+    created_at: dt.datetime = pydantic.Field()
+    """
+    When the workspace was created (UTC).
+    """
+
+    updated_at: dt.datetime = pydantic.Field()
+    """
+    When the workspace was last modified (UTC).
+    """
+
+    routing_price_sensitivity: float = pydantic.Field()
+    """
+    Voice-selection price/quality balance (0.0 = pure quality, 1.0 = pure price, 0.5 = balanced).
+    """
+
+    routing_llm_fit: bool = pydantic.Field()
+    """
+    Whether automatic voice selection also weighs content fit.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

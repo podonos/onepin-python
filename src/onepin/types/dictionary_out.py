@@ -9,16 +9,56 @@ from .dictionary_method import DictionaryMethod
 
 
 class DictionaryOut(UniversalBaseModel):
-    id: str
-    word: str
-    description: typing.Optional[str] = None
-    pronunciation: typing.Optional[str] = None
-    audio_url: typing.Optional[str] = None
-    method: DictionaryMethod
-    language: str
-    uses_count: int
-    ipa: typing.Optional[str] = None
-    created_by: typing.Optional[str] = None
+    id: str = pydantic.Field()
+    """
+    Unique identifier for the dictionary entry.
+    """
+
+    word: str = pydantic.Field()
+    """
+    The surface form of the word or phrase as it appears in a script.
+    """
+
+    description: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Optional human-readable note about the entry (e.g. context, source).
+    """
+
+    pronunciation: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Phonetic respelling used when `method` is `spelled`.
+    """
+
+    audio_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Short-lived presigned URL to the reference audio clip; only present when `method` is `recorded`. Do not cache across sessions.
+    """
+
+    method: DictionaryMethod = pydantic.Field()
+    """
+    How the pronunciation is specified: `spelled` (phonetic respelling), `recorded` (reference audio), or `ipa` (IPA transcription).
+    """
+
+    language: str = pydantic.Field()
+    """
+    BCP-47 locale this entry applies to (e.g. `ko-kr`, `en-us`).
+    """
+
+    uses_count: int = pydantic.Field()
+    """
+    Number of times this entry has been matched and applied during workflow execution.
+    """
+
+    ipa: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    IPA transcription of the word. Supplied by the caller; automatic generation is a planned enhancement.
+    """
+
+    created_by: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    ID of the user who created the entry, or `null` when created programmatically via API key.
+    """
+
     created_at: dt.datetime
     updated_at: dt.datetime
 

@@ -11,14 +11,45 @@ from .usage_activity_user_out import UsageActivityUserOut
 
 
 class UsageActivityOut(UniversalBaseModel):
-    id: str
-    timestamp: dt.datetime
-    user: typing.Optional[UsageActivityUserOut] = None
-    action: UsageActivityAction
-    kind: str
-    resource: UsageActivityResourceOut
-    metadata: typing.Optional[typing.Dict[str, typing.Any]] = None
-    ip: typing.Optional[str] = None
+    id: str = pydantic.Field()
+    """
+    Unique activity event identifier.
+    """
+
+    timestamp: dt.datetime = pydantic.Field()
+    """
+    UTC timestamp when the event occurred.
+    """
+
+    user: typing.Optional[UsageActivityUserOut] = pydantic.Field(default=None)
+    """
+    Actor who triggered the event, or `null` for system-generated events.
+    """
+
+    action: UsageActivityAction = pydantic.Field()
+    """
+    Event type (e.g. `workflow_run`, `voice_generated`, `member_invited`).
+    """
+
+    kind: str = pydantic.Field()
+    """
+    Sub-kind providing additional detail about the action.
+    """
+
+    resource: UsageActivityResourceOut = pydantic.Field()
+    """
+    The primary resource involved in this event.
+    """
+
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    """
+    Additional structured context for the event. Keys vary by action type.
+    """
+
+    ip: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    IP address of the actor at the time of the event, if recorded.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

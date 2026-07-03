@@ -8,18 +8,54 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class WorkflowOut(UniversalBaseModel):
-    id: str
-    user_id: str
-    name: str
-    description: typing.Optional[str] = None
-    definition: typing.Dict[str, typing.Any]
-    created_at: dt.datetime
-    updated_at: dt.datetime
-    runs_count: typing.Optional[int] = None
-    last_run_at: typing.Optional[dt.datetime] = None
+    id: str = pydantic.Field()
+    """
+    Unique workflow identifier.
+    """
+
+    user_id: str = pydantic.Field()
+    """
+    ID of the user who created the workflow.
+    """
+
+    name: str = pydantic.Field()
+    """
+    Human-readable workflow name.
+    """
+
+    description: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Optional workflow description.
+    """
+
+    definition: typing.Dict[str, typing.Any] = pydantic.Field()
+    """
+    Full workflow graph and execution config as stored (config-migrated on read).
+    """
+
+    created_at: dt.datetime = pydantic.Field()
+    """
+    When the workflow was created (UTC).
+    """
+
+    updated_at: dt.datetime = pydantic.Field()
+    """
+    When the workflow was last modified (UTC).
+    """
+
+    runs_count: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Total number of runs ever started for this workflow.
+    """
+
+    last_run_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
+    """
+    When the most recent run was created. Null if never run.
+    """
+
     last_run_status: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Raw RunStatus of the most recent run. One of: pending, running, completed, failed, cancelled.
+    Raw RunStatus of the most recent run. One of: `pending`, `running`, `completed`, `failed`, `cancelled`, `paused`. Null if never run.
     """
 
     if IS_PYDANTIC_V2:

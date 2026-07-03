@@ -10,23 +10,17 @@ from .core.logging import LogConfig, Logger
 from .environment import OnePinClientEnvironment
 
 if typing.TYPE_CHECKING:
-    from .api_keys.client import ApiKeysClient, AsyncApiKeysClient
     from .auth.client import AsyncAuthClient, AuthClient
-    from .billing.client import AsyncBillingClient, BillingClient
     from .dictionary.client import AsyncDictionaryClient, DictionaryClient
-    from .health.client import AsyncHealthClient, HealthClient
     from .nodes.client import AsyncNodesClient, NodesClient
-    from .provider_keys.client import AsyncProviderKeysClient, ProviderKeysClient
     from .providers.client import AsyncProvidersClient, ProvidersClient
     from .templates.client import AsyncTemplatesClient, TemplatesClient
     from .uploads.client import AsyncUploadsClient, UploadsClient
     from .usage.client import AsyncUsageClient, UsageClient
     from .users.client import AsyncUsersClient, UsersClient
     from .voices.client import AsyncVoicesClient, VoicesClient
-    from .webhooks.client import AsyncWebhooksClient, WebhooksClient
     from .workflows.client import AsyncWorkflowsClient, WorkflowsClient
     from .workspace.client import AsyncWorkspaceClient, WorkspaceClient
-    from .workspace_aggregates.client import AsyncWorkspaceAggregatesClient, WorkspaceAggregatesClient
     from .workspace_members.client import AsyncWorkspaceMembersClient, WorkspaceMembersClient
     from .workspaces.client import AsyncWorkspacesClient, WorkspacesClient
 
@@ -59,6 +53,12 @@ class OnePinClient:
     max_retries : typing.Optional[int]
         The default maximum number of retries for failed requests. Defaults to 2. Per-request `max_retries` in `request_options` takes precedence over this value.
 
+    stream_reconnection_enabled : typing.Optional[bool]
+        Whether to automatically reconnect on stream disconnection for resumable streaming endpoints. Defaults to True. Per-request `stream_reconnection_enabled` in `request_options` takes precedence over this value.
+
+    max_stream_reconnection_attempts : typing.Optional[int]
+        The maximum number of reconnection attempts for resumable streaming endpoints. Defaults to no limit. Per-request `max_stream_reconnection_attempts` in `request_options` takes precedence over this value.
+
     follow_redirects : typing.Optional[bool]
         Whether the default httpx client follows redirects or not, this is irrelevant if a custom httpx client is passed in.
 
@@ -86,13 +86,13 @@ class OnePinClient:
         headers: typing.Optional[typing.Dict[str, str]] = None,
         timeout: typing.Optional[float] = None,
         max_retries: typing.Optional[int] = None,
+        stream_reconnection_enabled: typing.Optional[bool] = None,
+        max_stream_reconnection_attempts: typing.Optional[int] = None,
         follow_redirects: typing.Optional[bool] = True,
         httpx_client: typing.Optional[httpx.Client] = None,
         logging: typing.Optional[typing.Union[LogConfig, Logger]] = None,
     ):
-        _defaulted_timeout = (
-            timeout if timeout is not None else 60 if httpx_client is None else httpx_client.timeout.read
-        )
+        _defaulted_timeout = timeout if timeout is not None else 60 if httpx_client is None else None
         _defaulted_max_retries = max_retries if max_retries is not None else 2
         self._client_wrapper = SyncClientWrapper(
             base_url=_get_base_url(base_url=base_url, environment=environment),
@@ -105,43 +105,23 @@ class OnePinClient:
             else httpx.Client(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
             max_retries=_defaulted_max_retries,
+            stream_reconnection_enabled=stream_reconnection_enabled,
+            max_stream_reconnection_attempts=max_stream_reconnection_attempts,
             logging=logging,
         )
-        self._health: typing.Optional[HealthClient] = None
-        self._webhooks: typing.Optional[WebhooksClient] = None
         self._auth: typing.Optional[AuthClient] = None
-        self._api_keys: typing.Optional[ApiKeysClient] = None
         self._dictionary: typing.Optional[DictionaryClient] = None
         self._nodes: typing.Optional[NodesClient] = None
-        self._provider_keys: typing.Optional[ProviderKeysClient] = None
         self._providers: typing.Optional[ProvidersClient] = None
         self._templates: typing.Optional[TemplatesClient] = None
         self._voices: typing.Optional[VoicesClient] = None
         self._workspace: typing.Optional[WorkspaceClient] = None
-        self._workspace_aggregates: typing.Optional[WorkspaceAggregatesClient] = None
         self._workspace_members: typing.Optional[WorkspaceMembersClient] = None
         self._workspaces: typing.Optional[WorkspacesClient] = None
         self._uploads: typing.Optional[UploadsClient] = None
         self._usage: typing.Optional[UsageClient] = None
-        self._billing: typing.Optional[BillingClient] = None
         self._users: typing.Optional[UsersClient] = None
         self._workflows: typing.Optional[WorkflowsClient] = None
-
-    @property
-    def health(self):
-        if self._health is None:
-            from .health.client import HealthClient  # noqa: E402
-
-            self._health = HealthClient(client_wrapper=self._client_wrapper)
-        return self._health
-
-    @property
-    def webhooks(self):
-        if self._webhooks is None:
-            from .webhooks.client import WebhooksClient  # noqa: E402
-
-            self._webhooks = WebhooksClient(client_wrapper=self._client_wrapper)
-        return self._webhooks
 
     @property
     def auth(self):
@@ -150,14 +130,6 @@ class OnePinClient:
 
             self._auth = AuthClient(client_wrapper=self._client_wrapper)
         return self._auth
-
-    @property
-    def api_keys(self):
-        if self._api_keys is None:
-            from .api_keys.client import ApiKeysClient  # noqa: E402
-
-            self._api_keys = ApiKeysClient(client_wrapper=self._client_wrapper)
-        return self._api_keys
 
     @property
     def dictionary(self):
@@ -174,14 +146,6 @@ class OnePinClient:
 
             self._nodes = NodesClient(client_wrapper=self._client_wrapper)
         return self._nodes
-
-    @property
-    def provider_keys(self):
-        if self._provider_keys is None:
-            from .provider_keys.client import ProviderKeysClient  # noqa: E402
-
-            self._provider_keys = ProviderKeysClient(client_wrapper=self._client_wrapper)
-        return self._provider_keys
 
     @property
     def providers(self):
@@ -216,14 +180,6 @@ class OnePinClient:
         return self._workspace
 
     @property
-    def workspace_aggregates(self):
-        if self._workspace_aggregates is None:
-            from .workspace_aggregates.client import WorkspaceAggregatesClient  # noqa: E402
-
-            self._workspace_aggregates = WorkspaceAggregatesClient(client_wrapper=self._client_wrapper)
-        return self._workspace_aggregates
-
-    @property
     def workspace_members(self):
         if self._workspace_members is None:
             from .workspace_members.client import WorkspaceMembersClient  # noqa: E402
@@ -254,14 +210,6 @@ class OnePinClient:
 
             self._usage = UsageClient(client_wrapper=self._client_wrapper)
         return self._usage
-
-    @property
-    def billing(self):
-        if self._billing is None:
-            from .billing.client import BillingClient  # noqa: E402
-
-            self._billing = BillingClient(client_wrapper=self._client_wrapper)
-        return self._billing
 
     @property
     def users(self):
@@ -329,6 +277,12 @@ class AsyncOnePinClient:
     max_retries : typing.Optional[int]
         The default maximum number of retries for failed requests. Defaults to 2. Per-request `max_retries` in `request_options` takes precedence over this value.
 
+    stream_reconnection_enabled : typing.Optional[bool]
+        Whether to automatically reconnect on stream disconnection for resumable streaming endpoints. Defaults to True. Per-request `stream_reconnection_enabled` in `request_options` takes precedence over this value.
+
+    max_stream_reconnection_attempts : typing.Optional[int]
+        The maximum number of reconnection attempts for resumable streaming endpoints. Defaults to no limit. Per-request `max_stream_reconnection_attempts` in `request_options` takes precedence over this value.
+
     follow_redirects : typing.Optional[bool]
         Whether the default httpx client follows redirects or not, this is irrelevant if a custom httpx client is passed in.
 
@@ -357,13 +311,13 @@ class AsyncOnePinClient:
         async_token: typing.Optional[typing.Callable[[], typing.Awaitable[str]]] = None,
         timeout: typing.Optional[float] = None,
         max_retries: typing.Optional[int] = None,
+        stream_reconnection_enabled: typing.Optional[bool] = None,
+        max_stream_reconnection_attempts: typing.Optional[int] = None,
         follow_redirects: typing.Optional[bool] = True,
         httpx_client: typing.Optional[httpx.AsyncClient] = None,
         logging: typing.Optional[typing.Union[LogConfig, Logger]] = None,
     ):
-        _defaulted_timeout = (
-            timeout if timeout is not None else 60 if httpx_client is None else httpx_client.timeout.read
-        )
+        _defaulted_timeout = timeout if timeout is not None else 60 if httpx_client is None else None
         _defaulted_max_retries = max_retries if max_retries is not None else 2
         self._client_wrapper = AsyncClientWrapper(
             base_url=_get_base_url(base_url=base_url, environment=environment),
@@ -375,43 +329,23 @@ class AsyncOnePinClient:
             else _make_default_async_client(timeout=_defaulted_timeout, follow_redirects=follow_redirects),
             timeout=_defaulted_timeout,
             max_retries=_defaulted_max_retries,
+            stream_reconnection_enabled=stream_reconnection_enabled,
+            max_stream_reconnection_attempts=max_stream_reconnection_attempts,
             logging=logging,
         )
-        self._health: typing.Optional[AsyncHealthClient] = None
-        self._webhooks: typing.Optional[AsyncWebhooksClient] = None
         self._auth: typing.Optional[AsyncAuthClient] = None
-        self._api_keys: typing.Optional[AsyncApiKeysClient] = None
         self._dictionary: typing.Optional[AsyncDictionaryClient] = None
         self._nodes: typing.Optional[AsyncNodesClient] = None
-        self._provider_keys: typing.Optional[AsyncProviderKeysClient] = None
         self._providers: typing.Optional[AsyncProvidersClient] = None
         self._templates: typing.Optional[AsyncTemplatesClient] = None
         self._voices: typing.Optional[AsyncVoicesClient] = None
         self._workspace: typing.Optional[AsyncWorkspaceClient] = None
-        self._workspace_aggregates: typing.Optional[AsyncWorkspaceAggregatesClient] = None
         self._workspace_members: typing.Optional[AsyncWorkspaceMembersClient] = None
         self._workspaces: typing.Optional[AsyncWorkspacesClient] = None
         self._uploads: typing.Optional[AsyncUploadsClient] = None
         self._usage: typing.Optional[AsyncUsageClient] = None
-        self._billing: typing.Optional[AsyncBillingClient] = None
         self._users: typing.Optional[AsyncUsersClient] = None
         self._workflows: typing.Optional[AsyncWorkflowsClient] = None
-
-    @property
-    def health(self):
-        if self._health is None:
-            from .health.client import AsyncHealthClient  # noqa: E402
-
-            self._health = AsyncHealthClient(client_wrapper=self._client_wrapper)
-        return self._health
-
-    @property
-    def webhooks(self):
-        if self._webhooks is None:
-            from .webhooks.client import AsyncWebhooksClient  # noqa: E402
-
-            self._webhooks = AsyncWebhooksClient(client_wrapper=self._client_wrapper)
-        return self._webhooks
 
     @property
     def auth(self):
@@ -420,14 +354,6 @@ class AsyncOnePinClient:
 
             self._auth = AsyncAuthClient(client_wrapper=self._client_wrapper)
         return self._auth
-
-    @property
-    def api_keys(self):
-        if self._api_keys is None:
-            from .api_keys.client import AsyncApiKeysClient  # noqa: E402
-
-            self._api_keys = AsyncApiKeysClient(client_wrapper=self._client_wrapper)
-        return self._api_keys
 
     @property
     def dictionary(self):
@@ -444,14 +370,6 @@ class AsyncOnePinClient:
 
             self._nodes = AsyncNodesClient(client_wrapper=self._client_wrapper)
         return self._nodes
-
-    @property
-    def provider_keys(self):
-        if self._provider_keys is None:
-            from .provider_keys.client import AsyncProviderKeysClient  # noqa: E402
-
-            self._provider_keys = AsyncProviderKeysClient(client_wrapper=self._client_wrapper)
-        return self._provider_keys
 
     @property
     def providers(self):
@@ -486,14 +404,6 @@ class AsyncOnePinClient:
         return self._workspace
 
     @property
-    def workspace_aggregates(self):
-        if self._workspace_aggregates is None:
-            from .workspace_aggregates.client import AsyncWorkspaceAggregatesClient  # noqa: E402
-
-            self._workspace_aggregates = AsyncWorkspaceAggregatesClient(client_wrapper=self._client_wrapper)
-        return self._workspace_aggregates
-
-    @property
     def workspace_members(self):
         if self._workspace_members is None:
             from .workspace_members.client import AsyncWorkspaceMembersClient  # noqa: E402
@@ -524,14 +434,6 @@ class AsyncOnePinClient:
 
             self._usage = AsyncUsageClient(client_wrapper=self._client_wrapper)
         return self._usage
-
-    @property
-    def billing(self):
-        if self._billing is None:
-            from .billing.client import AsyncBillingClient  # noqa: E402
-
-            self._billing = AsyncBillingClient(client_wrapper=self._client_wrapper)
-        return self._billing
 
     @property
     def users(self):

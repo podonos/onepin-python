@@ -11,6 +11,7 @@ NodeType = typing.Union[
         "sink_preview",
         "validator_error_rate",
         "validator_naturalness",
+        "validator_noise",
     ],
     typing.Any,
 ]

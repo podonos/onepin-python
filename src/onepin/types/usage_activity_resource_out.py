@@ -7,9 +7,20 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class UsageActivityResourceOut(UniversalBaseModel):
-    type: str
-    id: typing.Optional[str] = None
-    name: typing.Optional[str] = None
+    type: str = pydantic.Field()
+    """
+    Resource type involved in the event (e.g. `workflow`, `template`, `voice`).
+    """
+
+    id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    ID of the affected resource, if applicable.
+    """
+
+    name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Display name of the affected resource at the time of the event.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

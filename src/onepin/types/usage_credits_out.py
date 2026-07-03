@@ -12,8 +12,15 @@ class UsageCreditsOut(UniversalBaseModel):
     Credits used for the authenticated user's current billing period; daily and activity buckets remain workspace-scoped.
     """
 
-    quota: typing.Optional[int] = None
-    percent: typing.Optional[float] = None
+    quota: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Credit quota for the current billing period, or `null` if unlimited.
+    """
+
+    percent: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Credits used as a fraction of quota (0–100), or `null` when quota is unlimited.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

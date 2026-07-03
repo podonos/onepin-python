@@ -28,12 +28,17 @@ class RawProvidersClient:
         self, *, workspace_id: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ApiListResponseCatalogProviderOut]:
         """
-        List TTS providers in the public catalog.
+        List all available speech synthesis providers in the catalog.
 
-        Returns the processing (TTS) provider catalog with a per-provider model count
-        and a HATEOAS link to each provider's models. Lean / customer-safe — cost,
-        credentials, and base URLs are never exposed. Requires `X-Workspace-Id` (or a
-        workspace-bound API key with the `catalog:read` scope), matching `/voices`.
+        Returns the full set of processing providers — each with its display name,
+        number of available models, and a HATEOAS `models` link to
+        `GET /providers/{provider}/models`. The response contains only
+        customer-facing metadata; cost, credentials, and base URLs are never included.
+
+        This endpoint is the starting point for building a provider/model/voice
+        selection flow. The typical traversal is: list providers → follow `models`
+        link → follow `voices` link for the chosen model. Requires `X-Workspace-Id`
+        and the `catalog:read` scope.
 
         Parameters
         ----------
@@ -93,7 +98,12 @@ class RawProvidersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseCatalogProviderOut]:
         """
-        Get a single TTS provider by canonical name (e.g. `cartesia`).
+        Get a single speech synthesis provider by its canonical identifier.
+
+        Returns the same shape as an item in `GET /providers` — display name, model
+        count, and a HATEOAS `models` link — but scoped to a single provider. Returns
+        404 if the provider identifier is not recognized. The canonical identifier is
+        the lowercase slug returned in the `provider` field of the list response.
 
         Parameters
         ----------
@@ -166,7 +176,15 @@ class RawProvidersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiListResponseCatalogModelOut]:
         """
-        List a provider's TTS models, each with its `config_schema` and live `voice_count`.
+        List all models available for a given provider.
+
+        Returns each model's display name, content type, live `voice_count` (the
+        number of platform voices catalogued under that model), and a `controls` map
+        describing the canonical provider-agnostic parameters supported by the model
+        (e.g. speed, stability). Also includes `config_schema` for back-compat — new
+        integrations should prefer `controls` as the authoritative parameter
+        description. Each item includes a HATEOAS `voices` link to the paginated
+        voice list for that model. Returns 404 if the provider is not recognized.
 
         Parameters
         ----------
@@ -242,11 +260,24 @@ class RawProvidersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiCountedListResponseCatalogVoiceOut]:
         """
-        List platform voices catalogued under an exact `(provider, model)`.
+        List platform voices available for a specific provider and model.
 
-        Lean voice shape with a presigned `preview_url`. Platform catalog voices only
-        (System workspace); model-less voices are excluded. Paginated via `offset` /
-        `limit`. The flat `/voices?provider=&model=` endpoint remains for the picker.
+        Returns a paginated list of voices from the platform catalog (system
+        workspace) that declare support for the given `model`. A voice can appear
+        under multiple models when its `supported_models` list includes more than
+        one entry; voices with no supported models are excluded from all model
+        listings.
+
+        Each voice includes gender, age, accent, supported locales, and a short-lived
+        presigned `preview_url` for the audio sample — do not cache these URLs across
+        sessions. The response `pagination.total` field reflects the total match count
+        for the provider/model pair.
+
+        For the workspace voice picker (which merges platform and workspace-scoped
+        voices and supports favorite/similarity filtering), use `GET /voices` with
+        `?provider=` and `?model=` query parameters instead.
+
+        Returns 404 if the provider or model is not recognized.
 
         Parameters
         ----------
@@ -255,8 +286,10 @@ class RawProvidersClient:
         model : str
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Page size (max 100).
 
         workspace_id : typing.Optional[str]
 
@@ -330,7 +363,12 @@ class RawProvidersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseCatalogModelOut]:
         """
-        Get a single TTS model — `config_schema` + live `voice_count`.
+        Get a single model for a given provider.
+
+        Returns the same shape as an item in `GET /providers/{provider}/models`,
+        including `controls` (canonical parameter map), `config_schema` (for
+        back-compat), live `voice_count`, and a HATEOAS `voices` link. Returns 404
+        if the provider or model identifier is not recognized.
 
         Parameters
         ----------
@@ -406,12 +444,17 @@ class AsyncRawProvidersClient:
         self, *, workspace_id: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ApiListResponseCatalogProviderOut]:
         """
-        List TTS providers in the public catalog.
+        List all available speech synthesis providers in the catalog.
 
-        Returns the processing (TTS) provider catalog with a per-provider model count
-        and a HATEOAS link to each provider's models. Lean / customer-safe — cost,
-        credentials, and base URLs are never exposed. Requires `X-Workspace-Id` (or a
-        workspace-bound API key with the `catalog:read` scope), matching `/voices`.
+        Returns the full set of processing providers — each with its display name,
+        number of available models, and a HATEOAS `models` link to
+        `GET /providers/{provider}/models`. The response contains only
+        customer-facing metadata; cost, credentials, and base URLs are never included.
+
+        This endpoint is the starting point for building a provider/model/voice
+        selection flow. The typical traversal is: list providers → follow `models`
+        link → follow `voices` link for the chosen model. Requires `X-Workspace-Id`
+        and the `catalog:read` scope.
 
         Parameters
         ----------
@@ -471,7 +514,12 @@ class AsyncRawProvidersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseCatalogProviderOut]:
         """
-        Get a single TTS provider by canonical name (e.g. `cartesia`).
+        Get a single speech synthesis provider by its canonical identifier.
+
+        Returns the same shape as an item in `GET /providers` — display name, model
+        count, and a HATEOAS `models` link — but scoped to a single provider. Returns
+        404 if the provider identifier is not recognized. The canonical identifier is
+        the lowercase slug returned in the `provider` field of the list response.
 
         Parameters
         ----------
@@ -544,7 +592,15 @@ class AsyncRawProvidersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiListResponseCatalogModelOut]:
         """
-        List a provider's TTS models, each with its `config_schema` and live `voice_count`.
+        List all models available for a given provider.
+
+        Returns each model's display name, content type, live `voice_count` (the
+        number of platform voices catalogued under that model), and a `controls` map
+        describing the canonical provider-agnostic parameters supported by the model
+        (e.g. speed, stability). Also includes `config_schema` for back-compat — new
+        integrations should prefer `controls` as the authoritative parameter
+        description. Each item includes a HATEOAS `voices` link to the paginated
+        voice list for that model. Returns 404 if the provider is not recognized.
 
         Parameters
         ----------
@@ -620,11 +676,24 @@ class AsyncRawProvidersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiCountedListResponseCatalogVoiceOut]:
         """
-        List platform voices catalogued under an exact `(provider, model)`.
+        List platform voices available for a specific provider and model.
 
-        Lean voice shape with a presigned `preview_url`. Platform catalog voices only
-        (System workspace); model-less voices are excluded. Paginated via `offset` /
-        `limit`. The flat `/voices?provider=&model=` endpoint remains for the picker.
+        Returns a paginated list of voices from the platform catalog (system
+        workspace) that declare support for the given `model`. A voice can appear
+        under multiple models when its `supported_models` list includes more than
+        one entry; voices with no supported models are excluded from all model
+        listings.
+
+        Each voice includes gender, age, accent, supported locales, and a short-lived
+        presigned `preview_url` for the audio sample — do not cache these URLs across
+        sessions. The response `pagination.total` field reflects the total match count
+        for the provider/model pair.
+
+        For the workspace voice picker (which merges platform and workspace-scoped
+        voices and supports favorite/similarity filtering), use `GET /voices` with
+        `?provider=` and `?model=` query parameters instead.
+
+        Returns 404 if the provider or model is not recognized.
 
         Parameters
         ----------
@@ -633,8 +702,10 @@ class AsyncRawProvidersClient:
         model : str
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Page size (max 100).
 
         workspace_id : typing.Optional[str]
 
@@ -708,7 +779,12 @@ class AsyncRawProvidersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseCatalogModelOut]:
         """
-        Get a single TTS model — `config_schema` + live `voice_count`.
+        Get a single model for a given provider.
+
+        Returns the same shape as an item in `GET /providers/{provider}/models`,
+        including `controls` (canonical parameter map), `config_schema` (for
+        back-compat), live `voice_count`, and a HATEOAS `voices` link. Returns 404
+        if the provider or model identifier is not recognized.
 
         Parameters
         ----------

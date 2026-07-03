@@ -35,6 +35,20 @@ class WorkspaceMembersClient:
         """
         List active members and pending invites for a workspace.
 
+        Returns a unified list combining confirmed members (status `active`) and
+        outstanding invites that have not yet been accepted or revoked (status
+        `invited`). Pending invites appear with `user_id: null` and only the
+        `email` and `role` fields populated.
+
+        The list is sorted: the requesting user appears first, then admins by
+        join date, then other members by join date. No pagination — the full
+        roster is returned in a single response.
+
+        Roles:
+        - `admin`: can manage members, invites, workspace settings, and all content.
+        - `editor`: can create, edit, and run workflows; cannot manage members.
+        - `viewer`: read-only access to workspace content and run history.
+
         Parameters
         ----------
         ws_id : str
@@ -65,18 +79,34 @@ class WorkspaceMembersClient:
         self, ws_id: str, *, email: str, role: WorkspaceRole, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseWorkspaceInviteOut:
         """
-        Invite a user to the workspace via email.
+        Invite a user to the workspace by email. Admin only.
 
-        POD-301: gated by `seats` plan limit on the workspace owner's plan.
-        Active members + pending invites both count against the cap.
+        Creates a pending invite and sends an invitation email to the specified
+        address. The invitee does not need to have an existing account — they can
+        sign up after receiving the invite. The invite includes a role
+        (`admin`, `editor`, or `viewer`) that the invitee will receive upon
+        accepting.
+
+        Invites expire after 14 days. Only one pending invite per email address
+        per workspace is allowed at a time; re-inviting the same address while a
+        pending invite exists returns 409. Inviting an address that already
+        belongs to an active member also returns 409.
+
+        The total number of active members plus pending invites is counted against
+        the workspace owner's plan seat limit. Exceeding the limit returns 402.
+        The invitee's role can be updated before acceptance via
+        `PATCH /workspaces/{ws_id}/invites/{invite_id}`, or the invite can be
+        cancelled via `DELETE /workspaces/{ws_id}/invites/{invite_id}`.
 
         Parameters
         ----------
         ws_id : str
 
         email : str
+            Email address to invite. Normalized to lowercase. Returns 409 if this address is already an active member or has a pending invite.
 
         role : WorkspaceRole
+            Role to grant when the invite is accepted: `admin`, `editor`, or `viewer`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -106,7 +136,18 @@ class WorkspaceMembersClient:
         self, ws_id: str, member_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseDict:
         """
-        Remove an active member. Admin only.
+        Remove an active member from the workspace. Admin only.
+
+        The removed member immediately loses access to all workspace resources.
+        They receive an email notification informing them they have been removed.
+
+        Two protections prevent accidental lockouts:
+        - The workspace owner cannot be removed.
+        - The last remaining admin cannot be removed (returns 409).
+
+        Removing a member does not affect their account or other workspaces. To
+        block an invited but not-yet-accepted user instead, revoke the invite via
+        `DELETE /workspaces/{ws_id}/invites/{invite_id}`.
 
         Parameters
         ----------
@@ -146,7 +187,18 @@ class WorkspaceMembersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseDict:
         """
-        Change a member's role. Admin only.
+        Change a workspace member's role. Admin only.
+
+        Updates the role of an active member to `admin`, `editor`, or `viewer`.
+        The operation is idempotent — setting a member to their current role
+        succeeds silently (no error, no duplicate email notification).
+
+        Two protections prevent accidental lockouts:
+        - The workspace owner's role cannot be changed.
+        - The last remaining admin cannot be demoted (returns 409).
+
+        When the role actually changes, the affected member receives an email
+        notification describing their new permissions.
 
         Parameters
         ----------
@@ -155,6 +207,7 @@ class WorkspaceMembersClient:
         member_id : str
 
         role : WorkspaceRole
+            New role to assign: `admin`, `editor`, or `viewer`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -184,7 +237,15 @@ class WorkspaceMembersClient:
         self, ws_id: str, invite_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseDict:
         """
-        Revoke a pending invite. Admin only.
+        Cancel a pending invite so the invitee can no longer accept it. Admin only.
+
+        The invite token is invalidated immediately. If the invitee attempts to
+        accept after revocation, they receive a 410 Gone. The invite is removed
+        from the pending list returned by `GET /workspaces/{ws_id}/members`.
+
+        Revoking an invite that is already accepted, revoked, or expired returns
+        404. To remove an already-accepted member, use
+        `DELETE /workspaces/{ws_id}/members/{member_id}`.
 
         Parameters
         ----------
@@ -224,7 +285,12 @@ class WorkspaceMembersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseWorkspaceInviteOut:
         """
-        Update role on a pending invite. Admin only.
+        Change the role on a pending (not yet accepted) invite. Admin only.
+
+        Updates the role the invitee will receive when they accept. Only pending
+        invites can be updated — attempting to update an accepted, revoked, or
+        expired invite returns 409. The invitee is not notified of the role
+        change; the updated role takes effect when they accept.
 
         Parameters
         ----------
@@ -233,6 +299,7 @@ class WorkspaceMembersClient:
         invite_id : str
 
         role : WorkspaceRole
+            New role to assign: `admin`, `editor`, or `viewer`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -260,10 +327,26 @@ class WorkspaceMembersClient:
 
     def accept_invite(self, token: str, *, request_options: typing.Optional[RequestOptions] = None) -> ApiResponseDict:
         """
-        Accept a workspace invite. Authenticated; validates email match.
+        Accept a workspace invite using the token from the invitation email.
 
-        POD-301: re-checks `seats` against owner's plan at accept time — owner may
-        have downgraded since invite sent.
+        The `token` path parameter comes from the invitation link sent to the
+        invitee's email. The caller must be authenticated and their verified email
+        address must match the address the invite was sent to (403 if it does not).
+
+        On success the caller is added to the workspace with the role specified in
+        the invite, and `workspace_id` is returned so the caller can immediately
+        begin using that workspace. If the caller is already a member of the
+        workspace (e.g. accepted via a different device), the accept is idempotent
+        and returns the same `workspace_id`.
+
+        Error cases (all return 410 Gone):
+        - Invite already accepted.
+        - Invite was revoked by an admin.
+        - Invite has expired (14-day TTL from creation).
+
+        The workspace owner's plan seat limit is re-checked at accept time in case
+        the plan was downgraded after the invite was sent; exceeding the limit
+        returns 402.
 
         Parameters
         ----------
@@ -313,6 +396,20 @@ class AsyncWorkspaceMembersClient:
         """
         List active members and pending invites for a workspace.
 
+        Returns a unified list combining confirmed members (status `active`) and
+        outstanding invites that have not yet been accepted or revoked (status
+        `invited`). Pending invites appear with `user_id: null` and only the
+        `email` and `role` fields populated.
+
+        The list is sorted: the requesting user appears first, then admins by
+        join date, then other members by join date. No pagination — the full
+        roster is returned in a single response.
+
+        Roles:
+        - `admin`: can manage members, invites, workspace settings, and all content.
+        - `editor`: can create, edit, and run workflows; cannot manage members.
+        - `viewer`: read-only access to workspace content and run history.
+
         Parameters
         ----------
         ws_id : str
@@ -351,18 +448,34 @@ class AsyncWorkspaceMembersClient:
         self, ws_id: str, *, email: str, role: WorkspaceRole, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseWorkspaceInviteOut:
         """
-        Invite a user to the workspace via email.
+        Invite a user to the workspace by email. Admin only.
 
-        POD-301: gated by `seats` plan limit on the workspace owner's plan.
-        Active members + pending invites both count against the cap.
+        Creates a pending invite and sends an invitation email to the specified
+        address. The invitee does not need to have an existing account — they can
+        sign up after receiving the invite. The invite includes a role
+        (`admin`, `editor`, or `viewer`) that the invitee will receive upon
+        accepting.
+
+        Invites expire after 14 days. Only one pending invite per email address
+        per workspace is allowed at a time; re-inviting the same address while a
+        pending invite exists returns 409. Inviting an address that already
+        belongs to an active member also returns 409.
+
+        The total number of active members plus pending invites is counted against
+        the workspace owner's plan seat limit. Exceeding the limit returns 402.
+        The invitee's role can be updated before acceptance via
+        `PATCH /workspaces/{ws_id}/invites/{invite_id}`, or the invite can be
+        cancelled via `DELETE /workspaces/{ws_id}/invites/{invite_id}`.
 
         Parameters
         ----------
         ws_id : str
 
         email : str
+            Email address to invite. Normalized to lowercase. Returns 409 if this address is already an active member or has a pending invite.
 
         role : WorkspaceRole
+            Role to grant when the invite is accepted: `admin`, `editor`, or `viewer`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -400,7 +513,18 @@ class AsyncWorkspaceMembersClient:
         self, ws_id: str, member_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseDict:
         """
-        Remove an active member. Admin only.
+        Remove an active member from the workspace. Admin only.
+
+        The removed member immediately loses access to all workspace resources.
+        They receive an email notification informing them they have been removed.
+
+        Two protections prevent accidental lockouts:
+        - The workspace owner cannot be removed.
+        - The last remaining admin cannot be removed (returns 409).
+
+        Removing a member does not affect their account or other workspaces. To
+        block an invited but not-yet-accepted user instead, revoke the invite via
+        `DELETE /workspaces/{ws_id}/invites/{invite_id}`.
 
         Parameters
         ----------
@@ -448,7 +572,18 @@ class AsyncWorkspaceMembersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseDict:
         """
-        Change a member's role. Admin only.
+        Change a workspace member's role. Admin only.
+
+        Updates the role of an active member to `admin`, `editor`, or `viewer`.
+        The operation is idempotent — setting a member to their current role
+        succeeds silently (no error, no duplicate email notification).
+
+        Two protections prevent accidental lockouts:
+        - The workspace owner's role cannot be changed.
+        - The last remaining admin cannot be demoted (returns 409).
+
+        When the role actually changes, the affected member receives an email
+        notification describing their new permissions.
 
         Parameters
         ----------
@@ -457,6 +592,7 @@ class AsyncWorkspaceMembersClient:
         member_id : str
 
         role : WorkspaceRole
+            New role to assign: `admin`, `editor`, or `viewer`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -496,7 +632,15 @@ class AsyncWorkspaceMembersClient:
         self, ws_id: str, invite_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseDict:
         """
-        Revoke a pending invite. Admin only.
+        Cancel a pending invite so the invitee can no longer accept it. Admin only.
+
+        The invite token is invalidated immediately. If the invitee attempts to
+        accept after revocation, they receive a 410 Gone. The invite is removed
+        from the pending list returned by `GET /workspaces/{ws_id}/members`.
+
+        Revoking an invite that is already accepted, revoked, or expired returns
+        404. To remove an already-accepted member, use
+        `DELETE /workspaces/{ws_id}/members/{member_id}`.
 
         Parameters
         ----------
@@ -544,7 +688,12 @@ class AsyncWorkspaceMembersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseWorkspaceInviteOut:
         """
-        Update role on a pending invite. Admin only.
+        Change the role on a pending (not yet accepted) invite. Admin only.
+
+        Updates the role the invitee will receive when they accept. Only pending
+        invites can be updated — attempting to update an accepted, revoked, or
+        expired invite returns 409. The invitee is not notified of the role
+        change; the updated role takes effect when they accept.
 
         Parameters
         ----------
@@ -553,6 +702,7 @@ class AsyncWorkspaceMembersClient:
         invite_id : str
 
         role : WorkspaceRole
+            New role to assign: `admin`, `editor`, or `viewer`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -592,10 +742,26 @@ class AsyncWorkspaceMembersClient:
         self, token: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseDict:
         """
-        Accept a workspace invite. Authenticated; validates email match.
+        Accept a workspace invite using the token from the invitation email.
 
-        POD-301: re-checks `seats` against owner's plan at accept time — owner may
-        have downgraded since invite sent.
+        The `token` path parameter comes from the invitation link sent to the
+        invitee's email. The caller must be authenticated and their verified email
+        address must match the address the invite was sent to (403 if it does not).
+
+        On success the caller is added to the workspace with the role specified in
+        the invite, and `workspace_id` is returned so the caller can immediately
+        begin using that workspace. If the caller is already a member of the
+        workspace (e.g. accepted via a different device), the accept is idempotent
+        and returns the same `workspace_id`.
+
+        Error cases (all return 410 Gone):
+        - Invite already accepted.
+        - Invite was revoked by an admin.
+        - Invite has expired (14-day TTL from creation).
+
+        The workspace owner's plan seat limit is re-checked at accept time in case
+        the plan was downgraded after the invite was sent; exceeding the limit
+        returns 402.
 
         Parameters
         ----------

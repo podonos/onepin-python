@@ -8,18 +8,66 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class UploadOut(UniversalBaseModel):
-    id: str
-    user_id: str
-    workspace_id: typing.Optional[str] = None
-    filename: str
-    category: str
-    content_type: str
-    format: typing.Optional[str] = None
-    status: str
-    size_bytes: typing.Optional[int] = None
-    download_url: typing.Optional[str] = None
-    context_type: typing.Optional[str] = None
-    context_id: typing.Optional[str] = None
+    id: str = pydantic.Field()
+    """
+    Unique upload identifier. Use this as `upload_id` in confirm and delete calls.
+    """
+
+    user_id: str = pydantic.Field()
+    """
+    ID of the user who created the upload.
+    """
+
+    workspace_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Workspace this upload is scoped to, if any. Set at create time via `X-Workspace-Id` or derived from the bound resource at confirm time.
+    """
+
+    filename: str = pydantic.Field()
+    """
+    Sanitized display filename (Unicode-safe, extension preserved).
+    """
+
+    category: str = pydantic.Field()
+    """
+    Upload category: `script` or `dictionary`.
+    """
+
+    content_type: str = pydantic.Field()
+    """
+    MIME type inferred from the file extension at create time.
+    """
+
+    format: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Normalized format identifier (e.g. `mp3`, `txt`), if applicable.
+    """
+
+    status: str = pydantic.Field()
+    """
+    `pending` until confirmed; `uploaded` after a successful confirm call.
+    """
+
+    size_bytes: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    File size in bytes. Populated after a successful confirm.
+    """
+
+    download_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Short-lived presigned URL for downloading the confirmed file. `null` for pending uploads.
+    """
+
+    context_type: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Resource type this upload is attached to (e.g. `workflow`). Set at confirm time.
+    """
+
+    context_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    ID of the attached resource. Set at confirm time.
+    """
+
     created_at: dt.datetime
     updated_at: dt.datetime
 

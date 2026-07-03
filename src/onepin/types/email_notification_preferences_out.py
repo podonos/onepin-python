@@ -11,8 +11,15 @@ class EmailNotificationPreferencesOut(UniversalBaseModel):
     Current user's email notification preferences.
     """
 
-    completed_generation_email: bool
-    failed_generation_email: bool
+    completed_generation_email: bool = pydantic.Field()
+    """
+    Send an email when a workflow run completes successfully.
+    """
+
+    failed_generation_email: bool = pydantic.Field()
+    """
+    Send an email when a workflow run fails.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

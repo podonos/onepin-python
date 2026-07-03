@@ -6,12 +6,16 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .get_voice_facets_api_v1voices_facets_get_request_source_item import (
+        GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem,
+    )
     from .list_voices_request_language_item import ListVoicesRequestLanguageItem
     from .list_voices_request_order_item import ListVoicesRequestOrderItem
     from .list_voices_request_provider_item import ListVoicesRequestProviderItem
     from .list_voices_request_sort_item import ListVoicesRequestSortItem
     from .list_voices_request_source_item import ListVoicesRequestSourceItem
 _dynamic_imports: typing.Dict[str, str] = {
+    "GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem": ".get_voice_facets_api_v1voices_facets_get_request_source_item",
     "ListVoicesRequestLanguageItem": ".list_voices_request_language_item",
     "ListVoicesRequestOrderItem": ".list_voices_request_order_item",
     "ListVoicesRequestProviderItem": ".list_voices_request_provider_item",
@@ -42,6 +46,7 @@ def __dir__():
 
 
 __all__ = [
+    "GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem",
     "ListVoicesRequestLanguageItem",
     "ListVoicesRequestOrderItem",
     "ListVoicesRequestProviderItem",

@@ -26,7 +26,18 @@ class NodesClient:
 
     def list_nodes(self, *, request_options: typing.Optional[RequestOptions] = None) -> ApiListResponseNodePortsOut:
         """
-        List all node types and their input/output port definitions.
+        List all available node types with their input/output port schemas.
+
+        Returns the static structural definition for every node type registered in
+        the catalog — what ports each node exposes, their names, and expected data
+        shapes — without runtime-variable values such as available languages or the
+        TTS model catalog. This endpoint requires no `X-Workspace-Id` header and no
+        authentication, making it suitable for static documentation generation and
+        canvas layout tooling.
+
+        For the full runtime configuration options a user would pick when wiring up
+        a specific node (available target languages, provider/model options, voice
+        picker URL), use `GET /api/v2/nodes/{node_type}` instead.
 
         Parameters
         ----------
@@ -58,18 +69,19 @@ class NodesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseNodeDetailOut:
         """
-        Return full node definition + runtime options for the canvas node-config UI.
+        Return full node definition and runtime configuration options for a node type.
 
-        **Deprecated (POD-612):** this version inlines the model catalog as
-        `options.models_by_provider`. Use `GET /api/v2/nodes/{node_type}`, which
-        replaces the inline tree with a `providers` HATEOAS href to the standalone
-        catalog `/api/v1/providers`. This endpoint is kept for one release while the
-        FE migrates, then removed.
+        **Deprecated:** use `GET /api/v2/nodes/{node_type}` instead. This v1 variant
+        inlines the full TTS model catalog under `options.models_by_provider`, which
+        creates a large response and couples clients to the catalog structure. The v2
+        endpoint replaces that inline tree with a `providers` HATEOAS href pointing to
+        the standalone `/api/v1/providers` catalog, so the model list is fetched lazily
+        only when needed.
 
-        Unlike `GET /nodes` (which returns only port schemas), this endpoint returns the
-        actual runtime values a user picks: available target languages (from settings),
-        the TTS model catalog grouped by provider, and a HATEOAS link to the workspace-
-        scoped voices list. Requires `X-Workspace-Id` for a uniform FE contract.
+        Unlike `GET /nodes` (which returns only static port schemas), this endpoint
+        returns the runtime values a caller uses to configure a node: supported target
+        languages derived from deployment settings, the available model catalog, and a
+        HATEOAS link to the workspace-scoped voice list. Requires `X-Workspace-Id`.
 
         Parameters
         ----------
@@ -109,14 +121,18 @@ class NodesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseNodeDetailOut:
         """
-        Return full node definition + runtime options (v2 — HATEOAS catalog href).
+        Return full node definition and runtime configuration options for a node type (v2).
 
-        POD-612: replaces the deprecated v1 ``options.models_by_provider`` inline tree
-        with a ``providers`` HATEOAS href to the standalone catalog
-        ``/api/v1/providers``. The FE follows that href to fetch each model's
-        ``config_schema`` lazily. The ``voices`` href (with its provider/model/language
-        filter enums) is unchanged, so the voice picker never needs the catalog call.
-        Requires ``X-Workspace-Id`` for a uniform FE contract.
+        Extends `GET /api/v1/nodes/{node_type}` by replacing the large inline model
+        catalog (`options.models_by_provider`) with a `providers` HATEOAS href pointing
+        to `GET /api/v1/providers`. Clients follow that link to load the model list and
+        each model's configuration schema only when the user opens the relevant
+        configuration panel, rather than receiving it in every node-detail response.
+
+        The `voices` HATEOAS href (with its provider, model, and language filter
+        parameters) is unchanged from v1, so the voice picker does not require a
+        catalog call. Supported target languages are resolved from deployment settings
+        at request time. Requires `X-Workspace-Id` and the `catalog:read` scope.
 
         Parameters
         ----------
@@ -168,7 +184,18 @@ class AsyncNodesClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiListResponseNodePortsOut:
         """
-        List all node types and their input/output port definitions.
+        List all available node types with their input/output port schemas.
+
+        Returns the static structural definition for every node type registered in
+        the catalog — what ports each node exposes, their names, and expected data
+        shapes — without runtime-variable values such as available languages or the
+        TTS model catalog. This endpoint requires no `X-Workspace-Id` header and no
+        authentication, making it suitable for static documentation generation and
+        canvas layout tooling.
+
+        For the full runtime configuration options a user would pick when wiring up
+        a specific node (available target languages, provider/model options, voice
+        picker URL), use `GET /api/v2/nodes/{node_type}` instead.
 
         Parameters
         ----------
@@ -208,18 +235,19 @@ class AsyncNodesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseNodeDetailOut:
         """
-        Return full node definition + runtime options for the canvas node-config UI.
+        Return full node definition and runtime configuration options for a node type.
 
-        **Deprecated (POD-612):** this version inlines the model catalog as
-        `options.models_by_provider`. Use `GET /api/v2/nodes/{node_type}`, which
-        replaces the inline tree with a `providers` HATEOAS href to the standalone
-        catalog `/api/v1/providers`. This endpoint is kept for one release while the
-        FE migrates, then removed.
+        **Deprecated:** use `GET /api/v2/nodes/{node_type}` instead. This v1 variant
+        inlines the full TTS model catalog under `options.models_by_provider`, which
+        creates a large response and couples clients to the catalog structure. The v2
+        endpoint replaces that inline tree with a `providers` HATEOAS href pointing to
+        the standalone `/api/v1/providers` catalog, so the model list is fetched lazily
+        only when needed.
 
-        Unlike `GET /nodes` (which returns only port schemas), this endpoint returns the
-        actual runtime values a user picks: available target languages (from settings),
-        the TTS model catalog grouped by provider, and a HATEOAS link to the workspace-
-        scoped voices list. Requires `X-Workspace-Id` for a uniform FE contract.
+        Unlike `GET /nodes` (which returns only static port schemas), this endpoint
+        returns the runtime values a caller uses to configure a node: supported target
+        languages derived from deployment settings, the available model catalog, and a
+        HATEOAS link to the workspace-scoped voice list. Requires `X-Workspace-Id`.
 
         Parameters
         ----------
@@ -267,14 +295,18 @@ class AsyncNodesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseNodeDetailOut:
         """
-        Return full node definition + runtime options (v2 — HATEOAS catalog href).
+        Return full node definition and runtime configuration options for a node type (v2).
 
-        POD-612: replaces the deprecated v1 ``options.models_by_provider`` inline tree
-        with a ``providers`` HATEOAS href to the standalone catalog
-        ``/api/v1/providers``. The FE follows that href to fetch each model's
-        ``config_schema`` lazily. The ``voices`` href (with its provider/model/language
-        filter enums) is unchanged, so the voice picker never needs the catalog call.
-        Requires ``X-Workspace-Id`` for a uniform FE contract.
+        Extends `GET /api/v1/nodes/{node_type}` by replacing the large inline model
+        catalog (`options.models_by_provider`) with a `providers` HATEOAS href pointing
+        to `GET /api/v1/providers`. Clients follow that link to load the model list and
+        each model's configuration schema only when the user opens the relevant
+        configuration panel, rather than receiving it in every node-detail response.
+
+        The `voices` HATEOAS href (with its provider, model, and language filter
+        parameters) is unchanged from v1, so the voice picker does not require a
+        catalog call. Supported target languages are resolved from deployment settings
+        at request time. Requires `X-Workspace-Id` and the `catalog:read` scope.
 
         Parameters
         ----------

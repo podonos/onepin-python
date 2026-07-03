@@ -1,258 +1,4 @@
 # Reference
-## health
-<details><summary><code>client.health.<a href="src/onepin/health/client.py">liveness</a>() -> typing.Any</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Liveness probe — always returns 200.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.health.liveness()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.health.<a href="src/onepin/health/client.py">readiness</a>() -> typing.Any</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Readiness probe — checks DB and Redis connectivity.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.health.readiness()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-## webhooks
-<details><summary><code>client.webhooks.<a href="src/onepin/webhooks/client.py">clerk_webhook</a>() -> ApiResponseDict</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Handle Clerk webhook events. Verifies svix signature.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.webhooks.clerk_webhook()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.webhooks.<a href="src/onepin/webhooks/client.py">stripe_webhook</a>() -> ApiResponseDict</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Handle Stripe webhook events. Verifies Stripe-Signature header.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.webhooks.stripe_webhook()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 ## auth
 <details><summary><code>client.auth.<a href="src/onepin/auth/client.py">whoami</a>() -> ApiResponseAuthWhoamiOut</code></summary>
 <dl>
@@ -266,7 +12,17 @@ client.webhooks.stripe_webhook()
 <dl>
 <dd>
 
-Return the resolved Clerk or API-key authentication context.
+Return the resolved authentication context for the current credential.
+
+Useful for verifying that a Bearer JWT or API key is valid and discovering
+which workspace and permission scopes it grants — call this first when
+debugging authentication issues or bootstrapping an SDK integration.
+
+The `auth_kind` field indicates whether the credential is a session token
+(`clerk`) or a programmatic key (`api_key`). For API keys, `workspace_id`
+and `api_key_id` are always populated; for session tokens, `workspace_id`
+reflects the `X-Workspace-Id` header value (if present) and `api_key_id`
+is `null`. The `scopes` list is sorted and deduplicated.
 </dd>
 </dl>
 </dd>
@@ -317,563 +73,6 @@ client.auth.whoami()
 </dl>
 </details>
 
-## api-keys
-<details><summary><code>client.api_keys.<a href="src/onepin/api_keys/client.py">list_api_keys</a>(...) -> ApiCountedListResponseApiKeyOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-List API keys for the current workspace without secret material.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.api_keys.list_api_keys()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**offset:** `typing.Optional[int]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**limit:** `typing.Optional[int]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**status:** `typing.Optional[ApiKeyListStatus]` — API-key list status filter. Defaults to currently usable keys. `revoked` returns unavailable keys (`active=false` or `revoked_at` is set); `all` returns all workspace API-key metadata rows.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.api_keys.<a href="src/onepin/api_keys/client.py">create_api_key</a>(...) -> ApiResponseApiKeyCreatedOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Create a live API key and return its plaintext value exactly once.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.api_keys.create_api_key(
-    name="name",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**name:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**scopes:** `typing.Optional[typing.List[ApiKeyScope]]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**rate_limit_per_min:** `typing.Optional[int]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**key_type:** `typing.Optional[str]` — Phase 1 supports live bearer keys only; test/public are reserved.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.api_keys.<a href="src/onepin/api_keys/client.py">get_api_key</a>(...) -> ApiResponseApiKeyOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Get one API-key metadata record for the current workspace.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.api_keys.get_api_key(
-    key_id="key_id",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**key_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.api_keys.<a href="src/onepin/api_keys/client.py">delete_api_key</a>(...) -> ApiResponseApiKeyOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Soft-revoke an API key for the current workspace.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.api_keys.delete_api_key(
-    key_id="key_id",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**key_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.api_keys.<a href="src/onepin/api_keys/client.py">update_api_key</a>(...) -> ApiResponseApiKeyOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Update API-key metadata, scopes, rate limit, or active state.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.api_keys.update_api_key(
-    key_id="key_id",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**key_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**name:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**scopes:** `typing.Optional[typing.List[ApiKeyScope]]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**rate_limit_per_min:** `typing.Optional[int]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**active:** `typing.Optional[bool]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.api_keys.<a href="src/onepin/api_keys/client.py">rotate_api_key</a>(...) -> ApiResponseApiKeyRotateOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Rotate an API key by revoking the old row and creating a new key.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.api_keys.rotate_api_key(
-    key_id="key_id",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**key_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 ## dictionary
 <details><summary><code>client.dictionary.<a href="src/onepin/dictionary/client.py">list_dictionary_entries</a>(...) -> ApiListResponseDictionaryOut</code></summary>
 <dl>
@@ -887,7 +86,16 @@ client.api_keys.rotate_api_key(
 <dl>
 <dd>
 
-List dictionary entries for a single language in the current workspace.
+List dictionary entries for a single locale in the current workspace.
+
+Returns a paginated list of entries for the BCP-47 `language` locale
+specified via the `?language=` query parameter (required, e.g. `ko-kr`).
+Use `GET /dictionary/search` instead when you need to match by word text
+across multiple locales, or `GET /dictionary/languages` to discover which
+locales have entries before filtering here.
+
+`audio_url` on entries with `method=recorded` is a short-lived presigned URL
+— do not cache it across sessions.
 </dd>
 </dl>
 </dd>
@@ -936,7 +144,7 @@ client.dictionary.list_dictionary_entries(
 <dl>
 <dd>
 
-**method:** `typing.Optional[typing.List[DictionaryMethod]]` — Repeat for OR, e.g. ?method=spelled&method=recorded
+**method:** `typing.Optional[typing.List[DictionaryMethod]]` — Filter by one or more entry methods. Repeat to OR: `?method=spelled&method=recorded`. Omit to return all methods.
     
 </dd>
 </dl>
@@ -944,7 +152,7 @@ client.dictionary.list_dictionary_entries(
 <dl>
 <dd>
 
-**sort:** `typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestSort]` 
+**sort:** `typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestSort]` — Field to sort by. `uses_count` ranks the most-applied entries first, useful for auditing high-impact corrections.
     
 </dd>
 </dl>
@@ -952,7 +160,7 @@ client.dictionary.list_dictionary_entries(
 <dl>
 <dd>
 
-**order:** `typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestOrder]` 
+**order:** `typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestOrder]` — Sort direction.
     
 </dd>
 </dl>
@@ -960,7 +168,7 @@ client.dictionary.list_dictionary_entries(
 <dl>
 <dd>
 
-**offset:** `typing.Optional[int]` 
+**offset:** `typing.Optional[int]` — Zero-based pagination offset.
     
 </dd>
 </dl>
@@ -968,7 +176,7 @@ client.dictionary.list_dictionary_entries(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` 
+**limit:** `typing.Optional[int]` — Page size (max 50).
     
 </dd>
 </dl>
@@ -1008,7 +216,27 @@ client.dictionary.list_dictionary_entries(
 <dl>
 <dd>
 
-Create a new dictionary entry in the current workspace.
+Create a pronunciation dictionary entry in the current workspace.
+
+Dictionary entries teach the synthesis pipeline how to pronounce words that
+it would otherwise handle incorrectly — brand names, acronyms, technical
+terms, proper nouns, and foreign loanwords. Each entry is scoped to a single
+BCP-47 locale and is applied during workflow execution when that locale is
+the synthesis target.
+
+Three methods are supported via the `method` field:
+
+- `spelled` — provide a phonetic respelling in `pronunciation` (e.g.
+  `"Poh-doh-nohs"`). `pronunciation` is required for this method.
+- `recorded` — attach a reference audio clip by supplying an `upload_id`
+  from a completed `/uploads` staging upload with category `dictionary`.
+  The audio is copied to permanent storage on create; the upload slot is
+  consumed and cannot be reused for a different entry.
+- `ipa` — supply an IPA transcription in `ipa`. `pronunciation` is optional
+  as a human-readable gloss alongside the IPA.
+
+Returns 409 if a `(word, language)` pair already exists in the workspace.
+Requires `editor` workspace role and the `dictionary:write` scope.
 </dd>
 </dl>
 </dd>
@@ -1051,7 +279,7 @@ client.dictionary.create_dictionary_entry(
 <dl>
 <dd>
 
-**word:** `str` 
+**word:** `str` — The surface form of the word or phrase as it appears in a script.
     
 </dd>
 </dl>
@@ -1059,7 +287,7 @@ client.dictionary.create_dictionary_entry(
 <dl>
 <dd>
 
-**method:** `DictionaryMethod` 
+**method:** `DictionaryMethod` — Pronunciation method: `spelled` (phonetic respelling), `recorded` (reference audio clip), or `ipa` (IPA transcription).
     
 </dd>
 </dl>
@@ -1067,7 +295,7 @@ client.dictionary.create_dictionary_entry(
 <dl>
 <dd>
 
-**language:** `str` 
+**language:** `str` — BCP-47 locale this entry applies to (e.g. `ko-kr`). Case-insensitive; stored lowercase.
     
 </dd>
 </dl>
@@ -1083,7 +311,7 @@ client.dictionary.create_dictionary_entry(
 <dl>
 <dd>
 
-**description:** `typing.Optional[str]` 
+**description:** `typing.Optional[str]` — Optional human-readable note about the entry (e.g. context, source).
     
 </dd>
 </dl>
@@ -1091,7 +319,7 @@ client.dictionary.create_dictionary_entry(
 <dl>
 <dd>
 
-**pronunciation:** `typing.Optional[str]` 
+**pronunciation:** `typing.Optional[str]` — Phonetic respelling. Required when `method` is `spelled`.
     
 </dd>
 </dl>
@@ -1099,7 +327,7 @@ client.dictionary.create_dictionary_entry(
 <dl>
 <dd>
 
-**upload_id:** `typing.Optional[str]` 
+**upload_id:** `typing.Optional[str]` — ID of a completed staging upload (category `dictionary`). Required when `method` is `recorded`; consumed on create.
     
 </dd>
 </dl>
@@ -1107,7 +335,7 @@ client.dictionary.create_dictionary_entry(
 <dl>
 <dd>
 
-**ipa:** `typing.Optional[str]` — User-provided IPA transcription. Persisted as-is. Auto-generation via phonemizer/LLM is a POD-256 follow-up.
+**ipa:** `typing.Optional[str]` — IPA transcription of the word. Supplied by the caller; automatic generation is a planned enhancement.
     
 </dd>
 </dl>
@@ -1139,7 +367,15 @@ client.dictionary.create_dictionary_entry(
 <dl>
 <dd>
 
-Cross-language search over dictionary entries.
+Search dictionary entries by word text across one or more locales.
+
+Performs a case-insensitive substring match on the `word` field. Optionally
+narrow to one or more BCP-47 locales by repeating `?language=` (OR logic).
+Omitting `language` searches across all locales in the workspace.
+
+Use `GET /dictionary` (locale-scoped list) when you want the full entry list
+for a specific locale; use this endpoint when you need to find how a word
+is defined across languages or when the user is typing a search query.
 </dd>
 </dl>
 </dd>
@@ -1180,7 +416,7 @@ client.dictionary.search_dictionary_entries(
 <dl>
 <dd>
 
-**search:** `str` 
+**search:** `str` — Substring to match against the `word` field (case-insensitive).
     
 </dd>
 </dl>
@@ -1188,7 +424,7 @@ client.dictionary.search_dictionary_entries(
 <dl>
 <dd>
 
-**sort:** `typing.Optional[SearchDictionaryEntriesApiV1DictionarySearchGetRequestSort]` 
+**sort:** `typing.Optional[SearchDictionaryEntriesApiV1DictionarySearchGetRequestSort]` — Field to sort by.
     
 </dd>
 </dl>
@@ -1196,7 +432,7 @@ client.dictionary.search_dictionary_entries(
 <dl>
 <dd>
 
-**order:** `typing.Optional[SearchDictionaryEntriesApiV1DictionarySearchGetRequestOrder]` 
+**order:** `typing.Optional[SearchDictionaryEntriesApiV1DictionarySearchGetRequestOrder]` — Sort direction.
     
 </dd>
 </dl>
@@ -1204,7 +440,7 @@ client.dictionary.search_dictionary_entries(
 <dl>
 <dd>
 
-**offset:** `typing.Optional[int]` 
+**offset:** `typing.Optional[int]` — Zero-based pagination offset.
     
 </dd>
 </dl>
@@ -1212,7 +448,7 @@ client.dictionary.search_dictionary_entries(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` 
+**limit:** `typing.Optional[int]` — Page size (max 50).
     
 </dd>
 </dl>
@@ -1260,7 +496,12 @@ client.dictionary.search_dictionary_entries(
 <dl>
 <dd>
 
-Return distinct languages with entry counts, ordered by count DESC, code ASC.
+Return all locales that have at least one dictionary entry, with entry counts.
+
+Results are ordered by entry count descending, then BCP-47 locale code
+ascending. Use this endpoint to populate a locale filter dropdown before
+calling `GET /dictionary?language=`, rather than hard-coding the supported
+locale list in your client.
 </dd>
 </dl>
 </dd>
@@ -1331,15 +572,17 @@ client.dictionary.list_dictionary_languages()
 <dl>
 <dd>
 
-Return a deterministic FE-parity pronunciation fallback.
+Generate a pronunciation suggestion for a word before saving it as a dictionary entry.
 
-``language`` is reserved for future per-locale rules; ``ipa`` is reserved
-for a future generator and is always ``None`` in this version.
+Returns a `pronunciation` string suitable for use as the `pronunciation` field
+when creating a `spelled`-method dictionary entry. The suggestion is
+deterministic (same word always returns the same result) and is intended as a
+starting point for human review, not as a production-ready transcription.
 
-Workspace scoping is enforced via ``get_current_workspace`` even though the
-response is workspace-independent today: this keeps all ``/api/v1/``
-endpoints uniform (see CLAUDE.md §Workspace Scoping) and leaves room for
-per-workspace dictionary overrides when the generator lands.
+`language` is accepted to maintain a consistent request shape for future
+per-locale phonetic rules; it does not affect the current output. `ipa` is
+always `null` in this version — automatic IPA generation is a planned
+enhancement.
 </dd>
 </dl>
 </dd>
@@ -1381,7 +624,7 @@ client.dictionary.suggest_pronunciation(
 <dl>
 <dd>
 
-**word:** `str` 
+**word:** `str` — The word or phrase to generate a pronunciation suggestion for.
     
 </dd>
 </dl>
@@ -1389,7 +632,7 @@ client.dictionary.suggest_pronunciation(
 <dl>
 <dd>
 
-**language:** `str` 
+**language:** `str` — BCP-47 locale of the word. Reserved for future per-locale phonetic rules; does not affect current output.
     
 </dd>
 </dl>
@@ -1429,7 +672,20 @@ client.dictionary.suggest_pronunciation(
 <dl>
 <dd>
 
-Update a dictionary entry scoped to the current workspace.
+Update fields on an existing dictionary entry in the current workspace.
+
+Supports partial updates — only the fields included in the request body are
+changed; omitted fields retain their current values. Passing `null` for
+`word`, `method`, or `language` is rejected with 422, as these fields are
+required on the stored entry.
+
+To replace the reference audio on a `recorded`-method entry, supply a new
+`upload_id` pointing to a completed staging upload. The previous audio is
+orphaned (not deleted from storage) and the new file is copied to permanent
+storage atomically.
+
+Returns 409 if the new `(word, language)` combination already exists in the
+workspace. Requires `editor` workspace role and the `dictionary:write` scope.
 </dd>
 </dl>
 </dd>
@@ -1486,7 +742,7 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-**word:** `typing.Optional[str]` 
+**word:** `typing.Optional[str]` — Updated surface form. Omit to leave unchanged.
     
 </dd>
 </dl>
@@ -1494,7 +750,7 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-**description:** `typing.Optional[str]` 
+**description:** `typing.Optional[str]` — Updated human-readable note. Omit to leave unchanged.
     
 </dd>
 </dl>
@@ -1502,7 +758,7 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-**pronunciation:** `typing.Optional[str]` 
+**pronunciation:** `typing.Optional[str]` — Updated phonetic respelling. Required when changing `method` to `spelled`.
     
 </dd>
 </dl>
@@ -1510,7 +766,7 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-**upload_id:** `typing.Optional[str]` 
+**upload_id:** `typing.Optional[str]` — New staging upload ID to replace the reference audio. Required when changing `method` to `recorded`.
     
 </dd>
 </dl>
@@ -1518,7 +774,7 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-**method:** `typing.Optional[DictionaryMethod]` 
+**method:** `typing.Optional[DictionaryMethod]` — Updated pronunciation method. Omit to leave unchanged.
     
 </dd>
 </dl>
@@ -1526,7 +782,7 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-**language:** `typing.Optional[str]` 
+**language:** `typing.Optional[str]` — Updated BCP-47 locale. Omit to leave unchanged.
     
 </dd>
 </dl>
@@ -1534,7 +790,7 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-**ipa:** `typing.Optional[str]` — User-provided IPA transcription. Persisted as-is. Auto-generation via phonemizer/LLM is a POD-256 follow-up.
+**ipa:** `typing.Optional[str]` — Updated IPA transcription. Omit to leave unchanged; supply `null` explicitly to clear.
     
 </dd>
 </dl>
@@ -1566,7 +822,13 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-Soft-delete a dictionary entry scoped to the current workspace.
+Delete a dictionary entry from the current workspace.
+
+The entry is removed from the workspace's dictionary and will no longer
+influence synthesis output in subsequent workflow runs. The operation is not
+reversible via the API — create a new entry to restore the pronunciation.
+Returns an empty `data` object on success. Requires `editor` workspace role
+and the `dictionary:write` scope.
 </dd>
 </dl>
 </dd>
@@ -1648,7 +910,18 @@ client.dictionary.delete_dictionary_entry(
 <dl>
 <dd>
 
-List all node types and their input/output port definitions.
+List all available node types with their input/output port schemas.
+
+Returns the static structural definition for every node type registered in
+the catalog — what ports each node exposes, their names, and expected data
+shapes — without runtime-variable values such as available languages or the
+TTS model catalog. This endpoint requires no `X-Workspace-Id` header and no
+authentication, making it suitable for static documentation generation and
+canvas layout tooling.
+
+For the full runtime configuration options a user would pick when wiring up
+a specific node (available target languages, provider/model options, voice
+picker URL), use `GET /api/v2/nodes/{node_type}` instead.
 </dd>
 </dl>
 </dd>
@@ -1711,18 +984,19 @@ client.nodes.list_nodes()
 <dl>
 <dd>
 
-Return full node definition + runtime options for the canvas node-config UI.
+Return full node definition and runtime configuration options for a node type.
 
-**Deprecated (POD-612):** this version inlines the model catalog as
-`options.models_by_provider`. Use `GET /api/v2/nodes/{node_type}`, which
-replaces the inline tree with a `providers` HATEOAS href to the standalone
-catalog `/api/v1/providers`. This endpoint is kept for one release while the
-FE migrates, then removed.
+**Deprecated:** use `GET /api/v2/nodes/{node_type}` instead. This v1 variant
+inlines the full TTS model catalog under `options.models_by_provider`, which
+creates a large response and couples clients to the catalog structure. The v2
+endpoint replaces that inline tree with a `providers` HATEOAS href pointing to
+the standalone `/api/v1/providers` catalog, so the model list is fetched lazily
+only when needed.
 
-Unlike `GET /nodes` (which returns only port schemas), this endpoint returns the
-actual runtime values a user picks: available target languages (from settings),
-the TTS model catalog grouped by provider, and a HATEOAS link to the workspace-
-scoped voices list. Requires `X-Workspace-Id` for a uniform FE contract.
+Unlike `GET /nodes` (which returns only static port schemas), this endpoint
+returns the runtime values a caller uses to configure a node: supported target
+languages derived from deployment settings, the available model catalog, and a
+HATEOAS link to the workspace-scoped voice list. Requires `X-Workspace-Id`.
 </dd>
 </dl>
 </dd>
@@ -1803,14 +1077,18 @@ client.nodes.get_node_detail(
 <dl>
 <dd>
 
-Return full node definition + runtime options (v2 — HATEOAS catalog href).
+Return full node definition and runtime configuration options for a node type (v2).
 
-POD-612: replaces the deprecated v1 ``options.models_by_provider`` inline tree
-with a ``providers`` HATEOAS href to the standalone catalog
-``/api/v1/providers``. The FE follows that href to fetch each model's
-``config_schema`` lazily. The ``voices`` href (with its provider/model/language
-filter enums) is unchanged, so the voice picker never needs the catalog call.
-Requires ``X-Workspace-Id`` for a uniform FE contract.
+Extends `GET /api/v1/nodes/{node_type}` by replacing the large inline model
+catalog (`options.models_by_provider`) with a `providers` HATEOAS href pointing
+to `GET /api/v1/providers`. Clients follow that link to load the model list and
+each model's configuration schema only when the user opens the relevant
+configuration panel, rather than receiving it in every node-detail response.
+
+The `voices` HATEOAS href (with its provider, model, and language filter
+parameters) is unchanged from v1, so the voice picker does not require a
+catalog call. Supported target languages are resolved from deployment settings
+at request time. Requires `X-Workspace-Id` and the `catalog:read` scope.
 </dd>
 </dl>
 </dd>
@@ -1879,254 +1157,6 @@ client.nodes.get_node_detail_v2(
 </dl>
 </details>
 
-## provider-keys
-<details><summary><code>client.provider_keys.<a href="src/onepin/provider_keys/client.py">list_provider_keys</a>(...) -> ApiResponseProviderKeysManifestOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-List BYOK provider-key schemas and status for the current workspace.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.provider_keys.list_provider_keys()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.provider_keys.<a href="src/onepin/provider_keys/client.py">put_provider_key</a>(...) -> ApiResponseProviderKeyItemOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Create or replace a BYOK provider key for the current workspace.
-
-POD-301: gated by `byok_enabled` feature flag on the workspace owner's plan.
-Free plan rejects with 403 FEATURE_NOT_IN_PLAN.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.provider_keys.put_provider_key(
-    provider="elevenlabs",
-    request={
-        "key": "value"
-    },
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**provider:** `ProviderKeyProvider` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request:** `typing.Dict[str, typing.Any]` — Provider-specific credential payload. The provider is the path parameter and must not be in body. Use GET /provider-keys data.providers[].credentials_schema for the matching provider as the canonical request schema.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.provider_keys.<a href="src/onepin/provider_keys/client.py">delete_provider_key</a>(...) -> ApiResponseProviderKeyItemOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Delete a BYOK provider key for the current workspace idempotently.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.provider_keys.delete_provider_key(
-    provider="elevenlabs",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**provider:** `ProviderKeyProvider` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 ## providers
 <details><summary><code>client.providers.<a href="src/onepin/providers/client.py">list_catalog_providers</a>(...) -> ApiListResponseCatalogProviderOut</code></summary>
 <dl>
@@ -2140,12 +1170,17 @@ client.provider_keys.delete_provider_key(
 <dl>
 <dd>
 
-List TTS providers in the public catalog.
+List all available speech synthesis providers in the catalog.
 
-Returns the processing (TTS) provider catalog with a per-provider model count
-and a HATEOAS link to each provider's models. Lean / customer-safe — cost,
-credentials, and base URLs are never exposed. Requires `X-Workspace-Id` (or a
-workspace-bound API key with the `catalog:read` scope), matching `/voices`.
+Returns the full set of processing providers — each with its display name,
+number of available models, and a HATEOAS `models` link to
+`GET /providers/{provider}/models`. The response contains only
+customer-facing metadata; cost, credentials, and base URLs are never included.
+
+This endpoint is the starting point for building a provider/model/voice
+selection flow. The typical traversal is: list providers → follow `models`
+link → follow `voices` link for the chosen model. Requires `X-Workspace-Id`
+and the `catalog:read` scope.
 </dd>
 </dl>
 </dd>
@@ -2216,7 +1251,12 @@ client.providers.list_catalog_providers()
 <dl>
 <dd>
 
-Get a single TTS provider by canonical name (e.g. `cartesia`).
+Get a single speech synthesis provider by its canonical identifier.
+
+Returns the same shape as an item in `GET /providers` — display name, model
+count, and a HATEOAS `models` link — but scoped to a single provider. Returns
+404 if the provider identifier is not recognized. The canonical identifier is
+the lowercase slug returned in the `provider` field of the list response.
 </dd>
 </dl>
 </dd>
@@ -2297,7 +1337,15 @@ client.providers.get_catalog_provider(
 <dl>
 <dd>
 
-List a provider's TTS models, each with its `config_schema` and live `voice_count`.
+List all models available for a given provider.
+
+Returns each model's display name, content type, live `voice_count` (the
+number of platform voices catalogued under that model), and a `controls` map
+describing the canonical provider-agnostic parameters supported by the model
+(e.g. speed, stability). Also includes `config_schema` for back-compat — new
+integrations should prefer `controls` as the authoritative parameter
+description. Each item includes a HATEOAS `voices` link to the paginated
+voice list for that model. Returns 404 if the provider is not recognized.
 </dd>
 </dl>
 </dd>
@@ -2378,11 +1426,24 @@ client.providers.list_catalog_provider_models(
 <dl>
 <dd>
 
-List platform voices catalogued under an exact `(provider, model)`.
+List platform voices available for a specific provider and model.
 
-Lean voice shape with a presigned `preview_url`. Platform catalog voices only
-(System workspace); model-less voices are excluded. Paginated via `offset` /
-`limit`. The flat `/voices?provider=&model=` endpoint remains for the picker.
+Returns a paginated list of voices from the platform catalog (system
+workspace) that declare support for the given `model`. A voice can appear
+under multiple models when its `supported_models` list includes more than
+one entry; voices with no supported models are excluded from all model
+listings.
+
+Each voice includes gender, age, accent, supported locales, and a short-lived
+presigned `preview_url` for the audio sample — do not cache these URLs across
+sessions. The response `pagination.total` field reflects the total match count
+for the provider/model pair.
+
+For the workspace voice picker (which merges platform and workspace-scoped
+voices and supports favorite/similarity filtering), use `GET /voices` with
+`?provider=` and `?model=` query parameters instead.
+
+Returns 404 if the provider or model is not recognized.
 </dd>
 </dl>
 </dd>
@@ -2440,7 +1501,7 @@ client.providers.list_catalog_provider_model_voices(
 <dl>
 <dd>
 
-**offset:** `typing.Optional[int]` 
+**offset:** `typing.Optional[int]` — Zero-based pagination offset.
     
 </dd>
 </dl>
@@ -2448,7 +1509,7 @@ client.providers.list_catalog_provider_model_voices(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` 
+**limit:** `typing.Optional[int]` — Page size (max 100).
     
 </dd>
 </dl>
@@ -2488,7 +1549,12 @@ client.providers.list_catalog_provider_model_voices(
 <dl>
 <dd>
 
-Get a single TTS model — `config_schema` + live `voice_count`.
+Get a single model for a given provider.
+
+Returns the same shape as an item in `GET /providers/{provider}/models`,
+including `controls` (canonical parameter map), `config_schema` (for
+back-compat), live `voice_count`, and a HATEOAS `voices` link. Returns 404
+if the provider or model identifier is not recognized.
 </dd>
 </dl>
 </dd>
@@ -2579,14 +1645,18 @@ client.providers.get_catalog_provider_model(
 <dl>
 <dd>
 
-List live published templates across workspaces (gallery).
+Browse the public template gallery across all workspaces.
 
-Authenticated but not workspace-scoped — the gallery is cross-workspace
-by design (published rows from any workspace). Does not require
-`X-Workspace-Id`, so a freshly signed-up user without a workspace can
-still browse templates.
+Returns only templates that have an active published snapshot (`is_public=true`,
+`published_definition` set, not unpublished). Results come from any workspace —
+the gallery is intentionally cross-workspace so callers can discover shared
+starting points regardless of their own workspace membership.
 
-Dual-auth: Clerk JWT or `op_live_*` API key (scope `templates:read`).
+Does not require `X-Workspace-Id`, so callers without a workspace (e.g. during
+onboarding) can still browse. The response reflects the published snapshot for
+each row, not any unpublished draft edits.
+
+Dual-auth: Bearer JWT or API key (scope `templates:read`).
 </dd>
 </dl>
 </dd>
@@ -2625,7 +1695,7 @@ client.templates.list()
 <dl>
 <dd>
 
-**category:** `typing.Optional[typing.List[TemplateCategory]]` — Repeat for OR, e.g. ?category=media&category=creative
+**category:** `typing.Optional[typing.List[TemplateCategory]]` — Filter by category. Repeat the parameter for OR logic, e.g. `?category=media&category=creative`.
     
 </dd>
 </dl>
@@ -2633,7 +1703,7 @@ client.templates.list()
 <dl>
 <dd>
 
-**search:** `typing.Optional[str]` 
+**search:** `typing.Optional[str]` — Full-text search over template name and description.
     
 </dd>
 </dl>
@@ -2641,7 +1711,7 @@ client.templates.list()
 <dl>
 <dd>
 
-**sort:** `typing.Optional[ListTemplatesRequestSort]` 
+**sort:** `typing.Optional[ListTemplatesRequestSort]` — Sort order: `recent` (last published), `popular` (most cloned), or `name` (alphabetical).
     
 </dd>
 </dl>
@@ -2649,7 +1719,7 @@ client.templates.list()
 <dl>
 <dd>
 
-**offset:** `typing.Optional[int]` 
+**offset:** `typing.Optional[int]` — Zero-based offset for page navigation.
     
 </dd>
 </dl>
@@ -2657,7 +1727,7 @@ client.templates.list()
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` 
+**limit:** `typing.Optional[int]` — Maximum number of templates to return (1–100).
     
 </dd>
 </dl>
@@ -2697,13 +1767,19 @@ client.templates.list()
 <dl>
 <dd>
 
-Create a new workflow template in the current workspace.
+Create a reusable workflow template in the current workspace.
 
-The caller supplies a full `WorkflowDefinition` (graph + execution).
-Save-time validation (`validate_definition_save`) mirrors the
-`/api/v1/workflows` contract — duplicate node/edge IDs, port mismatches,
-and other structural errors fail at write time rather than surfacing
-when a caller later clones the template into a workflow.
+Templates are workspace-private on creation (`is_public=false`, `is_starter=false`).
+The full `WorkflowDefinition` (graph + execution config) is validated at write
+time — structural errors (duplicate node/edge IDs, port mismatches, etc.) surface
+here rather than when a caller later clones the template into a workflow.
+
+Use this to capture a workflow configuration you intend to reuse or share. To
+make a template available in the public gallery, an admin must mark it public
+via the admin API. To create a runnable workflow from an existing template,
+use `POST /templates/{id}/clone` instead.
+
+Requires workspace `editor` role or higher.
 </dd>
 </dl>
 </dd>
@@ -2744,7 +1820,7 @@ client.templates.create_template(
 <dl>
 <dd>
 
-**name:** `str` 
+**name:** `str` — Display name for the template (1–200 characters, not blank).
     
 </dd>
 </dl>
@@ -2760,7 +1836,7 @@ client.templates.create_template(
 <dl>
 <dd>
 
-**description:** `typing.Optional[str]` 
+**description:** `typing.Optional[str]` — Optional human-readable description shown in the gallery (max 2,000 characters).
     
 </dd>
 </dl>
@@ -2768,7 +1844,7 @@ client.templates.create_template(
 <dl>
 <dd>
 
-**category:** `typing.Optional[TemplateCategory]` 
+**category:** `typing.Optional[TemplateCategory]` — Optional category tag used for gallery filtering.
     
 </dd>
 </dl>
@@ -2776,7 +1852,7 @@ client.templates.create_template(
 <dl>
 <dd>
 
-**definition:** `typing.Optional[WorkflowDefinitionInput]` 
+**definition:** `typing.Optional[WorkflowDefinitionInput]` — Full workflow definition (graph + execution config). Validated at write time — structural errors are rejected with 422.
     
 </dd>
 </dl>
@@ -2808,9 +1884,16 @@ client.templates.create_template(
 <dl>
 <dd>
 
-Fetch a template by id if visible (own, public, or starter).
+Fetch a single template by ID.
 
-Dual-auth: Clerk JWT or `op_live_*` API key (scope `templates:read`).
+Returns the template if it is visible to the caller: templates owned by the
+caller's workspace are returned with the live draft definition; public/starter
+templates from other workspaces are returned with the published snapshot.
+
+Returns 404 for templates that exist but are not visible to the caller (not
+owned, not public, not a starter) — same response as for a missing ID.
+
+Dual-auth: Bearer JWT or API key (scope `templates:read`).
 </dd>
 </dl>
 </dd>
@@ -2891,7 +1974,18 @@ client.templates.get(
 <dl>
 <dd>
 
-Soft-delete a template. Owner only; starter templates are read-only.
+Delete a template owned by the caller's workspace.
+
+The delete is a soft delete — the record is hidden from the gallery and
+all visibility checks immediately, but is not physically removed. Any
+workflows previously cloned from this template are unaffected; clone
+creates an independent copy of the definition at clone time.
+
+Restrictions:
+- Only the owning workspace may delete its templates (403 otherwise).
+- Platform starter templates (`is_starter=true`) cannot be deleted (403).
+
+Requires workspace `editor` role or higher.
 </dd>
 </dl>
 </dd>
@@ -2972,10 +2066,20 @@ client.templates.delete_template(
 <dl>
 <dd>
 
-Update a template. Owner only; starter templates are read-only.
+Update a template owned by the caller's workspace.
 
-`definition` is full-replace (matches `WorkflowUpdate` — the FE sends the
-entire graph back on save). Other fields are partial via `exclude_unset`.
+All fields are optional (omit to keep the stored value). When `definition`
+is supplied it is a full replace — send the complete graph, not a partial
+diff. Structural validation runs on write, same as `POST /templates`.
+
+Restrictions:
+- Only the owning workspace may update its templates (403 otherwise).
+- Platform starter templates (`is_starter=true`) are read-only via this
+  endpoint regardless of workspace ownership (403).
+- Updates apply only to the draft/live definition; the published gallery
+  snapshot is not updated until an admin republishes.
+
+Requires workspace `editor` role or higher.
 </dd>
 </dl>
 </dd>
@@ -3088,7 +2192,28 @@ client.templates.update_template(
 <dl>
 <dd>
 
-Return per-1,000-character pricing for a visible template snapshot.
+Estimate the credit cost of running a workflow built from this template.
+
+Returns a per-unit pricing guide expressed in credits per
+`unit_chars` input characters (default 1,000). Because the template does not
+contain the caller's actual script, the estimate uses a synthetic fixed-length
+input to compute a reproducible per-unit rate. Multiply by your expected
+character count to project total cost.
+
+The response distinguishes variable costs (scale with script length, e.g.
+synthesis) from fixed costs (apply once per run regardless of length). A
+node-level breakdown is included so callers can see which processing steps
+drive the cost.
+
+Results are cached against the template definition and current pricing rates.
+`cache_status` indicates whether this response was served from cache (`hit`),
+computed fresh (`miss`), or recomputed because the definition or rates changed
+(`stale`).
+
+Visibility rules match `GET /templates/{id}` — own-workspace templates use the
+draft definition; cross-workspace templates use the published snapshot.
+
+Dual-auth: Bearer JWT or API key (scope `templates:read`).
 </dd>
 </dl>
 </dd>
@@ -3169,16 +2294,24 @@ client.templates.estimate_template(
 <dl>
 <dd>
 
-Clone a template into a workflow in the caller's workspace.
+Create a runnable workflow in the caller's workspace from a template.
 
-Dual-auth: Clerk JWT or `op_live_*` API key (scope `workflows:write`).
+This is the primary way to use a template: it produces a new `Workflow`
+owned by the caller's workspace, ready to accept scripts and run jobs.
 
-Same-workspace clones use the live `definition` (owner authoring).
-Cross-workspace clones use the `published_definition` snapshot to avoid
-leaking unpublished draft edits.
+Use `body.name` to set the workflow name; omit it (or send blank/whitespace)
+to get the default `"{template name} (Copy)"`.
 
-Resolved name: explicit `body.name` (stripped) OR fallback to
-`"{source_name} (Copy)"`.
+Cross-workspace clones (gallery/starter templates) copy the published
+snapshot so unpublished draft edits made by the template owner never leak to
+other workspaces. Same-workspace clones copy the live draft definition.
+
+Use `GET /templates/{id}/estimate` first to preview credit costs before
+committing to a clone and run. Use `POST /workflows/{id}/duplicate` to copy
+an existing workflow rather than starting from a template.
+
+Requires workspace `editor` role or higher.
+Dual-auth: Bearer JWT or API key (scope `workflows:write`).
 </dd>
 </dl>
 </dd>
@@ -3267,15 +2400,17 @@ client.templates.clone(
 <dl>
 <dd>
 
-Mark a visible template as a favorite for the current user.
+Add a template to the current user's favorites.
 
-Authenticated but not workspace-scoped — favorites are cross-workspace by
-design for public/starter templates and for the caller's own private
-templates when they still belong to that template's workspace.
+Favorites are per-user, not per-workspace — the same favorite list is
+visible regardless of which workspace the caller is currently acting in.
+Any template visible to the caller (own workspace, public, or starter) can
+be favorited.
 
-Returns 404 when the template does not exist or is not visible to the
-caller. This POST intentionally enumerates success/failure for the toggle
-UX, while DELETE stays non-enumerating.
+Returns 404 when the template does not exist or is not visible to the caller.
+Calling this endpoint on an already-favorited template is idempotent (returns
+200 with the template). Use `DELETE /templates/{id}/favorite` to remove.
+Does not require `X-Workspace-Id`.
 </dd>
 </dl>
 </dd>
@@ -3348,10 +2483,10 @@ client.templates.favorite_template(
 <dl>
 <dd>
 
-Remove a template favorite for the current user.
+Remove a template from the current user's favorites.
 
-Deletion is intentionally non-enumerating: authenticated callers receive a
-successful empty response whether the row or template exists.
+Idempotent and non-enumerating: returns an empty success response whether
+or not the favorite or the template exists. Does not require `X-Workspace-Id`.
 </dd>
 </dl>
 </dd>
@@ -3431,11 +2566,11 @@ Every filter accepts repeat-key OR semantics:
 `?gender=female&gender=neutral&category=narration&source=platform&source=workspace`.
 Filters combine across fields with AND; within a field, values OR.
 
-`language` uses Postgres `?|` (exists-any) against `voices.supported_languages`.
-Platform voices with NULL `supported_languages` (catalog gaps) are treated
-as general-use and match every locale filter. User-uploaded / cloned voices
-with NULL stay excluded — NULL there means "language unknown" pending the
-clone flow's language detection.
+`language` matches a voice when any of its declared locales matches any
+requested value. Platform voices with no declared locales (catalog gaps)
+are treated as general-use and match every language filter. User-uploaded
+/ cloned voices with no declared locales are excluded — that state means
+"language unknown" pending the clone flow's language detection.
 
 Multi-sort: `sort` and `order` are parallel lists. `?sort=uses_count&sort=name&order=desc&order=asc`
 orders primarily by uses_count DESC, secondarily by name ASC. When `order`
@@ -3482,7 +2617,7 @@ client.voices.list()
 <dl>
 <dd>
 
-**offset:** `typing.Optional[int]` 
+**offset:** `typing.Optional[int]` — Number of results to skip for pagination.
     
 </dd>
 </dl>
@@ -3490,7 +2625,7 @@ client.voices.list()
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` 
+**limit:** `typing.Optional[int]` — Maximum number of results to return (1–100).
     
 </dd>
 </dl>
@@ -3498,7 +2633,7 @@ client.voices.list()
 <dl>
 <dd>
 
-**favorites_only:** `typing.Optional[bool]` 
+**favorites_only:** `typing.Optional[bool]` — When true, return only voices in the workspace's favorites list.
     
 </dd>
 </dl>
@@ -3506,7 +2641,7 @@ client.voices.list()
 <dl>
 <dd>
 
-**source:** `typing.Optional[typing.List[ListVoicesRequestSourceItem]]` — Repeat for OR across scopes
+**source:** `typing.Optional[typing.List[ListVoicesRequestSourceItem]]` — Repeat for OR across scopes: `platform` for system-provided voices, `workspace` for workspace-owned voices.
     
 </dd>
 </dl>
@@ -3546,7 +2681,7 @@ client.voices.list()
 <dl>
 <dd>
 
-**search:** `typing.Optional[str]` 
+**search:** `typing.Optional[str]` — Full-text search against voice name, description, and tags.
     
 </dd>
 </dl>
@@ -3614,6 +2749,182 @@ client.voices.list()
 </dl>
 </details>
 
+<details><summary><code>client.voices.<a href="src/onepin/voices/client.py">get_voice_facets</a>(...) -> ApiResponseVoiceFacetsOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Filter-bar options (chips) for the voice browser, one list per dimension.
+
+Returns `providers`, `models`, `languages` (data-driven) plus `genders`,
+`ages`, `categories`, `accents` (fixed enums) as `VoiceFacetItem[]` so the FE
+builds the whole filter bar — with per-chip count badges — in a single request
+instead of hardcoding option lists (mirrors `GET /dictionary/languages`). Each
+item is `{value, label, count}`: `value` is passed straight back to
+`GET /voices`; `label` is the display name for providers/models and `null`
+elsewhere (the FE owns language + enum labels); `count` is the number of
+matching voices. For `languages`/`models`, `count` counts only voices that
+explicitly declare the value — "general-use" platform voices (no declared
+locales/models) that `GET /voices` matches against every language/model filter
+are not counted, so a chip's count can be lower than the `GET /voices` result.
+
+Accepts the SAME filters as `GET /voices` (tab scope `source`/`favorites_only`,
+plus `provider`/`model`/`language`/`gender`/`age`/`category`/`accent`/`search`).
+`count` is context-aware (faceted search): each dimension's counts apply every
+OTHER active filter but exclude that dimension's own selection — e.g. with
+`provider=elevenlabs` the language counts are scoped to ElevenLabs, while the
+provider chips still show every provider so the caller can switch.
+
+Count-0 policy: data-driven dimensions omit count-0 values (only present ones,
+each a valid `GET /voices` filter — providers/models restricted to the enabled
+catalog, languages to the supported-locale allowlist, so a chip never 422s).
+Enum dimensions always return the full enum in natural order, count-0 included,
+for the FE to grey out.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.voices.get_voice_facets()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**favorites_only:** `typing.Optional[bool]` — Favorites tab scope
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**source:** `typing.Optional[typing.List[GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem]]` — Tab scope — repeat for OR, same values as GET /voices (e.g. platform, workspace)
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**gender:** `typing.Optional[typing.List[VoiceGender]]` — Repeat for OR
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**age:** `typing.Optional[typing.List[VoiceAge]]` — Repeat for OR
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**category:** `typing.Optional[typing.List[VoiceCategory]]` — Repeat for OR
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**accent:** `typing.Optional[typing.List[VoiceAccent]]` — Repeat for OR
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**search:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**provider:** `typing.Optional[typing.List[str]]` — Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**model:** `typing.Optional[typing.List[str]]` — Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**language:** `typing.Optional[typing.List[str]]` — Repeat for OR, e.g. ?language=en-us&language=ko-kr
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.voices.<a href="src/onepin/voices/client.py">get</a>(...) -> ApiResponseVoiceOut</code></summary>
 <dl>
 <dd>
@@ -3626,7 +2937,13 @@ client.voices.list()
 <dl>
 <dd>
 
-Get a voice by ID, scoped to caller workspace + platform voices.
+Fetch a single voice by its ID.
+
+Returns both platform (system-wide) voices and voices that belong to the
+caller's workspace. Returns 404 when the voice does not exist or is not
+accessible to the caller's workspace. The `sample_url` field is a
+time-limited presigned URL valid for 1 hour; regenerate it by calling this
+endpoint again rather than caching it long-term.
 </dd>
 </dl>
 </dd>
@@ -3707,7 +3024,16 @@ client.voices.get(
 <dl>
 <dd>
 
-Return voices nearest to a reference voice embedding.
+Return voices acoustically similar to a reference voice.
+
+Results are ranked by semantic similarity score (descending) and include the
+reference voice's workspace voices and all platform voices. Each result
+includes a `similarity_score` between 0 and 1. Optionally filter by one or
+more `language` BCP-47 codes (repeat the parameter for OR semantics); up to
+16 language values are accepted. Returns 503 when the reference voice has no
+embedding yet — retry after the indicated `Retry-After` interval. Prefer this
+endpoint over `GET /voices` with manual filtering when building a
+"voices like this" recommendation UI.
 </dd>
 </dl>
 </dd>
@@ -3756,7 +3082,7 @@ client.voices.similar(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` 
+**limit:** `typing.Optional[int]` — Number of similar voices to return (1–50).
     
 </dd>
 </dl>
@@ -3804,7 +3130,12 @@ client.voices.similar(
 <dl>
 <dd>
 
-Mark a voice as a workspace favorite.
+Add a voice to the current workspace's favorites.
+
+Favorites are workspace-scoped, not per-user: all members of the workspace
+see the same favorited set. Idempotent — favoriting a voice that is already
+favorited succeeds without error. Returns the voice with `is_favorite=true`.
+Requires the caller to have at least editor role in the workspace.
 </dd>
 </dl>
 </dd>
@@ -3885,7 +3216,11 @@ client.voices.favorite_voice(
 <dl>
 <dd>
 
-Remove a voice from workspace favorites.
+Remove a voice from the current workspace's favorites.
+
+Idempotent — removing a voice that is not currently favorited succeeds
+without error. Requires the caller to have at least editor role in the
+workspace.
 </dd>
 </dl>
 </dd>
@@ -3967,15 +3302,16 @@ client.voices.unfavorite_voice(
 <dl>
 <dd>
 
-Return workspace-level settings (default_language, theme).
+Return workspace-level settings for the specified workspace.
 
-Settings are workspace-scoped: every member of the workspace sees the
-same defaults. Per-user UI preferences (e.g. personal dark-mode) belong
-in a future user_settings endpoint.
+Currently exposes `default_language` (the locale used as the default for
+new workflow nodes) and `theme` (the workspace's display color theme).
+Settings are workspace-scoped: all members of the workspace share the
+same values. Per-user preferences (e.g. personal dark mode) are outside
+the scope of this endpoint.
 
-Path-based authorization (via get_workspace_from_path_for_auth_context) prevents the
-header-vs-path bypass class — the {ws_id} URL segment is the source of
-truth for which workspace is being read.
+If settings have not yet been explicitly configured for the workspace,
+defaults are returned (and persisted) on first access.
 </dd>
 </dl>
 </dd>
@@ -4036,181 +3372,6 @@ client.workspace.get_workspace_settings(
 </dl>
 </details>
 
-## workspace-aggregates
-<details><summary><code>client.workspace_aggregates.<a href="src/onepin/workspace_aggregates/client.py">workspace_runs_stats</a>(...) -> ApiResponseWorkspaceRunsStatsOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Aggregate workflow-run counts grouped by raw RunStatus across the workspace.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.workspace_aggregates.workspace_runs_stats()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**from:** `typing.Optional[datetime.datetime]` — Filter runs by created_at >= this ISO datetime.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**to:** `typing.Optional[datetime.datetime]` — Filter runs by created_at <= this ISO datetime.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.workspace_aggregates.<a href="src/onepin/workspace_aggregates/client.py">workspace_workflows_stats</a>(...) -> ApiResponseWorkspaceWorkflowsStatsOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Aggregate workflow counts grouped by derived WorkflowListStatus across the workspace.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.workspace_aggregates.workspace_workflows_stats()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**from:** `typing.Optional[datetime.datetime]` — Filter workflows by created_at >= this ISO datetime.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**to:** `typing.Optional[datetime.datetime]` — Filter workflows by created_at <= this ISO datetime.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 ## workspace-members
 <details><summary><code>client.workspace_members.<a href="src/onepin/workspace_members/client.py">list_members</a>(...) -> ApiListResponseWorkspaceMemberOut</code></summary>
 <dl>
@@ -4225,6 +3386,20 @@ client.workspace_aggregates.workspace_workflows_stats()
 <dd>
 
 List active members and pending invites for a workspace.
+
+Returns a unified list combining confirmed members (status `active`) and
+outstanding invites that have not yet been accepted or revoked (status
+`invited`). Pending invites appear with `user_id: null` and only the
+`email` and `role` fields populated.
+
+The list is sorted: the requesting user appears first, then admins by
+join date, then other members by join date. No pagination — the full
+roster is returned in a single response.
+
+Roles:
+- `admin`: can manage members, invites, workspace settings, and all content.
+- `editor`: can create, edit, and run workflows; cannot manage members.
+- `viewer`: read-only access to workspace content and run history.
 </dd>
 </dl>
 </dd>
@@ -4297,10 +3472,24 @@ client.workspace_members.list_members(
 <dl>
 <dd>
 
-Invite a user to the workspace via email.
+Invite a user to the workspace by email. Admin only.
 
-POD-301: gated by `seats` plan limit on the workspace owner's plan.
-Active members + pending invites both count against the cap.
+Creates a pending invite and sends an invitation email to the specified
+address. The invitee does not need to have an existing account — they can
+sign up after receiving the invite. The invite includes a role
+(`admin`, `editor`, or `viewer`) that the invitee will receive upon
+accepting.
+
+Invites expire after 14 days. Only one pending invite per email address
+per workspace is allowed at a time; re-inviting the same address while a
+pending invite exists returns 409. Inviting an address that already
+belongs to an active member also returns 409.
+
+The total number of active members plus pending invites is counted against
+the workspace owner's plan seat limit. Exceeding the limit returns 402.
+The invitee's role can be updated before acceptance via
+`PATCH /workspaces/{ws_id}/invites/{invite_id}`, or the invite can be
+cancelled via `DELETE /workspaces/{ws_id}/invites/{invite_id}`.
 </dd>
 </dl>
 </dd>
@@ -4351,7 +3540,7 @@ client.workspace_members.create_invite(
 <dl>
 <dd>
 
-**email:** `str` 
+**email:** `str` — Email address to invite. Normalized to lowercase. Returns 409 if this address is already an active member or has a pending invite.
     
 </dd>
 </dl>
@@ -4359,7 +3548,7 @@ client.workspace_members.create_invite(
 <dl>
 <dd>
 
-**role:** `WorkspaceRole` 
+**role:** `WorkspaceRole` — Role to grant when the invite is accepted: `admin`, `editor`, or `viewer`.
     
 </dd>
 </dl>
@@ -4391,7 +3580,18 @@ client.workspace_members.create_invite(
 <dl>
 <dd>
 
-Remove an active member. Admin only.
+Remove an active member from the workspace. Admin only.
+
+The removed member immediately loses access to all workspace resources.
+They receive an email notification informing them they have been removed.
+
+Two protections prevent accidental lockouts:
+- The workspace owner cannot be removed.
+- The last remaining admin cannot be removed (returns 409).
+
+Removing a member does not affect their account or other workspaces. To
+block an invited but not-yet-accepted user instead, revoke the invite via
+`DELETE /workspaces/{ws_id}/invites/{invite_id}`.
 </dd>
 </dl>
 </dd>
@@ -4473,7 +3673,18 @@ client.workspace_members.remove_member(
 <dl>
 <dd>
 
-Change a member's role. Admin only.
+Change a workspace member's role. Admin only.
+
+Updates the role of an active member to `admin`, `editor`, or `viewer`.
+The operation is idempotent — setting a member to their current role
+succeeds silently (no error, no duplicate email notification).
+
+Two protections prevent accidental lockouts:
+- The workspace owner's role cannot be changed.
+- The last remaining admin cannot be demoted (returns 409).
+
+When the role actually changes, the affected member receives an email
+notification describing their new permissions.
 </dd>
 </dl>
 </dd>
@@ -4564,7 +3775,15 @@ client.workspace_members.update_member_role(
 <dl>
 <dd>
 
-Revoke a pending invite. Admin only.
+Cancel a pending invite so the invitee can no longer accept it. Admin only.
+
+The invite token is invalidated immediately. If the invitee attempts to
+accept after revocation, they receive a 410 Gone. The invite is removed
+from the pending list returned by `GET /workspaces/{ws_id}/members`.
+
+Revoking an invite that is already accepted, revoked, or expired returns
+404. To remove an already-accepted member, use
+`DELETE /workspaces/{ws_id}/members/{member_id}`.
 </dd>
 </dl>
 </dd>
@@ -4646,7 +3865,12 @@ client.workspace_members.revoke_invite(
 <dl>
 <dd>
 
-Update role on a pending invite. Admin only.
+Change the role on a pending (not yet accepted) invite. Admin only.
+
+Updates the role the invitee will receive when they accept. Only pending
+invites can be updated — attempting to update an accepted, revoked, or
+expired invite returns 409. The invitee is not notified of the role
+change; the updated role takes effect when they accept.
 </dd>
 </dl>
 </dd>
@@ -4737,10 +3961,26 @@ client.workspace_members.update_invite_role(
 <dl>
 <dd>
 
-Accept a workspace invite. Authenticated; validates email match.
+Accept a workspace invite using the token from the invitation email.
 
-POD-301: re-checks `seats` against owner's plan at accept time — owner may
-have downgraded since invite sent.
+The `token` path parameter comes from the invitation link sent to the
+invitee's email. The caller must be authenticated and their verified email
+address must match the address the invite was sent to (403 if it does not).
+
+On success the caller is added to the workspace with the role specified in
+the invite, and `workspace_id` is returned so the caller can immediately
+begin using that workspace. If the caller is already a member of the
+workspace (e.g. accepted via a different device), the accept is idempotent
+and returns the same `workspace_id`.
+
+Error cases (all return 410 Gone):
+- Invite already accepted.
+- Invite was revoked by an admin.
+- Invite has expired (14-day TTL from creation).
+
+The workspace owner's plan seat limit is re-checked at accept time in case
+the plan was downgraded after the invite was sent; exceeding the limit
+returns 402.
 </dd>
 </dl>
 </dd>
@@ -4814,7 +4054,12 @@ client.workspace_members.accept_invite(
 <dl>
 <dd>
 
-List workspaces the current user is a member of.
+List all workspaces the current user is a member of.
+
+Returns workspaces where the caller has any role (admin, editor, or
+viewer), including workspaces they own and workspaces they joined via
+invite. Results are paginated; omits soft-deleted workspaces and the
+internal system workspace.
 </dd>
 </dl>
 </dd>
@@ -4895,9 +4140,19 @@ client.workspaces.list_workspaces()
 
 Create a new workspace owned by the current user.
 
-POD-301: gated by `workspaces_per_owner` plan limit. Free=1, Creator=1,
-Studio=2, Enterprise=bespoke. Owner soft-deletes don't free up quota until
-purge — keeps the gate honest against rapid create/delete cycles.
+Workspaces are the top-level container for all resources (workflows,
+voices, dictionary entries, members). Every resource is scoped to exactly
+one workspace via the `X-Workspace-Id` header on subsequent requests.
+
+The authenticated user becomes the workspace owner and is automatically
+added as an `admin` member. An optional `slug` (1–50 characters,
+lowercase kebab-case) can be supplied for a human-readable workspace
+identifier; if omitted, one is auto-generated from `name`. Returns 409
+if the slug is already taken, 422 if the slug format is invalid or uses
+a reserved word.
+
+The number of workspaces a user may own is plan-gated. Attempting to
+exceed the limit returns 402.
 </dd>
 </dl>
 </dd>
@@ -4938,7 +4193,7 @@ client.workspaces.create_workspace(
 <dl>
 <dd>
 
-**name:** `str` 
+**name:** `str` — Human-readable workspace name (1–200 characters, non-blank).
     
 </dd>
 </dl>
@@ -4946,7 +4201,7 @@ client.workspaces.create_workspace(
 <dl>
 <dd>
 
-**slug:** `typing.Optional[str]` 
+**slug:** `typing.Optional[str]` — Optional URL-safe identifier (lowercase kebab-case, 1–50 characters). Auto-generated from `name` if omitted. Returns 409 if taken, 422 if invalid or reserved.
     
 </dd>
 </dl>
@@ -4954,7 +4209,7 @@ client.workspaces.create_workspace(
 <dl>
 <dd>
 
-**color_idx:** `typing.Optional[int]` 
+**color_idx:** `typing.Optional[int]` — Index into the workspace color palette (0–6).
     
 </dd>
 </dl>
@@ -4986,17 +4241,23 @@ client.workspaces.create_workspace(
 <dl>
 <dd>
 
-POD-557: admin-only live availability check for a workspace slug.
+Check whether a slug is available for the current workspace. Admin only.
 
-Declared before `/{workspace_id}` so the literal path wins over the UUID
-route. Auth is hard 4xx (missing/invalid X-Workspace-Id -> 400, not a member
--> 404, not admin -> 403, missing ?slug -> 422). Slug content is soft 200
-`{available, reason?: invalid|reserved|taken}`, self-excluded against the
-X-Workspace-Id workspace's own current slug. Global across tenants.
+Returns `{ available: true }` if the slug is valid, not reserved, and
+not already claimed by another workspace. When unavailable, `reason`
+indicates why: `invalid` (format/length), `reserved` (blocked word), or
+`taken` (already in use globally). The workspace's own current slug is
+self-excluded, so an admin can safely check their existing slug without
+receiving `taken`.
 
-Advisory only — a point-in-time snapshot. A concurrent request can claim the
-slug between this check and the caller's POST/PATCH, so callers must still
-handle 409 WORKSPACE_SLUG_TAKEN on the write path.
+This is an advisory point-in-time check — a concurrent `POST /workspaces`
+or `PATCH /workspaces/{id}` from another session can claim the slug
+between this response and the caller's write. Always handle 409
+`WORKSPACE_SLUG_TAKEN` on `create_workspace` and `update_workspace`.
+
+Requires the `X-Workspace-Id` header (the workspace being renamed) and
+admin role in that workspace. Missing/invalid header returns 400; not a
+member returns 404; not admin returns 403.
 </dd>
 </dl>
 </dd>
@@ -5077,7 +4338,12 @@ client.workspaces.slug_available(
 <dl>
 <dd>
 
-Get a workspace the current user is a member of.
+Fetch a single workspace by ID.
+
+Returns the workspace if the current user is an active member (any role).
+Returns 404 if the workspace does not exist, has been deleted, or the
+caller is not a member — the two cases are intentionally indistinguishable
+to prevent workspace enumeration.
 </dd>
 </dl>
 </dd>
@@ -5150,7 +4416,16 @@ client.workspaces.get_workspace(
 <dl>
 <dd>
 
-Soft-delete a workspace and cascade soft-delete to its resources.
+Delete a workspace and all of its resources. Owner only.
+
+Soft-deletes the workspace and cascades to all owned resources (workflows,
+voices, dictionary entries, members, etc.). The workspace and its contents
+become inaccessible via the API immediately. Data is retained for the GDPR
+retention period before permanent purge.
+
+Only the workspace owner (the user who created it) can delete it; admin
+members who are not the owner receive 404. Returns 404 if the workspace
+does not exist or the caller is not the owner.
 </dd>
 </dl>
 </dd>
@@ -5223,7 +4498,17 @@ client.workspaces.delete_workspace(
 <dl>
 <dd>
 
-Update workspace name, color, and/or slug. Admin only.
+Update a workspace's name, color palette index, and/or slug. Admin only.
+
+All fields are optional — supply only the fields you want to change.
+`slug` follows the same validation rules as on create (lowercase
+kebab-case, 1–50 characters, no reserved words). Returns 409 if the new
+slug is already claimed by another workspace, 422 if the slug format is
+invalid or reserved. Re-setting the workspace's current slug to itself
+never returns 409.
+
+Only workspace admins may call this endpoint; other members receive 404
+(same as not-found, to avoid leaking membership details to non-members).
 </dd>
 </dl>
 </dd>
@@ -5272,7 +4557,7 @@ client.workspaces.update_workspace(
 <dl>
 <dd>
 
-**name:** `typing.Optional[str]` 
+**name:** `typing.Optional[str]` — New workspace name. Omit to leave unchanged.
     
 </dd>
 </dl>
@@ -5280,7 +4565,7 @@ client.workspaces.update_workspace(
 <dl>
 <dd>
 
-**slug:** `typing.Optional[str]` 
+**slug:** `typing.Optional[str]` — New slug (lowercase kebab-case, 1–50 characters). Omit to leave unchanged. Returns 409 if taken, 422 if invalid or reserved.
     
 </dd>
 </dl>
@@ -5288,7 +4573,23 @@ client.workspaces.update_workspace(
 <dl>
 <dd>
 
-**color_idx:** `typing.Optional[int]` 
+**color_idx:** `typing.Optional[int]` — New color palette index (0–6). Omit to leave unchanged.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**routing_price_sensitivity:** `typing.Optional[float]` — New voice-selection price/quality balance (0.0 = pure quality, 1.0 = pure price, 0.5 = balanced). Omit to leave unchanged.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**routing_llm_fit:** `typing.Optional[bool]` — New setting for whether automatic voice selection also weighs content fit. Omit to leave unchanged.
     
 </dd>
 </dl>
@@ -5321,7 +4622,27 @@ client.workspaces.update_workspace(
 <dl>
 <dd>
 
-Request a presigned URL for uploading a file.
+Request a presigned URL to upload a file to object storage (step 1 of 2).
+
+The two-step upload flow:
+1. `POST /uploads` — register the file and receive a short-lived `upload_url`.
+   PUT your file bytes directly to that URL (do not send them to this API).
+2. `POST /uploads/{id}` — confirm the upload completed and bind the file to a
+   resource (e.g. a workflow). The file is moved to its final location and the
+   upload record transitions from `pending` to `uploaded`.
+
+`category` controls which file formats are accepted:
+- `script` — text-based formats (txt, srt, csv, json, xliff, docx)
+- `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+
+The presigned URL expires within a short window (see `upload_url` TTL in the
+response). If the URL expires before the PUT completes, discard this upload
+record and start over with a fresh `POST /uploads` call.
+
+`X-Workspace-Id` is optional but recommended for workspace-scoped storage
+quota tracking. API keys with a bound workspace attach automatically.
+
+Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 </dd>
 </dl>
 </dd>
@@ -5363,7 +4684,7 @@ client.uploads.create(
 <dl>
 <dd>
 
-**filename:** `str` 
+**filename:** `str` — Original filename including extension (e.g. `script.txt`). Must include a file extension.
     
 </dd>
 </dl>
@@ -5371,7 +4692,7 @@ client.uploads.create(
 <dl>
 <dd>
 
-**category:** `UploadRequestCategory` 
+**category:** `UploadRequestCategory` — File category. Determines which formats are accepted: `script` for text formats (txt, srt, csv, json, xliff, docx); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
     
 </dd>
 </dl>
@@ -5411,12 +4732,27 @@ client.uploads.create(
 <dl>
 <dd>
 
-Confirm upload and move file to final location.
+Confirm a completed upload and bind it to a resource (step 2 of 2).
 
-POD-301: gates the file size against `storage_bytes_per_workspace` whenever
-the upload binds to a workspace-scoped resource (header OR derived from
-context_id). Records the storage_charge event in the same transaction as the
-upload row update.
+Call this after successfully PUTting your file to the presigned URL returned
+by `POST /uploads`. Provide `context_type` and `context_id` to associate the
+file with an existing resource (currently `workflow` is the supported context
+type). The file is moved to its final location and `status` transitions from
+`pending` to `uploaded`.
+
+This endpoint is idempotent: if the upload was already confirmed, the current
+state is returned without re-processing.
+
+Storage quota is checked against the workspace at confirm time. If confirming
+would exceed the workspace storage limit, a 402 is returned and the file
+remains in its staging location (the upload record stays `pending` so you can
+delete the staging file and try a smaller file).
+
+Binding to a workspace-scoped resource requires the caller to be a member of
+that workspace. Workspace is inferred from the resource when `X-Workspace-Id`
+is omitted.
+
+Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 </dd>
 </dl>
 </dd>
@@ -5467,7 +4803,7 @@ client.uploads.confirm(
 <dl>
 <dd>
 
-**context_type:** `UploadConfirmRequestContextType` 
+**context_type:** `UploadConfirmRequestContextType` — Type of resource this upload is being attached to. Currently only `workflow` is supported.
     
 </dd>
 </dl>
@@ -5475,7 +4811,7 @@ client.uploads.confirm(
 <dl>
 <dd>
 
-**context_id:** `str` 
+**context_id:** `str` — ID of the resource to attach this upload to. Must be an existing resource of the given `context_type` that the caller has access to.
     
 </dd>
 </dl>
@@ -5515,17 +4851,21 @@ client.uploads.confirm(
 <dl>
 <dd>
 
-Delete an upload and its S3 object.
+Delete an upload and its associated file.
 
-DB record is deleted first (committed on response). S3 cleanup runs
-after the response via a background task so the file is only removed
-once the DB commit succeeds.
+Permanently removes the upload record and schedules the stored file for
+deletion. The record is removed first; the file is cleaned up asynchronously
+after the response so storage removal only happens after a successful commit.
 
-POD-301: if the upload was confirmed against a workspace-scoped resource,
-release the bytes back to that workspace's storage counter. Without this,
-storage_bytes_used drifts upward forever and customers stay capped after
-deleting files. Read upload state BEFORE delete_for_user — the row is gone
-after that call.
+If the upload was previously confirmed against a workspace-scoped resource,
+the consumed storage bytes are released back to the workspace quota, keeping
+the workspace storage counter accurate.
+
+Callers can delete uploads in any state (`pending` or `uploaded`). Deleting
+a `pending` upload (e.g. after an expired presigned URL) is the correct way
+to clean up an abandoned upload attempt.
+
+Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 </dd>
 </dl>
 </dd>
@@ -5607,7 +4947,24 @@ client.uploads.delete(
 <dl>
 <dd>
 
-Return workspace usage totals plus tab-specific aggregate activity buckets.
+Return aggregated usage totals and activity chart data for the workspace.
+
+Combines credit consumption, character and line counts, and workflow run
+statistics for the requested rolling window (`range`) with a chart-ready
+activity series (`activity`) bucketed by `activity_view`.
+
+The `credits.used` field reflects the authenticated user's own billing-period
+consumption; all other aggregate fields (characters, lines, runs, daily
+buckets, activity buckets) are workspace-scoped across all members.
+
+Date boundaries are computed in the supplied `timezone` (IANA, e.g.
+`America/New_York`) so "today" and "this week" align with the caller's local
+calendar. Defaults to UTC.
+
+Use `GET /usage/by-language` for a language-level breakdown, or
+`GET /usage/activity` for the event-by-event feed.
+
+Dual-auth: Bearer JWT or API key (scope `workspace:read`).
 </dd>
 </dl>
 </dd>
@@ -5702,11 +5059,21 @@ client.usage.usage_summary()
 <dl>
 <dd>
 
-Return workspace generated-audio usage grouped by language.
+Return workspace audio generation usage broken down by language.
 
-``share`` is a 0..1 fraction. When ``activity_view`` is supplied, rows use
-that tab's local-calendar period; otherwise they preserve legacy ``range``
-behavior.
+Each row represents one locale with its share of total credit and character
+consumption. `share` is a 0..1 fraction of workspace-wide usage for the
+period; multiply by 100 for a percentage.
+
+Period selection: supply `activity_view` to align the language rows with
+the same period shown on the Usage dashboard chart (daily = last 7 local
+days, weekly = last 12 Monday-start weeks, monthly = last 12 months). When
+`activity_view` is provided, `range` is ignored and `range` in the response
+is `null`. Omit `activity_view` to use the rolling `range` window instead.
+
+Date boundaries are computed in the supplied `timezone` (IANA). Defaults to UTC.
+
+Dual-auth: Bearer JWT or API key (scope `workspace:read`).
 </dd>
 </dl>
 </dd>
@@ -5801,7 +5168,25 @@ client.usage.usage_by_language()
 <dl>
 <dd>
 
-Return the workspace usage activity feed with stable action filters and cursor pagination.
+Return the workspace activity feed as a cursor-paginated event list.
+
+Each item represents a discrete workspace event (workflow run, voice generated,
+template applied, member invited, API key created, settings changed). Events are
+ordered newest-first within the requested rolling window.
+
+Filtering:
+- `type` narrows to a single action kind (e.g. `workflow_run`).
+- `user_id` restricts to events triggered by a specific workspace member;
+  returns 404 if the user is not a member of this workspace.
+- Both filters can be combined.
+
+Pagination: pass the `cursor` value from a previous response to retrieve the
+next page. An absent or null `cursor` in the response means no further pages
+exist. Page size is controlled by `limit` (1–100, default 20).
+
+Date boundaries are computed in the supplied `timezone` (IANA). Defaults to UTC.
+
+Dual-auth: Bearer JWT or API key (scope `workspace:read`).
 </dd>
 </dl>
 </dd>
@@ -5908,838 +5293,7 @@ client.usage.usage_activity()
 </dl>
 </details>
 
-## billing
-<details><summary><code>client.billing.<a href="src/onepin/billing/client.py">list_plans</a>() -> ApiListResponseCustomerPlanResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-List subscription plans and features (public, no authentication).
-
-Public so the marketing site (Framer) can render live pricing without a
-Clerk session. Returns the same active, non-custom plan catalog as before
-(name, price, interval, limits, localized ``plan_details``). Honors
-``X-Language`` / ``Accept-Language`` for ``plan_details`` (defaults ``en``).
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.billing.list_plans()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.billing.<a href="src/onepin/billing/client.py">preview_plan_change</a>(...) -> ApiResponseCustomerPlanChangePreviewResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Preview the cost of changing to the given plan.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.billing.preview_plan_change(
-    plan_id="plan_id",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**plan_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.billing.<a href="src/onepin/billing/client.py">create_checkout</a>(...) -> ApiResponseCheckoutResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Create a Stripe Checkout session for the given plan.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.billing.create_checkout(
-    plan_id="plan_id",
-    return_url="return_url",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**plan_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**return_url:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 ## users
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">get_current_subscription</a>() -> ApiResponseUnionCustomerSubscriptionResponseNoneType</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Get the current user's active subscription.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.users.get_current_subscription()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">subscribe</a>(...) -> ApiResponseCustomerSubscriptionResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Create a subscription using the default payment method.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.users.subscribe(
-    plan_id="plan_id",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**plan_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">cancel_subscription</a>() -> ApiResponseCustomerSubscriptionResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Cancel the current user's subscription at period end.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.users.cancel_subscription()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">change_plan</a>(...) -> ApiResponseCustomerSubscriptionResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Switch the current user's subscription to a different plan.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.users.change_plan(
-    new_plan_id="new_plan_id",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**new_plan_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">cancel_scheduled_change</a>() -> ApiResponseCustomerSubscriptionResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Cancel a scheduled plan downgrade.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.users.cancel_scheduled_change()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">list_payment_methods</a>() -> ApiResponseListPaymentMethodResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-List the current user's saved payment methods.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.users.list_payment_methods()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">add_payment_method</a>() -> ApiResponseSetupIntentResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Create a Stripe SetupIntent to add a new payment method.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.users.add_payment_method()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">delete_payment_method</a>(...) -> ApiResponseDict</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Detach a payment method from the current user's account.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.users.delete_payment_method(
-    payment_method_id="payment_method_id",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**payment_method_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">set_default_payment_method</a>(...) -> ApiResponseDict</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Set a payment method as the default for the current user.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.users.set_default_payment_method(
-    payment_method_id="payment_method_id",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**payment_method_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 <details><summary><code>client.users.<a href="src/onepin/users/client.py">get_my_credits</a>() -> ApiResponseBalanceResponse</code></summary>
 <dl>
 <dd>
@@ -6752,10 +5306,16 @@ client.users.set_default_payment_method(
 <dl>
 <dd>
 
-Return the current user's credit balance + monthly grant + period anchor.
+Return the caller's current credit balance and billing period details.
 
-Free-tier users have no Subscription row; the response falls back to the
-canonical FREE Plan (1000 credits/mo, calendar-month boundary).
+`balance` is the authoritative gate value: use it to decide whether to
+attempt a workflow run. `remaining` is a display convenience derived from
+settled ledger entries and may temporarily exceed `balance` while a workflow
+run holds an open reserve. `used` reflects credits consumed in the current
+billing period. `plan_grant` is the total monthly credit allowance for the
+caller's plan, enabling a "X / Y used" display. `period_start` and
+`period_end` mark the boundaries of the current billing window; free-tier
+callers use a calendar-month boundary.
 </dd>
 </dl>
 </dd>
@@ -6818,7 +5378,14 @@ client.users.get_my_credits()
 <dl>
 <dd>
 
-Return the typed plan limits for the current user (FE plan-card UI consumer).
+Return the plan limits that govern the caller's current tier.
+
+Includes numeric quotas (`monthly_credits`, `concurrent_runs_per_user`,
+`storage_bytes_per_workspace`, `workspaces_per_owner`) and feature flags
+(`byok_enabled`, `auto_fix_enabled`, `auto_edit_enabled`). `null` on list
+fields such as `tts_models_allowlist` or `supported_languages` means all
+available options are permitted. Use this endpoint to gate feature access in
+your application rather than hardcoding tier names, which may change.
 </dd>
 </dl>
 </dd>
@@ -6869,85 +5436,6 @@ client.users.get_my_plan_limits()
 </dl>
 </details>
 
-<details><summary><code>client.users.<a href="src/onepin/users/client.py">list_invoices</a>(...) -> ApiResponseInvoiceListResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-List invoices for the current user.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.users.list_invoices()
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**limit:** `typing.Optional[int]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**starting_after:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 <details><summary><code>client.users.<a href="src/onepin/users/client.py">get_current_notification_preferences</a>() -> ApiResponseEmailNotificationPreferencesOut</code></summary>
 <dl>
 <dd>
@@ -6960,7 +5448,11 @@ client.users.list_invoices()
 <dl>
 <dd>
 
-Get the current user's email notification preferences.
+Return the caller's current email notification settings.
+
+Each boolean field corresponds to a notification category. `true` means the
+caller will receive that email; `false` means they have opted out. Use
+`PATCH /me/notification-preferences` to change individual preferences.
 </dd>
 </dl>
 </dd>
@@ -7023,7 +5515,11 @@ client.users.get_current_notification_preferences()
 <dl>
 <dd>
 
-Partially update the current user's email notification preferences.
+Partially update the caller's email notification preferences.
+
+Send only the fields you want to change; omitted fields are left unchanged.
+All provided fields must be boolean — explicit `null` values are rejected
+with a 422. Returns the full updated preference object.
 </dd>
 </dl>
 </dd>
@@ -7062,7 +5558,7 @@ client.users.update_current_notification_preferences()
 <dl>
 <dd>
 
-**completed_generation_email:** `typing.Optional[bool]` 
+**completed_generation_email:** `typing.Optional[bool]` — Set to true to enable or false to disable completion emails. Omit to leave unchanged.
     
 </dd>
 </dl>
@@ -7070,7 +5566,7 @@ client.users.update_current_notification_preferences()
 <dl>
 <dd>
 
-**failed_generation_email:** `typing.Optional[bool]` 
+**failed_generation_email:** `typing.Optional[bool]` — Set to true to enable or false to disable failure emails. Omit to leave unchanged.
     
 </dd>
 </dl>
@@ -7102,12 +5598,13 @@ client.users.update_current_notification_preferences()
 <dl>
 <dd>
 
-List templates the current user created in the current workspace.
+List workflow templates created by the caller in the current workspace.
 
-Scoped on both `(workspace_id, created_by)` so when workspaces become
-multi-user this endpoint keeps returning only the caller's own rows —
-other workspace members' public/starter templates surface via the
-gallery endpoint (`GET /api/v1/templates`) instead.
+Returns only templates owned by the caller; templates shared by other
+workspace members or platform starter templates are not included — use
+`GET /api/v1/templates` for the full gallery. Supports offset-based
+pagination via `offset` / `limit`. Combine `category`, `search`, and
+`favorites_only` to narrow results; multiple `category` values are OR'd.
 </dd>
 </dl>
 </dd>
@@ -7154,7 +5651,7 @@ client.users.list_my_templates()
 <dl>
 <dd>
 
-**search:** `typing.Optional[str]` 
+**search:** `typing.Optional[str]` — Full-text search against template name and description.
     
 </dd>
 </dl>
@@ -7162,7 +5659,7 @@ client.users.list_my_templates()
 <dl>
 <dd>
 
-**sort:** `typing.Optional[ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort]` 
+**sort:** `typing.Optional[ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort]` — Sort order: `recent` (last updated), `name` (A–Z), or `uses` (most used).
     
 </dd>
 </dl>
@@ -7170,7 +5667,7 @@ client.users.list_my_templates()
 <dl>
 <dd>
 
-**offset:** `typing.Optional[int]` 
+**offset:** `typing.Optional[int]` — Number of results to skip for pagination.
     
 </dd>
 </dl>
@@ -7178,7 +5675,7 @@ client.users.list_my_templates()
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` 
+**limit:** `typing.Optional[int]` — Maximum number of results to return (1–100).
     
 </dd>
 </dl>
@@ -7229,18 +5726,37 @@ client.users.list_my_templates()
 
 List workflows in the current workspace.
 
-Multi-sort: `sort` and `order` are parallel lists.
-`?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
-runs_count DESC, secondarily by name ASC. When `order` is shorter than
-`sort`, missing entries default per-field:
-`name=asc, updated_at=desc, runs_count=desc`. When `sort` is omitted,
-list defaults to `updated_at DESC`. Every sort path appends
-`Workflow.id ASC` as a deterministic tiebreaker for pagination stability.
+Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
+header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
+`last_run_status`) computed over all runs for that workflow.
 
-`paused` is accepted but currently returns an empty result because
-backend pause state is not implemented. `last_run_status` is the raw
-RunStatus value, including values like `pending` or `cancelled`, and
-pagination `total` is the filtered total for the current query.
+**Status filter:** `status` narrows by the UI-derived state of the workflow's
+most recent run. `completed` matches only workflows whose latest run succeeded
+(completed-only), and `failed` matches only workflows whose latest run failed —
+the two buckets are disjoint. A workflow whose latest run was `cancelled` matches
+neither bucket and surfaces only in the unfiltered list. `running` matches active
+(running or paused) workflows. `draft` matches workflows with no runs yet.
+`paused` is accepted but currently returns no results.
+
+**Multi-sort:** `sort` and `order` are parallel query lists.
+`?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
+`runs_count DESC`, then by `name ASC`. When `order` has fewer entries than
+`sort`, missing positions use per-field defaults (`name=asc`,
+`updated_at=desc`, `runs_count=desc`). Omitting `sort` defaults to
+`updated_at DESC`. A stable `id ASC` tiebreaker is always appended so
+offset/limit pagination is consistent when sort keys tie.
+
+**Date range:** `last_run_after` / `last_run_before` filter by the time of
+the most recent run. Both must be ISO 8601 with a UTC offset; a naive
+datetime returns 422. An inverted range (`after > before`) also returns 422.
+
+**Failure history:** `has_failed_run` is orthogonal to `status`. `status`
+keys off the latest run only; `has_failed_run=true` matches workflows with a
+`failed` run *anywhere* in their history, so a workflow whose latest run
+completed still matches if an earlier run failed. It composes with the other
+filters (AND). `cancelled` runs do not count as failures.
+
+`pagination.total` reflects the filtered count for the current query.
 </dd>
 </dl>
 </dd>
@@ -7279,7 +5795,7 @@ client.workflows.list()
 <dl>
 <dd>
 
-**status:** `typing.Optional[WorkflowListStatus]` — UI workflow status filter. `completed` means FINISHED — it matches workflows whose latest run is completed, failed, or cancelled, so it overlaps `failed` on failed runs. `paused` is accepted for forward compatibility and currently returns no rows.
+**status:** `typing.Optional[WorkflowListStatus]` — UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `paused` is accepted for forward compatibility and currently returns no rows.
     
 </dd>
 </dl>
@@ -7311,7 +5827,7 @@ client.workflows.list()
 <dl>
 <dd>
 
-**last_run_after:** `typing.Optional[datetime.datetime]` — Filter workflows whose last_run_at is at or after this ISO datetime.
+**last_run_after:** `typing.Optional[datetime.datetime]` — Filter workflows whose last_run_at is at or after this ISO datetime (ISO 8601 with UTC offset required).
     
 </dd>
 </dl>
@@ -7319,7 +5835,7 @@ client.workflows.list()
 <dl>
 <dd>
 
-**last_run_before:** `typing.Optional[datetime.datetime]` — Filter workflows whose last_run_at is at or before this ISO datetime.
+**last_run_before:** `typing.Optional[datetime.datetime]` — Filter workflows whose last_run_at is at or before this ISO datetime (ISO 8601 with UTC offset required).
     
 </dd>
 </dl>
@@ -7327,7 +5843,7 @@ client.workflows.list()
 <dl>
 <dd>
 
-**offset:** `typing.Optional[int]` 
+**has_failed_run:** `typing.Optional[bool]` — Filter by failure history — ORTHOGONAL to `status` (which is latest-run based). `true` returns only workflows with at least one run that ended in `failed` state anywhere in their history; a workflow whose latest run succeeded still matches if an earlier run failed. `false` returns only workflows that have never had a failed run. Composes (ANDs) with `status`/`search`/date filters. `cancelled` runs are not treated as failures.
     
 </dd>
 </dl>
@@ -7335,7 +5851,15 @@ client.workflows.list()
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` 
+**offset:** `typing.Optional[int]` — Zero-based pagination offset.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**limit:** `typing.Optional[int]` — Maximum items to return (1–100).
     
 </dd>
 </dl>
@@ -7375,7 +5899,16 @@ client.workflows.list()
 <dl>
 <dd>
 
-Create a workflow.
+Create a new workflow in the current workspace.
+
+Validates the workflow `definition` (graph structure, node types, edge
+connectivity) before persisting. Returns 422 with structured details if
+the definition fails validation. Requires at least `editor` role in the
+workspace; viewers cannot create workflows.
+
+The `definition` contains a `graph` (nodes and edges) and an `execution`
+block (ordered step list and execution params). Omitting `definition`
+creates a workflow with an empty graph that can be edited later.
 </dd>
 </dl>
 </dd>
@@ -7416,7 +5949,7 @@ client.workflows.create_workflow(
 <dl>
 <dd>
 
-**name:** `str` 
+**name:** `str` — Human-readable workflow name (1–200 characters, non-blank).
     
 </dd>
 </dl>
@@ -7432,7 +5965,7 @@ client.workflows.create_workflow(
 <dl>
 <dd>
 
-**description:** `typing.Optional[str]` 
+**description:** `typing.Optional[str]` — Optional description shown in the workflow list (max 5000 characters).
     
 </dd>
 </dl>
@@ -7440,7 +5973,7 @@ client.workflows.create_workflow(
 <dl>
 <dd>
 
-**definition:** `typing.Optional[WorkflowDefinitionInput]` 
+**definition:** `typing.Optional[WorkflowDefinitionInput]` — Graph and execution config. Omit to create an empty workflow.
     
 </dd>
 </dl>
@@ -7472,7 +6005,16 @@ client.workflows.create_workflow(
 <dl>
 <dd>
 
-Fetch a workflow by id.
+Fetch a single workflow by ID.
+
+Returns the full workflow including its `definition` (graph nodes/edges and
+execution config), aggregate run stats, and the latest run status. The
+`definition` is returned with any backwards-compatible config migrations
+applied, so node configs always reflect the current schema even if the
+workflow was saved with an older version.
+
+Use `GET /workflows` to list multiple workflows without fetching their
+full definitions.
 </dd>
 </dl>
 </dd>
@@ -7553,7 +6095,13 @@ client.workflows.get(
 <dl>
 <dd>
 
-Update a workflow.
+Replace a workflow's name, description, and definition (full update).
+
+All fields in the request body are required. The `definition` is
+validated before persisting; an invalid graph returns 422. Existing runs
+are not affected — each run captures a `definition_snapshot` at start
+time. Requires at least `editor` role. Use `PATCH` to update only
+specific fields without supplying the full definition.
 </dd>
 </dl>
 </dd>
@@ -7604,7 +6152,7 @@ client.workflows.update_workflow(
 <dl>
 <dd>
 
-**name:** `str` 
+**name:** `str` — Human-readable workflow name (1–200 characters, non-blank).
     
 </dd>
 </dl>
@@ -7612,7 +6160,7 @@ client.workflows.update_workflow(
 <dl>
 <dd>
 
-**definition:** `WorkflowDefinitionInput` 
+**definition:** `WorkflowDefinitionInput` — Full replacement graph and execution config. Must be valid.
     
 </dd>
 </dl>
@@ -7628,7 +6176,7 @@ client.workflows.update_workflow(
 <dl>
 <dd>
 
-**description:** `typing.Optional[str]` 
+**description:** `typing.Optional[str]` — Optional description (max 5000 characters). Pass null to clear.
     
 </dd>
 </dl>
@@ -7660,7 +6208,12 @@ client.workflows.update_workflow(
 <dl>
 <dd>
 
-Soft-delete a workflow.
+Delete a workflow and hide it from all list and get endpoints.
+
+The workflow is soft-deleted: its data (including runs and their outputs)
+is retained for audit and GDPR-purge purposes but is no longer accessible
+via the API. Subsequent `GET`, `PUT`, `PATCH`, or run requests on the
+same ID return 404. Requires at least `editor` role.
 </dd>
 </dl>
 </dd>
@@ -7741,7 +6294,14 @@ client.workflows.delete_workflow(
 <dl>
 <dd>
 
-Partially update a workflow. Only fields present in the body are applied.
+Partially update a workflow — only supplied fields are changed.
+
+Any combination of `name`, `description`, and `definition` may be
+included; omitted fields are left unchanged. At least one field must be
+present (empty body returns 422). If `definition` is provided it is fully
+validated; an invalid graph returns 422. Requires at least `editor` role.
+
+Use `PUT` when replacing the full workflow definition in one operation.
 </dd>
 </dl>
 </dd>
@@ -7798,7 +6358,7 @@ client.workflows.patch_workflow(
 <dl>
 <dd>
 
-**name:** `typing.Optional[str]` 
+**name:** `typing.Optional[str]` — New workflow name (1–200 characters). Omit to leave unchanged.
     
 </dd>
 </dl>
@@ -7806,7 +6366,7 @@ client.workflows.patch_workflow(
 <dl>
 <dd>
 
-**description:** `typing.Optional[str]` 
+**description:** `typing.Optional[str]` — New description (max 5000 characters). Omit to leave unchanged; pass null to clear.
     
 </dd>
 </dl>
@@ -7814,7 +6374,7 @@ client.workflows.patch_workflow(
 <dl>
 <dd>
 
-**definition:** `typing.Optional[WorkflowDefinitionInput]` 
+**definition:** `typing.Optional[WorkflowDefinitionInput]` — Replacement graph and execution config. Omit to leave unchanged; must be valid if supplied.
     
 </dd>
 </dl>
@@ -7847,6 +6407,10 @@ client.workflows.patch_workflow(
 <dd>
 
 List confirmed uploads attached to a workflow.
+
+Returns only uploads that have been confirmed (fully transferred and
+committed to the workflow). In-progress or abandoned uploads are excluded.
+Each item includes a short-lived download URL for the uploaded file.
 </dd>
 </dl>
 </dd>
@@ -7895,7 +6459,7 @@ client.workflows.list_workflow_uploads(
 <dl>
 <dd>
 
-**offset:** `typing.Optional[int]` 
+**offset:** `typing.Optional[int]` — Zero-based pagination offset.
     
 </dd>
 </dl>
@@ -7903,7 +6467,7 @@ client.workflows.list_workflow_uploads(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` 
+**limit:** `typing.Optional[int]` — Maximum items to return (1–100).
     
 </dd>
 </dl>
@@ -7943,7 +6507,12 @@ client.workflows.list_workflow_uploads(
 <dl>
 <dd>
 
-Estimate workflow credits without creating a run.
+Estimate the credit cost of running a workflow without creating a run.
+
+Computes a breakdown of expected credits per node type based on the
+workflow's current definition. No run is created, no credits are charged,
+and no side effects occur. Equivalent to `POST /runs/preview`; prefer that
+path in new integrations as it is co-located with the run lifecycle.
 </dd>
 </dl>
 </dd>
@@ -8024,7 +6593,12 @@ client.workflows.estimate_workflow(
 <dl>
 <dd>
 
-Estimate workflow run credits without creating a run.
+Dry-run credit estimate for a workflow — no run is created.
+
+Returns a per-node-type credit breakdown based on the workflow's current
+definition. No run is enqueued, no credits are charged, and the workflow
+state is not modified. Use this before calling `POST /runs` to confirm
+the expected cost. Equivalent to `POST /estimate`.
 </dd>
 </dl>
 </dd>
@@ -8105,12 +6679,22 @@ client.workflows.preview_run(
 <dl>
 <dd>
 
-Aggregate run-status counts plus pass_rate and average_duration_seconds.
+Aggregate run statistics for a workflow over an optional date window.
 
-``pass_rate = completed / (completed + failed + cancelled)``;
-``None`` when no terminal runs.
-``average_duration_seconds = mean(completed_at - started_at)`` over
-completed runs only; ``None`` when there are zero completed runs.
+Returns per-status counts (`completed`, `failed`, `cancelled`, `pending`,
+`running`, `paused`) plus two derived metrics:
+
+- `pass_rate`: `completed / (completed + failed + cancelled)`. `null` when
+  there are no terminal runs in the window.
+- `average_duration_seconds`: mean of `completed_at - started_at` over
+  successfully completed runs only. `null` when no runs have completed.
+
+**Date range:** `from` / `to` filter by `created_at`. Both must be ISO 8601
+with a UTC offset; a naive datetime returns 422. An inverted range
+(`from > to`) also returns 422. Omit both to aggregate over all runs.
+
+Use `GET /runs` with `?status=` filters for individual run details; this
+endpoint is best for dashboard-style health metrics.
 </dd>
 </dl>
 </dd>
@@ -8159,7 +6743,7 @@ client.workflows.runs_summary(
 <dl>
 <dd>
 
-**from:** `typing.Optional[datetime.datetime]` — Filter runs by created_at >= this ISO datetime.
+**from:** `typing.Optional[datetime.datetime]` — Filter runs by created_at >= this ISO datetime (ISO 8601 with UTC offset required).
     
 </dd>
 </dl>
@@ -8167,7 +6751,7 @@ client.workflows.runs_summary(
 <dl>
 <dd>
 
-**to:** `typing.Optional[datetime.datetime]` — Filter runs by created_at <= this ISO datetime.
+**to:** `typing.Optional[datetime.datetime]` — Filter runs by created_at <= this ISO datetime (ISO 8601 with UTC offset required).
     
 </dd>
 </dl>
@@ -8207,7 +6791,23 @@ client.workflows.runs_summary(
 <dl>
 <dd>
 
-List steps for a workflow run.
+List per-node execution steps for a workflow run.
+
+Returns one entry per node execution attempt, ordered by execution sequence.
+Each step includes the node type, status, iteration number (for nodes that
+are retried), start/completion timestamps, and the node's `result` output.
+
+For audio output nodes, `result` is hydrated with short-lived `playback_url`
+values (valid for 15 minutes) so callers can stream audio directly without
+a separate download step.
+
+`node_display_name` is resolved from the run's definition snapshot, so it
+reflects the name the node had when the run executed. Nodes that were
+retried appear as multiple steps with incrementing `iteration` values.
+
+For a higher-level view with aggregated metrics (pass rates, audio duration
+by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
+script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
 </dd>
 </dl>
 </dd>
@@ -8298,6 +6898,21 @@ client.workflows.get_run_steps(
 <dd>
 
 Fetch server-computed overview aggregates for a workflow run.
+
+Returns structured metric sections (e.g. audio duration totals, validation
+pass rates) grouped by display section, along with per-language audio
+breakdowns and per-validator scoring summaries. Also includes a
+`workflow_snapshot` with the graph definition and per-node completion states.
+
+This endpoint is best suited for a summary/results view after a run
+completes. It differs from the other run sub-resources as follows:
+
+- `GET /runs/{run_id}` — full run record including the raw definition snapshot.
+- `GET /runs/{run_id}/status` — volatile status fields only; for polling.
+- `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+- `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
+- `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
+  node state map for a dashboard/overview panel.
 </dd>
 </dl>
 </dd>
@@ -8387,10 +7002,26 @@ client.workflows.get_run_overview(
 <dl>
 <dd>
 
-Fetch normalized grouped rows/cards for the run detail Data tab.
+Paginated script-and-audio data rows for a completed workflow run.
 
-`pagination.total` is search-scoped and language-independent; language
-filters only card lists, so returned rows may contain empty `cards`.
+Returns grouped rows where each row represents one source script line.
+Within each row, `cards` contain the per-language audio outputs, per-card
+validation scores (word accuracy, naturalness), and short-lived audio
+`playback_url` values (valid for 15 minutes).
+
+**Filtering:**
+- `search` narrows which rows are returned based on their source script text.
+- `language` narrows the `cards` list within each returned row to a single
+  locale. Rows with no matching cards are still returned (with empty `cards`),
+  and `pagination.total` always reflects the search-filtered row count
+  regardless of `language`.
+
+**Pagination:** `pagination.total` is scoped to the `search` filter only.
+
+Response includes a `partial` field indicating whether any data is still
+being computed (e.g. audio not yet generated, validation not yet scored).
+This endpoint sets `Cache-Control: no-store` because playback URLs are
+short-lived and data may change while a run is still in progress.
 </dd>
 </dl>
 </dd>
@@ -8448,7 +7079,7 @@ client.workflows.get_run_data(
 <dl>
 <dd>
 
-**search:** `typing.Optional[str]` — Case-insensitive search over visible grouped source/script text.
+**search:** `typing.Optional[str]` — Case-insensitive search over the source/script text of each row.
     
 </dd>
 </dl>
@@ -8456,7 +7087,7 @@ client.workflows.get_run_data(
 <dl>
 <dd>
 
-**language:** `typing.Optional[str]` — Exact full-locale card filter. `_` is normalized to `-`; filtering cards preserves row visibility and pagination.total remains language-independent, so rows may return empty cards.
+**language:** `typing.Optional[str]` — Exact full-locale code to filter cards within each row (e.g. `en-US`). `_` is normalized to `-`. Filtering is card-level only — rows remain visible even when all their cards are filtered out, and `pagination.total` is unaffected.
     
 </dd>
 </dl>
@@ -8464,7 +7095,7 @@ client.workflows.get_run_data(
 <dl>
 <dd>
 
-**offset:** `typing.Optional[int]` 
+**offset:** `typing.Optional[int]` — Zero-based pagination offset.
     
 </dd>
 </dl>
@@ -8472,7 +7103,7 @@ client.workflows.get_run_data(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` 
+**limit:** `typing.Optional[int]` — Maximum rows to return (1–100).
     
 </dd>
 </dl>
@@ -8512,7 +7143,20 @@ client.workflows.get_run_data(
 <dl>
 <dd>
 
-Create a temporary download URL for a workflow run export.
+Create a temporary download URL for a complete workflow run export.
+
+Returns a pre-signed URL pointing to a ZIP archive containing all audio
+output files produced by the run. The URL is valid for 15 minutes
+(`expires_at`). The archive is generated on first request and cached for
+subsequent calls; re-calling this endpoint before expiry returns a new
+URL for the same cached archive.
+
+Only available for runs in `completed` status — returns 409 for runs that
+are still active or ended in `failed`/`cancelled`. Returns 404 if the run
+produced no audio files.
+
+To download output from a single output node rather than the whole run,
+use `GET /runs/{run_id}/nodes/{node_id}/download`.
 </dd>
 </dl>
 </dd>
@@ -8602,7 +7246,20 @@ client.workflows.download_run(
 <dl>
 <dd>
 
-Create a temporary download URL for a node-level workflow export.
+Create a temporary download URL for a single output node's audio export.
+
+Returns a pre-signed URL for a ZIP archive containing the audio files
+produced by one specific output node within the run. Useful when a
+workflow has multiple output nodes and the caller wants only one node's
+results rather than the full run archive.
+
+`node_id` must identify an output-category node in the run's definition
+snapshot. Passing a node ID that belongs to a non-output node type (e.g.
+a processing or validation node) returns 404. Returns 404 if the node
+produced no audio files, and 409 if the run has not yet completed.
+
+The URL is valid for 15 minutes. To download all output nodes in a single
+archive, use `GET /runs/{run_id}/download` instead.
 </dd>
 </dl>
 </dd>
@@ -8701,10 +7358,17 @@ client.workflows.download_run_node(
 <dl>
 <dd>
 
-Pause a workflow run.
+Pause an active workflow run at the next safe checkpoint.
 
-A running run finishes its current wave (preserving in-flight work) and parks at the
-next wave boundary; a pending run parks immediately. Fire-and-forget and idempotent.
+For a running run, the current wave of parallel nodes is allowed to finish
+before the run parks (in-flight work is preserved, not abandoned). For a
+pending run that has not yet started, it parks immediately. The run
+transitions to `paused` status once drained; during the drain period,
+`status` remains `running` with `pause_requested_at` set.
+
+The operation is idempotent: pausing an already-paused run returns it
+unchanged. A paused run can be resumed via `POST /runs/{run_id}/resume`
+or permanently stopped via `POST /runs/{run_id}/cancel`.
 </dd>
 </dl>
 </dd>
@@ -8796,8 +7460,15 @@ client.workflows.pause_run(
 
 Resume a paused workflow run from its last completed wave.
 
-Best-effort: if the workflow already has another active run, or the caller is at their
-concurrent-run limit, the run stays paused and a 409 explains why (retry later).
+Transitions the run from `paused` back to `running` and schedules
+execution to continue from where it left off — no nodes that already
+completed are re-executed.
+
+Returns 409 if the workspace already has another active run for this
+workflow, or if the caller is at the concurrent-run limit. In that case
+the run stays `paused` and the caller can retry later. Only runs in
+`paused` status can be resumed; attempting to resume a `running`,
+`completed`, `failed`, or `cancelled` run returns 409.
 </dd>
 </dl>
 </dd>
@@ -8887,7 +7558,12 @@ client.workflows.resume_run(
 <dl>
 <dd>
 
-Duplicate a workflow.
+Create a copy of an existing workflow in the same workspace.
+
+The new workflow inherits the source's `name` (suffixed with " (Copy)"),
+`description`, and `definition`. Runs from the original workflow are not
+copied — the duplicate starts with zero runs. Requires at least `editor`
+role. Returns 201 with the new workflow on success.
 </dd>
 </dl>
 </dd>
@@ -8969,12 +7645,21 @@ client.workflows.duplicate_workflow(
 <dl>
 <dd>
 
-List runs for a workflow.
+List runs for a workflow, newest first by default.
 
-Tiebreaker is always ``id ASC`` so offset/limit pagination is stable when
-primary sort keys tie. ``status`` accepts comma-separated raw RunStatus
-values; unknown values return 422. ``search`` matches the triggering
-user's display name (full name, falling back to email).
+Returns a counted, paginated list of runs for the specified workflow.
+Each item includes the run's status, step progress (`total_steps`,
+`finished_steps`), credit usage, and the actor who triggered it.
+
+**Status filter:** Pass `?status=completed,failed` to OR-match multiple
+statuses. Values must be the raw lowercase RunStatus strings. Unknown values
+or empty tokens (e.g. `a,,b`) return 422.
+
+**Pagination:** `pagination.total` reflects the filtered count. Sort
+tiebreaks always append `id ASC` for stable offset/limit pagination.
+
+For aggregate statistics (pass rate, average duration) across all runs,
+use `GET /runs/summary` instead.
 </dd>
 </dl>
 </dd>
@@ -9023,7 +7708,7 @@ client.workflows.runs.list(
 <dl>
 <dd>
 
-**offset:** `typing.Optional[int]` 
+**offset:** `typing.Optional[int]` — Zero-based pagination offset.
     
 </dd>
 </dl>
@@ -9031,7 +7716,7 @@ client.workflows.runs.list(
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` 
+**limit:** `typing.Optional[int]` — Maximum items to return (1–100).
     
 </dd>
 </dl>
@@ -9039,7 +7724,7 @@ client.workflows.runs.list(
 <dl>
 <dd>
 
-**status:** `typing.Optional[str]` — Comma-separated raw RunStatus values (e.g. `completed,failed`). Values are case-sensitive lowercase. Multiple values OR-match. Empty tokens (e.g. `a,,b`) and unknown values return 422.
+**status:** `typing.Optional[str]` — Comma-separated raw RunStatus values (e.g. `completed,failed`). Values are case-sensitive lowercase: `pending`, `running`, `completed`, `failed`, `cancelled`, `paused`. Multiple values OR-match. Empty tokens (e.g. `a,,b`) and unknown values return 422.
     
 </dd>
 </dl>
@@ -9047,7 +7732,7 @@ client.workflows.runs.list(
 <dl>
 <dd>
 
-**search:** `typing.Optional[str]` — Case-insensitive search over triggering user's display name and email.
+**search:** `typing.Optional[str]` — Case-insensitive search over the triggering user's display name (falls back to email).
     
 </dd>
 </dl>
@@ -9055,7 +7740,7 @@ client.workflows.runs.list(
 <dl>
 <dd>
 
-**sort:** `typing.Optional[ListRunsRequestSort]` — Sort field: created_at | started_at | completed_at | status.
+**sort:** `typing.Optional[ListRunsRequestSort]` — Sort field: `created_at` | `started_at` | `completed_at` | `status`. Defaults to `created_at`.
     
 </dd>
 </dl>
@@ -9063,7 +7748,7 @@ client.workflows.runs.list(
 <dl>
 <dd>
 
-**order:** `typing.Optional[ListRunsRequestOrder]` — asc or desc.
+**order:** `typing.Optional[ListRunsRequestOrder]` — `asc` or `desc`. Defaults to `desc`.
     
 </dd>
 </dl>
@@ -9103,7 +7788,20 @@ client.workflows.runs.list(
 <dl>
 <dd>
 
-Start a workflow run.
+Start a new execution of a workflow (202 Accepted).
+
+Enqueues the workflow for asynchronous execution and returns the newly
+created run in `pending` or `running` status. The run progresses through
+its nodes in the background; poll `GET /runs/{run_id}/status` for
+lightweight progress updates, or `GET /runs/{run_id}` once to load the
+immutable definition snapshot.
+
+Use `POST /runs/preview` or `POST /estimate` to compute the credit cost
+before committing to an actual run — those endpoints are read-only and
+incur no charges.
+
+Returns 409 if the workspace is at its concurrent-run limit or another
+run for this workflow is already active.
 </dd>
 </dl>
 </dd>
@@ -9184,11 +7882,18 @@ client.workflows.runs.start(
 <dl>
 <dd>
 
-Fetch a workflow run by id.
+Fetch full detail for a single workflow run.
 
-Includes `definition_snapshot` — the graph/execution config captured
-when the run started, returned raw (no config migrations applied) so
-it reflects the workflow exactly as it existed for this run.
+Returns all run fields plus `definition_snapshot` — the graph and
+execution config captured at the moment the run started. The snapshot is
+returned raw (no config migrations applied), so it faithfully represents
+the workflow as it existed for this specific execution even if the
+workflow definition has since been edited.
+
+This is the heaviest run endpoint. For progress polling, use the lighter
+`GET /runs/{run_id}/status` which omits the snapshot. For aggregated
+visual metrics, use `GET /runs/{run_id}/overview`. For the per-node step
+log with audio playback URLs, use `GET /runs/{run_id}/steps`.
 </dd>
 </dl>
 </dd>
@@ -9278,12 +7983,23 @@ client.workflows.runs.get(
 <dl>
 <dd>
 
-Lightweight run status for polling.
+Lightweight run status for progress polling.
 
-Returns only the volatile run state (status, step counts, timestamps,
-usage_summary, error, has_export) — no graph snapshot. Use this for
-progress polling; call `GET /runs/{run_id}` once to load the immutable
-definition snapshot.
+Returns only the volatile, frequently-changing fields: `status`, step
+counts (`total_steps`, `finished_steps`), timestamps (`started_at`,
+`completed_at`, `paused_at`, `pause_requested_at`), `usage_summary`,
+`error`, and `has_export`. The definition snapshot is intentionally
+omitted to keep response size small.
+
+Recommended polling pattern: call `GET /runs/{run_id}` once after
+starting a run to load the immutable definition snapshot and initial
+metadata, then poll this endpoint until `status` reaches a terminal value
+(`completed`, `failed`, or `cancelled`). `has_export` becoming `true`
+signals that a download is ready via `GET /runs/{run_id}/download`.
+
+The transient `pausing` state is observable here: `status == "running"`
+with `pause_requested_at` set means a pause is in progress but the
+current wave has not yet finished draining.
 </dd>
 </dl>
 </dd>
@@ -9373,7 +8089,19 @@ client.workflows.runs.status(
 <dl>
 <dd>
 
-Cancel a running workflow run.
+Cancel an active workflow run.
+
+Immediately marks the run as `cancelled` and stops any further processing.
+In-flight work at the current node may be abandoned mid-execution. The
+operation is idempotent: cancelling an already-cancelled run returns the
+run unchanged without error.
+
+Only runs in `pending`, `running`, or `paused` status can be cancelled.
+Runs that have already reached a terminal state (`completed`, `failed`,
+`cancelled`) return 409.
+
+Unlike `pause`, cancel is permanent — a cancelled run cannot be resumed.
+Use `pause` if you intend to continue the run later.
 </dd>
 </dl>
 </dd>

@@ -7,8 +7,15 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class UsageActivityUserOut(UniversalBaseModel):
-    id: str
-    name: str
+    id: str = pydantic.Field()
+    """
+    User ID of the event actor.
+    """
+
+    name: str = pydantic.Field()
+    """
+    Display name of the event actor.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

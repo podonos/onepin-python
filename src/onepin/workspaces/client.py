@@ -37,7 +37,12 @@ class WorkspacesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiListResponseWorkspaceOut:
         """
-        List workspaces the current user is a member of.
+        List all workspaces the current user is a member of.
+
+        Returns workspaces where the caller has any role (admin, editor, or
+        viewer), including workspaces they own and workspaces they joined via
+        invite. Results are paginated; omits soft-deleted workspaces and the
+        internal system workspace.
 
         Parameters
         ----------
@@ -76,17 +81,30 @@ class WorkspacesClient:
         """
         Create a new workspace owned by the current user.
 
-        POD-301: gated by `workspaces_per_owner` plan limit. Free=1, Creator=1,
-        Studio=2, Enterprise=bespoke. Owner soft-deletes don't free up quota until
-        purge — keeps the gate honest against rapid create/delete cycles.
+        Workspaces are the top-level container for all resources (workflows,
+        voices, dictionary entries, members). Every resource is scoped to exactly
+        one workspace via the `X-Workspace-Id` header on subsequent requests.
+
+        The authenticated user becomes the workspace owner and is automatically
+        added as an `admin` member. An optional `slug` (1–50 characters,
+        lowercase kebab-case) can be supplied for a human-readable workspace
+        identifier; if omitted, one is auto-generated from `name`. Returns 409
+        if the slug is already taken, 422 if the slug format is invalid or uses
+        a reserved word.
+
+        The number of workspaces a user may own is plan-gated. Attempting to
+        exceed the limit returns 402.
 
         Parameters
         ----------
         name : str
+            Human-readable workspace name (1–200 characters, non-blank).
 
         slug : typing.Optional[str]
+            Optional URL-safe identifier (lowercase kebab-case, 1–50 characters). Auto-generated from `name` if omitted. Returns 409 if taken, 422 if invalid or reserved.
 
         color_idx : typing.Optional[int]
+            Index into the workspace color palette (0–6).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -120,17 +138,23 @@ class WorkspacesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseSlugAvailabilityOut:
         """
-        POD-557: admin-only live availability check for a workspace slug.
+        Check whether a slug is available for the current workspace. Admin only.
 
-        Declared before `/{workspace_id}` so the literal path wins over the UUID
-        route. Auth is hard 4xx (missing/invalid X-Workspace-Id -> 400, not a member
-        -> 404, not admin -> 403, missing ?slug -> 422). Slug content is soft 200
-        `{available, reason?: invalid|reserved|taken}`, self-excluded against the
-        X-Workspace-Id workspace's own current slug. Global across tenants.
+        Returns `{ available: true }` if the slug is valid, not reserved, and
+        not already claimed by another workspace. When unavailable, `reason`
+        indicates why: `invalid` (format/length), `reserved` (blocked word), or
+        `taken` (already in use globally). The workspace's own current slug is
+        self-excluded, so an admin can safely check their existing slug without
+        receiving `taken`.
 
-        Advisory only — a point-in-time snapshot. A concurrent request can claim the
-        slug between this check and the caller's POST/PATCH, so callers must still
-        handle 409 WORKSPACE_SLUG_TAKEN on the write path.
+        This is an advisory point-in-time check — a concurrent `POST /workspaces`
+        or `PATCH /workspaces/{id}` from another session can claim the slug
+        between this response and the caller's write. Always handle 409
+        `WORKSPACE_SLUG_TAKEN` on `create_workspace` and `update_workspace`.
+
+        Requires the `X-Workspace-Id` header (the workspace being renamed) and
+        admin role in that workspace. Missing/invalid header returns 400; not a
+        member returns 404; not admin returns 403.
 
         Parameters
         ----------
@@ -167,7 +191,12 @@ class WorkspacesClient:
         self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseWorkspaceOut:
         """
-        Get a workspace the current user is a member of.
+        Fetch a single workspace by ID.
+
+        Returns the workspace if the current user is an active member (any role).
+        Returns 404 if the workspace does not exist, has been deleted, or the
+        caller is not a member — the two cases are intentionally indistinguishable
+        to prevent workspace enumeration.
 
         Parameters
         ----------
@@ -199,7 +228,16 @@ class WorkspacesClient:
         self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseDict:
         """
-        Soft-delete a workspace and cascade soft-delete to its resources.
+        Delete a workspace and all of its resources. Owner only.
+
+        Soft-deletes the workspace and cascades to all owned resources (workflows,
+        voices, dictionary entries, members, etc.). The workspace and its contents
+        become inaccessible via the API immediately. Data is retained for the GDPR
+        retention period before permanent purge.
+
+        Only the workspace owner (the user who created it) can delete it; admin
+        members who are not the owner receive 404. Returns 404 if the workspace
+        does not exist or the caller is not the owner.
 
         Parameters
         ----------
@@ -234,20 +272,41 @@ class WorkspacesClient:
         name: typing.Optional[str] = OMIT,
         slug: typing.Optional[str] = OMIT,
         color_idx: typing.Optional[int] = OMIT,
+        routing_price_sensitivity: typing.Optional[float] = OMIT,
+        routing_llm_fit: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseWorkspaceOut:
         """
-        Update workspace name, color, and/or slug. Admin only.
+        Update a workspace's name, color palette index, and/or slug. Admin only.
+
+        All fields are optional — supply only the fields you want to change.
+        `slug` follows the same validation rules as on create (lowercase
+        kebab-case, 1–50 characters, no reserved words). Returns 409 if the new
+        slug is already claimed by another workspace, 422 if the slug format is
+        invalid or reserved. Re-setting the workspace's current slug to itself
+        never returns 409.
+
+        Only workspace admins may call this endpoint; other members receive 404
+        (same as not-found, to avoid leaking membership details to non-members).
 
         Parameters
         ----------
         workspace_id : str
 
         name : typing.Optional[str]
+            New workspace name. Omit to leave unchanged.
 
         slug : typing.Optional[str]
+            New slug (lowercase kebab-case, 1–50 characters). Omit to leave unchanged. Returns 409 if taken, 422 if invalid or reserved.
 
         color_idx : typing.Optional[int]
+            New color palette index (0–6). Omit to leave unchanged.
+
+        routing_price_sensitivity : typing.Optional[float]
+            New voice-selection price/quality balance (0.0 = pure quality, 1.0 = pure price, 0.5 = balanced). Omit to leave unchanged.
+
+        routing_llm_fit : typing.Optional[bool]
+            New setting for whether automatic voice selection also weighs content fit. Omit to leave unchanged.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -269,7 +328,13 @@ class WorkspacesClient:
         )
         """
         _response = self._raw_client.update_workspace(
-            workspace_id, name=name, slug=slug, color_idx=color_idx, request_options=request_options
+            workspace_id,
+            name=name,
+            slug=slug,
+            color_idx=color_idx,
+            routing_price_sensitivity=routing_price_sensitivity,
+            routing_llm_fit=routing_llm_fit,
+            request_options=request_options,
         )
         return _response.data
 
@@ -297,7 +362,12 @@ class AsyncWorkspacesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiListResponseWorkspaceOut:
         """
-        List workspaces the current user is a member of.
+        List all workspaces the current user is a member of.
+
+        Returns workspaces where the caller has any role (admin, editor, or
+        viewer), including workspaces they own and workspaces they joined via
+        invite. Results are paginated; omits soft-deleted workspaces and the
+        internal system workspace.
 
         Parameters
         ----------
@@ -344,17 +414,30 @@ class AsyncWorkspacesClient:
         """
         Create a new workspace owned by the current user.
 
-        POD-301: gated by `workspaces_per_owner` plan limit. Free=1, Creator=1,
-        Studio=2, Enterprise=bespoke. Owner soft-deletes don't free up quota until
-        purge — keeps the gate honest against rapid create/delete cycles.
+        Workspaces are the top-level container for all resources (workflows,
+        voices, dictionary entries, members). Every resource is scoped to exactly
+        one workspace via the `X-Workspace-Id` header on subsequent requests.
+
+        The authenticated user becomes the workspace owner and is automatically
+        added as an `admin` member. An optional `slug` (1–50 characters,
+        lowercase kebab-case) can be supplied for a human-readable workspace
+        identifier; if omitted, one is auto-generated from `name`. Returns 409
+        if the slug is already taken, 422 if the slug format is invalid or uses
+        a reserved word.
+
+        The number of workspaces a user may own is plan-gated. Attempting to
+        exceed the limit returns 402.
 
         Parameters
         ----------
         name : str
+            Human-readable workspace name (1–200 characters, non-blank).
 
         slug : typing.Optional[str]
+            Optional URL-safe identifier (lowercase kebab-case, 1–50 characters). Auto-generated from `name` if omitted. Returns 409 if taken, 422 if invalid or reserved.
 
         color_idx : typing.Optional[int]
+            Index into the workspace color palette (0–6).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -396,17 +479,23 @@ class AsyncWorkspacesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseSlugAvailabilityOut:
         """
-        POD-557: admin-only live availability check for a workspace slug.
+        Check whether a slug is available for the current workspace. Admin only.
 
-        Declared before `/{workspace_id}` so the literal path wins over the UUID
-        route. Auth is hard 4xx (missing/invalid X-Workspace-Id -> 400, not a member
-        -> 404, not admin -> 403, missing ?slug -> 422). Slug content is soft 200
-        `{available, reason?: invalid|reserved|taken}`, self-excluded against the
-        X-Workspace-Id workspace's own current slug. Global across tenants.
+        Returns `{ available: true }` if the slug is valid, not reserved, and
+        not already claimed by another workspace. When unavailable, `reason`
+        indicates why: `invalid` (format/length), `reserved` (blocked word), or
+        `taken` (already in use globally). The workspace's own current slug is
+        self-excluded, so an admin can safely check their existing slug without
+        receiving `taken`.
 
-        Advisory only — a point-in-time snapshot. A concurrent request can claim the
-        slug between this check and the caller's POST/PATCH, so callers must still
-        handle 409 WORKSPACE_SLUG_TAKEN on the write path.
+        This is an advisory point-in-time check — a concurrent `POST /workspaces`
+        or `PATCH /workspaces/{id}` from another session can claim the slug
+        between this response and the caller's write. Always handle 409
+        `WORKSPACE_SLUG_TAKEN` on `create_workspace` and `update_workspace`.
+
+        Requires the `X-Workspace-Id` header (the workspace being renamed) and
+        admin role in that workspace. Missing/invalid header returns 400; not a
+        member returns 404; not admin returns 403.
 
         Parameters
         ----------
@@ -451,7 +540,12 @@ class AsyncWorkspacesClient:
         self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseWorkspaceOut:
         """
-        Get a workspace the current user is a member of.
+        Fetch a single workspace by ID.
+
+        Returns the workspace if the current user is an active member (any role).
+        Returns 404 if the workspace does not exist, has been deleted, or the
+        caller is not a member — the two cases are intentionally indistinguishable
+        to prevent workspace enumeration.
 
         Parameters
         ----------
@@ -491,7 +585,16 @@ class AsyncWorkspacesClient:
         self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseDict:
         """
-        Soft-delete a workspace and cascade soft-delete to its resources.
+        Delete a workspace and all of its resources. Owner only.
+
+        Soft-deletes the workspace and cascades to all owned resources (workflows,
+        voices, dictionary entries, members, etc.). The workspace and its contents
+        become inaccessible via the API immediately. Data is retained for the GDPR
+        retention period before permanent purge.
+
+        Only the workspace owner (the user who created it) can delete it; admin
+        members who are not the owner receive 404. Returns 404 if the workspace
+        does not exist or the caller is not the owner.
 
         Parameters
         ----------
@@ -534,20 +637,41 @@ class AsyncWorkspacesClient:
         name: typing.Optional[str] = OMIT,
         slug: typing.Optional[str] = OMIT,
         color_idx: typing.Optional[int] = OMIT,
+        routing_price_sensitivity: typing.Optional[float] = OMIT,
+        routing_llm_fit: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseWorkspaceOut:
         """
-        Update workspace name, color, and/or slug. Admin only.
+        Update a workspace's name, color palette index, and/or slug. Admin only.
+
+        All fields are optional — supply only the fields you want to change.
+        `slug` follows the same validation rules as on create (lowercase
+        kebab-case, 1–50 characters, no reserved words). Returns 409 if the new
+        slug is already claimed by another workspace, 422 if the slug format is
+        invalid or reserved. Re-setting the workspace's current slug to itself
+        never returns 409.
+
+        Only workspace admins may call this endpoint; other members receive 404
+        (same as not-found, to avoid leaking membership details to non-members).
 
         Parameters
         ----------
         workspace_id : str
 
         name : typing.Optional[str]
+            New workspace name. Omit to leave unchanged.
 
         slug : typing.Optional[str]
+            New slug (lowercase kebab-case, 1–50 characters). Omit to leave unchanged. Returns 409 if taken, 422 if invalid or reserved.
 
         color_idx : typing.Optional[int]
+            New color palette index (0–6). Omit to leave unchanged.
+
+        routing_price_sensitivity : typing.Optional[float]
+            New voice-selection price/quality balance (0.0 = pure quality, 1.0 = pure price, 0.5 = balanced). Omit to leave unchanged.
+
+        routing_llm_fit : typing.Optional[bool]
+            New setting for whether automatic voice selection also weighs content fit. Omit to leave unchanged.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -577,6 +701,12 @@ class AsyncWorkspacesClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.update_workspace(
-            workspace_id, name=name, slug=slug, color_idx=color_idx, request_options=request_options
+            workspace_id,
+            name=name,
+            slug=slug,
+            color_idx=color_idx,
+            routing_price_sensitivity=routing_price_sensitivity,
+            routing_llm_fit=routing_llm_fit,
+            request_options=request_options,
         )
         return _response.data

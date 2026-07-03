@@ -8,8 +8,15 @@ from .upload_out import UploadOut
 
 
 class UploadCreateResponse(UniversalBaseModel):
-    upload: UploadOut
-    upload_url: str
+    upload: UploadOut = pydantic.Field()
+    """
+    The newly created upload record in `pending` status.
+    """
+
+    upload_url: str = pydantic.Field()
+    """
+    Short-lived presigned URL. PUT your file bytes directly to this URL to complete the upload. Do not send the file to this API. After the PUT succeeds, call `POST /uploads/{id}` to confirm.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
