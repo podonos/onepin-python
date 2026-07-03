@@ -45,27 +45,35 @@ class TemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiListResponseTemplateOut:
         """
-        List live published templates across workspaces (gallery).
+        Browse the public template gallery across all workspaces.
 
-        Authenticated but not workspace-scoped — the gallery is cross-workspace
-        by design (published rows from any workspace). Does not require
-        `X-Workspace-Id`, so a freshly signed-up user without a workspace can
-        still browse templates.
+        Returns only templates that have an active published snapshot (`is_public=true`,
+        `published_definition` set, not unpublished). Results come from any workspace —
+        the gallery is intentionally cross-workspace so callers can discover shared
+        starting points regardless of their own workspace membership.
 
-        Dual-auth: Clerk JWT or `op_live_*` API key (scope `templates:read`).
+        Does not require `X-Workspace-Id`, so callers without a workspace (e.g. during
+        onboarding) can still browse. The response reflects the published snapshot for
+        each row, not any unpublished draft edits.
+
+        Dual-auth: Bearer JWT or API key (scope `templates:read`).
 
         Parameters
         ----------
         category : typing.Optional[typing.Sequence[TemplateCategory]]
-            Repeat for OR, e.g. ?category=media&category=creative
+            Filter by category. Repeat the parameter for OR logic, e.g. `?category=media&category=creative`.
 
         search : typing.Optional[str]
+            Full-text search over template name and description.
 
         sort : typing.Optional[ListTemplatesRequestSort]
+            Sort order: `recent` (last published), `popular` (most cloned), or `name` (alphabetical).
 
         offset : typing.Optional[int]
+            Zero-based offset for page navigation.
 
         limit : typing.Optional[int]
+            Maximum number of templates to return (1–100).
 
         favorites_only : typing.Optional[bool]
 
@@ -108,25 +116,35 @@ class TemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseTemplateOut:
         """
-        Create a new workflow template in the current workspace.
+        Create a reusable workflow template in the current workspace.
 
-        The caller supplies a full `WorkflowDefinition` (graph + execution).
-        Save-time validation (`validate_definition_save`) mirrors the
-        `/api/v1/workflows` contract — duplicate node/edge IDs, port mismatches,
-        and other structural errors fail at write time rather than surfacing
-        when a caller later clones the template into a workflow.
+        Templates are workspace-private on creation (`is_public=false`, `is_starter=false`).
+        The full `WorkflowDefinition` (graph + execution config) is validated at write
+        time — structural errors (duplicate node/edge IDs, port mismatches, etc.) surface
+        here rather than when a caller later clones the template into a workflow.
+
+        Use this to capture a workflow configuration you intend to reuse or share. To
+        make a template available in the public gallery, an admin must mark it public
+        via the admin API. To create a runnable workflow from an existing template,
+        use `POST /templates/{id}/clone` instead.
+
+        Requires workspace `editor` role or higher.
 
         Parameters
         ----------
         name : str
+            Display name for the template (1–200 characters, not blank).
 
         workspace_id : typing.Optional[str]
 
         description : typing.Optional[str]
+            Optional human-readable description shown in the gallery (max 2,000 characters).
 
         category : typing.Optional[TemplateCategory]
+            Optional category tag used for gallery filtering.
 
         definition : typing.Optional[WorkflowDefinitionInput]
+            Full workflow definition (graph + execution config). Validated at write time — structural errors are rejected with 422.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -165,9 +183,16 @@ class TemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseTemplateOut:
         """
-        Fetch a template by id if visible (own, public, or starter).
+        Fetch a single template by ID.
 
-        Dual-auth: Clerk JWT or `op_live_*` API key (scope `templates:read`).
+        Returns the template if it is visible to the caller: templates owned by the
+        caller's workspace are returned with the live draft definition; public/starter
+        templates from other workspaces are returned with the published snapshot.
+
+        Returns 404 for templates that exist but are not visible to the caller (not
+        owned, not public, not a starter) — same response as for a missing ID.
+
+        Dual-auth: Bearer JWT or API key (scope `templates:read`).
 
         Parameters
         ----------
@@ -205,7 +230,18 @@ class TemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseDict:
         """
-        Soft-delete a template. Owner only; starter templates are read-only.
+        Delete a template owned by the caller's workspace.
+
+        The delete is a soft delete — the record is hidden from the gallery and
+        all visibility checks immediately, but is not physically removed. Any
+        workflows previously cloned from this template are unaffected; clone
+        creates an independent copy of the definition at clone time.
+
+        Restrictions:
+        - Only the owning workspace may delete its templates (403 otherwise).
+        - Platform starter templates (`is_starter=true`) cannot be deleted (403).
+
+        Requires workspace `editor` role or higher.
 
         Parameters
         ----------
@@ -249,10 +285,20 @@ class TemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseTemplateOut:
         """
-        Update a template. Owner only; starter templates are read-only.
+        Update a template owned by the caller's workspace.
 
-        `definition` is full-replace (matches `WorkflowUpdate` — the FE sends the
-        entire graph back on save). Other fields are partial via `exclude_unset`.
+        All fields are optional (omit to keep the stored value). When `definition`
+        is supplied it is a full replace — send the complete graph, not a partial
+        diff. Structural validation runs on write, same as `POST /templates`.
+
+        Restrictions:
+        - Only the owning workspace may update its templates (403 otherwise).
+        - Platform starter templates (`is_starter=true`) are read-only via this
+          endpoint regardless of workspace ownership (403).
+        - Updates apply only to the draft/live definition; the published gallery
+          snapshot is not updated until an admin republishes.
+
+        Requires workspace `editor` role or higher.
 
         Parameters
         ----------
@@ -307,7 +353,28 @@ class TemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseTemplateEstimateResponse:
         """
-        Return per-1,000-character pricing for a visible template snapshot.
+        Estimate the credit cost of running a workflow built from this template.
+
+        Returns a per-unit pricing guide expressed in credits per
+        `unit_chars` input characters (default 1,000). Because the template does not
+        contain the caller's actual script, the estimate uses a synthetic fixed-length
+        input to compute a reproducible per-unit rate. Multiply by your expected
+        character count to project total cost.
+
+        The response distinguishes variable costs (scale with script length, e.g.
+        synthesis) from fixed costs (apply once per run regardless of length). A
+        node-level breakdown is included so callers can see which processing steps
+        drive the cost.
+
+        Results are cached against the template definition and current pricing rates.
+        `cache_status` indicates whether this response was served from cache (`hit`),
+        computed fresh (`miss`), or recomputed because the definition or rates changed
+        (`stale`).
+
+        Visibility rules match `GET /templates/{id}` — own-workspace templates use the
+        draft definition; cross-workspace templates use the published snapshot.
+
+        Dual-auth: Bearer JWT or API key (scope `templates:read`).
 
         Parameters
         ----------
@@ -348,16 +415,24 @@ class TemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseWorkflowOut:
         """
-        Clone a template into a workflow in the caller's workspace.
+        Create a runnable workflow in the caller's workspace from a template.
 
-        Dual-auth: Clerk JWT or `op_live_*` API key (scope `workflows:write`).
+        This is the primary way to use a template: it produces a new `Workflow`
+        owned by the caller's workspace, ready to accept scripts and run jobs.
 
-        Same-workspace clones use the live `definition` (owner authoring).
-        Cross-workspace clones use the `published_definition` snapshot to avoid
-        leaking unpublished draft edits.
+        Use `body.name` to set the workflow name; omit it (or send blank/whitespace)
+        to get the default `"{template name} (Copy)"`.
 
-        Resolved name: explicit `body.name` (stripped) OR fallback to
-        `"{source_name} (Copy)"`.
+        Cross-workspace clones (gallery/starter templates) copy the published
+        snapshot so unpublished draft edits made by the template owner never leak to
+        other workspaces. Same-workspace clones copy the live draft definition.
+
+        Use `GET /templates/{id}/estimate` first to preview credit costs before
+        committing to a clone and run. Use `POST /workflows/{id}/duplicate` to copy
+        an existing workflow rather than starting from a template.
+
+        Requires workspace `editor` role or higher.
+        Dual-auth: Bearer JWT or API key (scope `workflows:write`).
 
         Parameters
         ----------
@@ -395,15 +470,17 @@ class TemplatesClient:
         self, template_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseTemplateOut:
         """
-        Mark a visible template as a favorite for the current user.
+        Add a template to the current user's favorites.
 
-        Authenticated but not workspace-scoped — favorites are cross-workspace by
-        design for public/starter templates and for the caller's own private
-        templates when they still belong to that template's workspace.
+        Favorites are per-user, not per-workspace — the same favorite list is
+        visible regardless of which workspace the caller is currently acting in.
+        Any template visible to the caller (own workspace, public, or starter) can
+        be favorited.
 
-        Returns 404 when the template does not exist or is not visible to the
-        caller. This POST intentionally enumerates success/failure for the toggle
-        UX, while DELETE stays non-enumerating.
+        Returns 404 when the template does not exist or is not visible to the caller.
+        Calling this endpoint on an already-favorited template is idempotent (returns
+        200 with the template). Use `DELETE /templates/{id}/favorite` to remove.
+        Does not require `X-Workspace-Id`.
 
         Parameters
         ----------
@@ -435,10 +512,10 @@ class TemplatesClient:
         self, template_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseDict:
         """
-        Remove a template favorite for the current user.
+        Remove a template from the current user's favorites.
 
-        Deletion is intentionally non-enumerating: authenticated callers receive a
-        successful empty response whether the row or template exists.
+        Idempotent and non-enumerating: returns an empty success response whether
+        or not the favorite or the template exists. Does not require `X-Workspace-Id`.
 
         Parameters
         ----------
@@ -494,27 +571,35 @@ class AsyncTemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiListResponseTemplateOut:
         """
-        List live published templates across workspaces (gallery).
+        Browse the public template gallery across all workspaces.
 
-        Authenticated but not workspace-scoped — the gallery is cross-workspace
-        by design (published rows from any workspace). Does not require
-        `X-Workspace-Id`, so a freshly signed-up user without a workspace can
-        still browse templates.
+        Returns only templates that have an active published snapshot (`is_public=true`,
+        `published_definition` set, not unpublished). Results come from any workspace —
+        the gallery is intentionally cross-workspace so callers can discover shared
+        starting points regardless of their own workspace membership.
 
-        Dual-auth: Clerk JWT or `op_live_*` API key (scope `templates:read`).
+        Does not require `X-Workspace-Id`, so callers without a workspace (e.g. during
+        onboarding) can still browse. The response reflects the published snapshot for
+        each row, not any unpublished draft edits.
+
+        Dual-auth: Bearer JWT or API key (scope `templates:read`).
 
         Parameters
         ----------
         category : typing.Optional[typing.Sequence[TemplateCategory]]
-            Repeat for OR, e.g. ?category=media&category=creative
+            Filter by category. Repeat the parameter for OR logic, e.g. `?category=media&category=creative`.
 
         search : typing.Optional[str]
+            Full-text search over template name and description.
 
         sort : typing.Optional[ListTemplatesRequestSort]
+            Sort order: `recent` (last published), `popular` (most cloned), or `name` (alphabetical).
 
         offset : typing.Optional[int]
+            Zero-based offset for page navigation.
 
         limit : typing.Optional[int]
+            Maximum number of templates to return (1–100).
 
         favorites_only : typing.Optional[bool]
 
@@ -565,25 +650,35 @@ class AsyncTemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseTemplateOut:
         """
-        Create a new workflow template in the current workspace.
+        Create a reusable workflow template in the current workspace.
 
-        The caller supplies a full `WorkflowDefinition` (graph + execution).
-        Save-time validation (`validate_definition_save`) mirrors the
-        `/api/v1/workflows` contract — duplicate node/edge IDs, port mismatches,
-        and other structural errors fail at write time rather than surfacing
-        when a caller later clones the template into a workflow.
+        Templates are workspace-private on creation (`is_public=false`, `is_starter=false`).
+        The full `WorkflowDefinition` (graph + execution config) is validated at write
+        time — structural errors (duplicate node/edge IDs, port mismatches, etc.) surface
+        here rather than when a caller later clones the template into a workflow.
+
+        Use this to capture a workflow configuration you intend to reuse or share. To
+        make a template available in the public gallery, an admin must mark it public
+        via the admin API. To create a runnable workflow from an existing template,
+        use `POST /templates/{id}/clone` instead.
+
+        Requires workspace `editor` role or higher.
 
         Parameters
         ----------
         name : str
+            Display name for the template (1–200 characters, not blank).
 
         workspace_id : typing.Optional[str]
 
         description : typing.Optional[str]
+            Optional human-readable description shown in the gallery (max 2,000 characters).
 
         category : typing.Optional[TemplateCategory]
+            Optional category tag used for gallery filtering.
 
         definition : typing.Optional[WorkflowDefinitionInput]
+            Full workflow definition (graph + execution config). Validated at write time — structural errors are rejected with 422.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -630,9 +725,16 @@ class AsyncTemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseTemplateOut:
         """
-        Fetch a template by id if visible (own, public, or starter).
+        Fetch a single template by ID.
 
-        Dual-auth: Clerk JWT or `op_live_*` API key (scope `templates:read`).
+        Returns the template if it is visible to the caller: templates owned by the
+        caller's workspace are returned with the live draft definition; public/starter
+        templates from other workspaces are returned with the published snapshot.
+
+        Returns 404 for templates that exist but are not visible to the caller (not
+        owned, not public, not a starter) — same response as for a missing ID.
+
+        Dual-auth: Bearer JWT or API key (scope `templates:read`).
 
         Parameters
         ----------
@@ -678,7 +780,18 @@ class AsyncTemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseDict:
         """
-        Soft-delete a template. Owner only; starter templates are read-only.
+        Delete a template owned by the caller's workspace.
+
+        The delete is a soft delete — the record is hidden from the gallery and
+        all visibility checks immediately, but is not physically removed. Any
+        workflows previously cloned from this template are unaffected; clone
+        creates an independent copy of the definition at clone time.
+
+        Restrictions:
+        - Only the owning workspace may delete its templates (403 otherwise).
+        - Platform starter templates (`is_starter=true`) cannot be deleted (403).
+
+        Requires workspace `editor` role or higher.
 
         Parameters
         ----------
@@ -730,10 +843,20 @@ class AsyncTemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseTemplateOut:
         """
-        Update a template. Owner only; starter templates are read-only.
+        Update a template owned by the caller's workspace.
 
-        `definition` is full-replace (matches `WorkflowUpdate` — the FE sends the
-        entire graph back on save). Other fields are partial via `exclude_unset`.
+        All fields are optional (omit to keep the stored value). When `definition`
+        is supplied it is a full replace — send the complete graph, not a partial
+        diff. Structural validation runs on write, same as `POST /templates`.
+
+        Restrictions:
+        - Only the owning workspace may update its templates (403 otherwise).
+        - Platform starter templates (`is_starter=true`) are read-only via this
+          endpoint regardless of workspace ownership (403).
+        - Updates apply only to the draft/live definition; the published gallery
+          snapshot is not updated until an admin republishes.
+
+        Requires workspace `editor` role or higher.
 
         Parameters
         ----------
@@ -796,7 +919,28 @@ class AsyncTemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseTemplateEstimateResponse:
         """
-        Return per-1,000-character pricing for a visible template snapshot.
+        Estimate the credit cost of running a workflow built from this template.
+
+        Returns a per-unit pricing guide expressed in credits per
+        `unit_chars` input characters (default 1,000). Because the template does not
+        contain the caller's actual script, the estimate uses a synthetic fixed-length
+        input to compute a reproducible per-unit rate. Multiply by your expected
+        character count to project total cost.
+
+        The response distinguishes variable costs (scale with script length, e.g.
+        synthesis) from fixed costs (apply once per run regardless of length). A
+        node-level breakdown is included so callers can see which processing steps
+        drive the cost.
+
+        Results are cached against the template definition and current pricing rates.
+        `cache_status` indicates whether this response was served from cache (`hit`),
+        computed fresh (`miss`), or recomputed because the definition or rates changed
+        (`stale`).
+
+        Visibility rules match `GET /templates/{id}` — own-workspace templates use the
+        draft definition; cross-workspace templates use the published snapshot.
+
+        Dual-auth: Bearer JWT or API key (scope `templates:read`).
 
         Parameters
         ----------
@@ -845,16 +989,24 @@ class AsyncTemplatesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseWorkflowOut:
         """
-        Clone a template into a workflow in the caller's workspace.
+        Create a runnable workflow in the caller's workspace from a template.
 
-        Dual-auth: Clerk JWT or `op_live_*` API key (scope `workflows:write`).
+        This is the primary way to use a template: it produces a new `Workflow`
+        owned by the caller's workspace, ready to accept scripts and run jobs.
 
-        Same-workspace clones use the live `definition` (owner authoring).
-        Cross-workspace clones use the `published_definition` snapshot to avoid
-        leaking unpublished draft edits.
+        Use `body.name` to set the workflow name; omit it (or send blank/whitespace)
+        to get the default `"{template name} (Copy)"`.
 
-        Resolved name: explicit `body.name` (stripped) OR fallback to
-        `"{source_name} (Copy)"`.
+        Cross-workspace clones (gallery/starter templates) copy the published
+        snapshot so unpublished draft edits made by the template owner never leak to
+        other workspaces. Same-workspace clones copy the live draft definition.
+
+        Use `GET /templates/{id}/estimate` first to preview credit costs before
+        committing to a clone and run. Use `POST /workflows/{id}/duplicate` to copy
+        an existing workflow rather than starting from a template.
+
+        Requires workspace `editor` role or higher.
+        Dual-auth: Bearer JWT or API key (scope `workflows:write`).
 
         Parameters
         ----------
@@ -900,15 +1052,17 @@ class AsyncTemplatesClient:
         self, template_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseTemplateOut:
         """
-        Mark a visible template as a favorite for the current user.
+        Add a template to the current user's favorites.
 
-        Authenticated but not workspace-scoped — favorites are cross-workspace by
-        design for public/starter templates and for the caller's own private
-        templates when they still belong to that template's workspace.
+        Favorites are per-user, not per-workspace — the same favorite list is
+        visible regardless of which workspace the caller is currently acting in.
+        Any template visible to the caller (own workspace, public, or starter) can
+        be favorited.
 
-        Returns 404 when the template does not exist or is not visible to the
-        caller. This POST intentionally enumerates success/failure for the toggle
-        UX, while DELETE stays non-enumerating.
+        Returns 404 when the template does not exist or is not visible to the caller.
+        Calling this endpoint on an already-favorited template is idempotent (returns
+        200 with the template). Use `DELETE /templates/{id}/favorite` to remove.
+        Does not require `X-Workspace-Id`.
 
         Parameters
         ----------
@@ -948,10 +1102,10 @@ class AsyncTemplatesClient:
         self, template_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseDict:
         """
-        Remove a template favorite for the current user.
+        Remove a template from the current user's favorites.
 
-        Deletion is intentionally non-enumerating: authenticated callers receive a
-        successful empty response whether the row or template exists.
+        Idempotent and non-enumerating: returns an empty success response whether
+        or not the favorite or the template exists. Does not require `X-Workspace-Id`.
 
         Parameters
         ----------

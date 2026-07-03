@@ -20,18 +20,61 @@ class TemplateOut(UniversalBaseModel):
     `Workflow.definition`) — a template is a reusable workflow snapshot.
     """
 
-    id: str
-    name: str
-    description: typing.Optional[str] = None
-    category: typing.Optional[TemplateCategory] = None
-    definition: WorkflowDefinitionOutput
-    is_starter: bool
-    is_public: bool
-    is_favorite: typing.Optional[bool] = None
-    uses_count: int
-    created_by: typing.Optional[str] = None
+    id: str = pydantic.Field()
+    """
+    Unique template identifier.
+    """
+
+    name: str = pydantic.Field()
+    """
+    Display name of the template.
+    """
+
+    description: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Optional human-readable description.
+    """
+
+    category: typing.Optional[TemplateCategory] = pydantic.Field(default=None)
+    """
+    Gallery category tag, if set.
+    """
+
+    definition: WorkflowDefinitionOutput = pydantic.Field()
+    """
+    Full workflow definition (graph + execution config). Use this directly as the `definition` body when creating a workflow from scratch, or clone via `POST /templates/{id}/clone`.
+    """
+
+    is_starter: bool = pydantic.Field()
+    """
+    `true` for platform-curated starter templates. Starter templates cannot be updated or deleted.
+    """
+
+    is_public: bool = pydantic.Field()
+    """
+    `true` when this template has an active published snapshot visible in the gallery.
+    """
+
+    is_favorite: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    `true` when the authenticated caller has favorited this template.
+    """
+
+    uses_count: int = pydantic.Field()
+    """
+    Number of times this template has been cloned into a workflow.
+    """
+
+    created_by: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    User ID of the template author.
+    """
+
     created_at: dt.datetime
-    updated_at: dt.datetime
+    updated_at: dt.datetime = pydantic.Field()
+    """
+    Last-modified timestamp. For gallery rows this reflects the most recent publish; for own-workspace rows it reflects the most recent draft save.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

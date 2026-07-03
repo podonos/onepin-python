@@ -38,32 +38,43 @@ class RawRunsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiCountedListResponseWorkflowRunListItem]:
         """
-        List runs for a workflow.
+        List runs for a workflow, newest first by default.
 
-        Tiebreaker is always ``id ASC`` so offset/limit pagination is stable when
-        primary sort keys tie. ``status`` accepts comma-separated raw RunStatus
-        values; unknown values return 422. ``search`` matches the triggering
-        user's display name (full name, falling back to email).
+        Returns a counted, paginated list of runs for the specified workflow.
+        Each item includes the run's status, step progress (`total_steps`,
+        `finished_steps`), credit usage, and the actor who triggered it.
+
+        **Status filter:** Pass `?status=completed,failed` to OR-match multiple
+        statuses. Values must be the raw lowercase RunStatus strings. Unknown values
+        or empty tokens (e.g. `a,,b`) return 422.
+
+        **Pagination:** `pagination.total` reflects the filtered count. Sort
+        tiebreaks always append `id ASC` for stable offset/limit pagination.
+
+        For aggregate statistics (pass rate, average duration) across all runs,
+        use `GET /runs/summary` instead.
 
         Parameters
         ----------
         workflow_id : str
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Maximum items to return (1–100).
 
         status : typing.Optional[str]
-            Comma-separated raw RunStatus values (e.g. `completed,failed`). Values are case-sensitive lowercase. Multiple values OR-match. Empty tokens (e.g. `a,,b`) and unknown values return 422.
+            Comma-separated raw RunStatus values (e.g. `completed,failed`). Values are case-sensitive lowercase: `pending`, `running`, `completed`, `failed`, `cancelled`, `paused`. Multiple values OR-match. Empty tokens (e.g. `a,,b`) and unknown values return 422.
 
         search : typing.Optional[str]
-            Case-insensitive search over triggering user's display name and email.
+            Case-insensitive search over the triggering user's display name (falls back to email).
 
         sort : typing.Optional[ListRunsRequestSort]
-            Sort field: created_at | started_at | completed_at | status.
+            Sort field: `created_at` | `started_at` | `completed_at` | `status`. Defaults to `created_at`.
 
         order : typing.Optional[ListRunsRequestOrder]
-            asc or desc.
+            `asc` or `desc`. Defaults to `desc`.
 
         workspace_id : typing.Optional[str]
 
@@ -129,7 +140,20 @@ class RawRunsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowRunOut]:
         """
-        Start a workflow run.
+        Start a new execution of a workflow (202 Accepted).
+
+        Enqueues the workflow for asynchronous execution and returns the newly
+        created run in `pending` or `running` status. The run progresses through
+        its nodes in the background; poll `GET /runs/{run_id}/status` for
+        lightweight progress updates, or `GET /runs/{run_id}` once to load the
+        immutable definition snapshot.
+
+        Use `POST /runs/preview` or `POST /estimate` to compute the credit cost
+        before committing to an actual run — those endpoints are read-only and
+        incur no charges.
+
+        Returns 409 if the workspace is at its concurrent-run limit or another
+        run for this workflow is already active.
 
         Parameters
         ----------
@@ -192,11 +216,18 @@ class RawRunsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowRunDetailOut]:
         """
-        Fetch a workflow run by id.
+        Fetch full detail for a single workflow run.
 
-        Includes `definition_snapshot` — the graph/execution config captured
-        when the run started, returned raw (no config migrations applied) so
-        it reflects the workflow exactly as it existed for this run.
+        Returns all run fields plus `definition_snapshot` — the graph and
+        execution config captured at the moment the run started. The snapshot is
+        returned raw (no config migrations applied), so it faithfully represents
+        the workflow as it existed for this specific execution even if the
+        workflow definition has since been edited.
+
+        This is the heaviest run endpoint. For progress polling, use the lighter
+        `GET /runs/{run_id}/status` which omits the snapshot. For aggregated
+        visual metrics, use `GET /runs/{run_id}/overview`. For the per-node step
+        log with audio playback URLs, use `GET /runs/{run_id}/steps`.
 
         Parameters
         ----------
@@ -261,12 +292,23 @@ class RawRunsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowRunStatusOut]:
         """
-        Lightweight run status for polling.
+        Lightweight run status for progress polling.
 
-        Returns only the volatile run state (status, step counts, timestamps,
-        usage_summary, error, has_export) — no graph snapshot. Use this for
-        progress polling; call `GET /runs/{run_id}` once to load the immutable
-        definition snapshot.
+        Returns only the volatile, frequently-changing fields: `status`, step
+        counts (`total_steps`, `finished_steps`), timestamps (`started_at`,
+        `completed_at`, `paused_at`, `pause_requested_at`), `usage_summary`,
+        `error`, and `has_export`. The definition snapshot is intentionally
+        omitted to keep response size small.
+
+        Recommended polling pattern: call `GET /runs/{run_id}` once after
+        starting a run to load the immutable definition snapshot and initial
+        metadata, then poll this endpoint until `status` reaches a terminal value
+        (`completed`, `failed`, or `cancelled`). `has_export` becoming `true`
+        signals that a download is ready via `GET /runs/{run_id}/download`.
+
+        The transient `pausing` state is observable here: `status == "running"`
+        with `pause_requested_at` set means a pause is in progress but the
+        current wave has not yet finished draining.
 
         Parameters
         ----------
@@ -331,7 +373,19 @@ class RawRunsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowRunOut]:
         """
-        Cancel a running workflow run.
+        Cancel an active workflow run.
+
+        Immediately marks the run as `cancelled` and stops any further processing.
+        In-flight work at the current node may be abandoned mid-execution. The
+        operation is idempotent: cancelling an already-cancelled run returns the
+        run unchanged without error.
+
+        Only runs in `pending`, `running`, or `paused` status can be cancelled.
+        Runs that have already reached a terminal state (`completed`, `failed`,
+        `cancelled`) return 409.
+
+        Unlike `pause`, cancel is permanent — a cancelled run cannot be resumed.
+        Use `pause` if you intend to continue the run later.
 
         Parameters
         ----------
@@ -406,32 +460,43 @@ class AsyncRawRunsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiCountedListResponseWorkflowRunListItem]:
         """
-        List runs for a workflow.
+        List runs for a workflow, newest first by default.
 
-        Tiebreaker is always ``id ASC`` so offset/limit pagination is stable when
-        primary sort keys tie. ``status`` accepts comma-separated raw RunStatus
-        values; unknown values return 422. ``search`` matches the triggering
-        user's display name (full name, falling back to email).
+        Returns a counted, paginated list of runs for the specified workflow.
+        Each item includes the run's status, step progress (`total_steps`,
+        `finished_steps`), credit usage, and the actor who triggered it.
+
+        **Status filter:** Pass `?status=completed,failed` to OR-match multiple
+        statuses. Values must be the raw lowercase RunStatus strings. Unknown values
+        or empty tokens (e.g. `a,,b`) return 422.
+
+        **Pagination:** `pagination.total` reflects the filtered count. Sort
+        tiebreaks always append `id ASC` for stable offset/limit pagination.
+
+        For aggregate statistics (pass rate, average duration) across all runs,
+        use `GET /runs/summary` instead.
 
         Parameters
         ----------
         workflow_id : str
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Maximum items to return (1–100).
 
         status : typing.Optional[str]
-            Comma-separated raw RunStatus values (e.g. `completed,failed`). Values are case-sensitive lowercase. Multiple values OR-match. Empty tokens (e.g. `a,,b`) and unknown values return 422.
+            Comma-separated raw RunStatus values (e.g. `completed,failed`). Values are case-sensitive lowercase: `pending`, `running`, `completed`, `failed`, `cancelled`, `paused`. Multiple values OR-match. Empty tokens (e.g. `a,,b`) and unknown values return 422.
 
         search : typing.Optional[str]
-            Case-insensitive search over triggering user's display name and email.
+            Case-insensitive search over the triggering user's display name (falls back to email).
 
         sort : typing.Optional[ListRunsRequestSort]
-            Sort field: created_at | started_at | completed_at | status.
+            Sort field: `created_at` | `started_at` | `completed_at` | `status`. Defaults to `created_at`.
 
         order : typing.Optional[ListRunsRequestOrder]
-            asc or desc.
+            `asc` or `desc`. Defaults to `desc`.
 
         workspace_id : typing.Optional[str]
 
@@ -497,7 +562,20 @@ class AsyncRawRunsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowRunOut]:
         """
-        Start a workflow run.
+        Start a new execution of a workflow (202 Accepted).
+
+        Enqueues the workflow for asynchronous execution and returns the newly
+        created run in `pending` or `running` status. The run progresses through
+        its nodes in the background; poll `GET /runs/{run_id}/status` for
+        lightweight progress updates, or `GET /runs/{run_id}` once to load the
+        immutable definition snapshot.
+
+        Use `POST /runs/preview` or `POST /estimate` to compute the credit cost
+        before committing to an actual run — those endpoints are read-only and
+        incur no charges.
+
+        Returns 409 if the workspace is at its concurrent-run limit or another
+        run for this workflow is already active.
 
         Parameters
         ----------
@@ -560,11 +638,18 @@ class AsyncRawRunsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowRunDetailOut]:
         """
-        Fetch a workflow run by id.
+        Fetch full detail for a single workflow run.
 
-        Includes `definition_snapshot` — the graph/execution config captured
-        when the run started, returned raw (no config migrations applied) so
-        it reflects the workflow exactly as it existed for this run.
+        Returns all run fields plus `definition_snapshot` — the graph and
+        execution config captured at the moment the run started. The snapshot is
+        returned raw (no config migrations applied), so it faithfully represents
+        the workflow as it existed for this specific execution even if the
+        workflow definition has since been edited.
+
+        This is the heaviest run endpoint. For progress polling, use the lighter
+        `GET /runs/{run_id}/status` which omits the snapshot. For aggregated
+        visual metrics, use `GET /runs/{run_id}/overview`. For the per-node step
+        log with audio playback URLs, use `GET /runs/{run_id}/steps`.
 
         Parameters
         ----------
@@ -629,12 +714,23 @@ class AsyncRawRunsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowRunStatusOut]:
         """
-        Lightweight run status for polling.
+        Lightweight run status for progress polling.
 
-        Returns only the volatile run state (status, step counts, timestamps,
-        usage_summary, error, has_export) — no graph snapshot. Use this for
-        progress polling; call `GET /runs/{run_id}` once to load the immutable
-        definition snapshot.
+        Returns only the volatile, frequently-changing fields: `status`, step
+        counts (`total_steps`, `finished_steps`), timestamps (`started_at`,
+        `completed_at`, `paused_at`, `pause_requested_at`), `usage_summary`,
+        `error`, and `has_export`. The definition snapshot is intentionally
+        omitted to keep response size small.
+
+        Recommended polling pattern: call `GET /runs/{run_id}` once after
+        starting a run to load the immutable definition snapshot and initial
+        metadata, then poll this endpoint until `status` reaches a terminal value
+        (`completed`, `failed`, or `cancelled`). `has_export` becoming `true`
+        signals that a download is ready via `GET /runs/{run_id}/download`.
+
+        The transient `pausing` state is observable here: `status == "running"`
+        with `pause_requested_at` set means a pause is in progress but the
+        current wave has not yet finished draining.
 
         Parameters
         ----------
@@ -699,7 +795,19 @@ class AsyncRawRunsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowRunOut]:
         """
-        Cancel a running workflow run.
+        Cancel an active workflow run.
+
+        Immediately marks the run as `cancelled` and stops any further processing.
+        In-flight work at the current node may be abandoned mid-execution. The
+        operation is idempotent: cancelling an already-cancelled run returns the
+        run unchanged without error.
+
+        Only runs in `pending`, `running`, or `paused` status can be cancelled.
+        Runs that have already reached a terminal state (`completed`, `failed`,
+        `cancelled`) return 409.
+
+        Unlike `pause`, cancel is permanent — a cancelled run cannot be resumed.
+        Use `pause` if you intend to continue the run later.
 
         Parameters
         ----------

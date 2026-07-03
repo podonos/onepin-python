@@ -50,6 +50,7 @@ class RawWorkflowsClient:
         order: typing.Optional[typing.Sequence[ListWorkflowsRequestOrderItem]] = None,
         last_run_after: typing.Optional[dt.datetime] = None,
         last_run_before: typing.Optional[dt.datetime] = None,
+        has_failed_run: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -58,23 +59,42 @@ class RawWorkflowsClient:
         """
         List workflows in the current workspace.
 
-        Multi-sort: `sort` and `order` are parallel lists.
-        `?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
-        runs_count DESC, secondarily by name ASC. When `order` is shorter than
-        `sort`, missing entries default per-field:
-        `name=asc, updated_at=desc, runs_count=desc`. When `sort` is omitted,
-        list defaults to `updated_at DESC`. Every sort path appends
-        `Workflow.id ASC` as a deterministic tiebreaker for pagination stability.
+        Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
+        header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
+        `last_run_status`) computed over all runs for that workflow.
 
-        `paused` is accepted but currently returns an empty result because
-        backend pause state is not implemented. `last_run_status` is the raw
-        RunStatus value, including values like `pending` or `cancelled`, and
-        pagination `total` is the filtered total for the current query.
+        **Status filter:** `status` narrows by the UI-derived state of the workflow's
+        most recent run. `completed` matches only workflows whose latest run succeeded
+        (completed-only), and `failed` matches only workflows whose latest run failed —
+        the two buckets are disjoint. A workflow whose latest run was `cancelled` matches
+        neither bucket and surfaces only in the unfiltered list. `running` matches active
+        (running or paused) workflows. `draft` matches workflows with no runs yet.
+        `paused` is accepted but currently returns no results.
+
+        **Multi-sort:** `sort` and `order` are parallel query lists.
+        `?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
+        `runs_count DESC`, then by `name ASC`. When `order` has fewer entries than
+        `sort`, missing positions use per-field defaults (`name=asc`,
+        `updated_at=desc`, `runs_count=desc`). Omitting `sort` defaults to
+        `updated_at DESC`. A stable `id ASC` tiebreaker is always appended so
+        offset/limit pagination is consistent when sort keys tie.
+
+        **Date range:** `last_run_after` / `last_run_before` filter by the time of
+        the most recent run. Both must be ISO 8601 with a UTC offset; a naive
+        datetime returns 422. An inverted range (`after > before`) also returns 422.
+
+        **Failure history:** `has_failed_run` is orthogonal to `status`. `status`
+        keys off the latest run only; `has_failed_run=true` matches workflows with a
+        `failed` run *anywhere* in their history, so a workflow whose latest run
+        completed still matches if an earlier run failed. It composes with the other
+        filters (AND). `cancelled` runs do not count as failures.
+
+        `pagination.total` reflects the filtered count for the current query.
 
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `completed` means FINISHED — it matches workflows whose latest run is completed, failed, or cancelled, so it overlaps `failed` on failed runs. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `paused` is accepted for forward compatibility and currently returns no rows.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -86,14 +106,19 @@ class RawWorkflowsClient:
             Parallel to sort[]; shorter is padded with per-field defaults.
 
         last_run_after : typing.Optional[dt.datetime]
-            Filter workflows whose last_run_at is at or after this ISO datetime.
+            Filter workflows whose last_run_at is at or after this ISO datetime (ISO 8601 with UTC offset required).
 
         last_run_before : typing.Optional[dt.datetime]
-            Filter workflows whose last_run_at is at or before this ISO datetime.
+            Filter workflows whose last_run_at is at or before this ISO datetime (ISO 8601 with UTC offset required).
+
+        has_failed_run : typing.Optional[bool]
+            Filter by failure history — ORTHOGONAL to `status` (which is latest-run based). `true` returns only workflows with at least one run that ended in `failed` state anywhere in their history; a workflow whose latest run succeeded still matches if an earlier run failed. `false` returns only workflows that have never had a failed run. Composes (ANDs) with `status`/`search`/date filters. `cancelled` runs are not treated as failures.
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Maximum items to return (1–100).
 
         workspace_id : typing.Optional[str]
 
@@ -115,6 +140,7 @@ class RawWorkflowsClient:
                 "order": order,
                 "last_run_after": serialize_datetime(last_run_after) if last_run_after is not None else None,
                 "last_run_before": serialize_datetime(last_run_before) if last_run_before is not None else None,
+                "has_failed_run": has_failed_run,
                 "offset": offset,
                 "limit": limit,
             },
@@ -163,17 +189,29 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowOut]:
         """
-        Create a workflow.
+        Create a new workflow in the current workspace.
+
+        Validates the workflow `definition` (graph structure, node types, edge
+        connectivity) before persisting. Returns 422 with structured details if
+        the definition fails validation. Requires at least `editor` role in the
+        workspace; viewers cannot create workflows.
+
+        The `definition` contains a `graph` (nodes and edges) and an `execution`
+        block (ordered step list and execution params). Omitting `definition`
+        creates a workflow with an empty graph that can be edited later.
 
         Parameters
         ----------
         name : str
+            Human-readable workflow name (1–200 characters, non-blank).
 
         workspace_id : typing.Optional[str]
 
         description : typing.Optional[str]
+            Optional description shown in the workflow list (max 5000 characters).
 
         definition : typing.Optional[WorkflowDefinitionInput]
+            Graph and execution config. Omit to create an empty workflow.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -238,7 +276,16 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowOut]:
         """
-        Fetch a workflow by id.
+        Fetch a single workflow by ID.
+
+        Returns the full workflow including its `definition` (graph nodes/edges and
+        execution config), aggregate run stats, and the latest run status. The
+        `definition` is returned with any backwards-compatible config migrations
+        applied, so node configs always reflect the current schema even if the
+        workflow was saved with an older version.
+
+        Use `GET /workflows` to list multiple workflows without fetching their
+        full definitions.
 
         Parameters
         ----------
@@ -303,19 +350,28 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowOut]:
         """
-        Update a workflow.
+        Replace a workflow's name, description, and definition (full update).
+
+        All fields in the request body are required. The `definition` is
+        validated before persisting; an invalid graph returns 422. Existing runs
+        are not affected — each run captures a `definition_snapshot` at start
+        time. Requires at least `editor` role. Use `PATCH` to update only
+        specific fields without supplying the full definition.
 
         Parameters
         ----------
         workflow_id : str
 
         name : str
+            Human-readable workflow name (1–200 characters, non-blank).
 
         definition : WorkflowDefinitionInput
+            Full replacement graph and execution config. Must be valid.
 
         workspace_id : typing.Optional[str]
 
         description : typing.Optional[str]
+            Optional description (max 5000 characters). Pass null to clear.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -380,7 +436,12 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseDict]:
         """
-        Soft-delete a workflow.
+        Delete a workflow and hide it from all list and get endpoints.
+
+        The workflow is soft-deleted: its data (including runs and their outputs)
+        is retained for audit and GDPR-purge purposes but is no longer accessible
+        via the API. Subsequent `GET`, `PUT`, `PATCH`, or run requests on the
+        same ID return 404. Requires at least `editor` role.
 
         Parameters
         ----------
@@ -445,7 +506,14 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowOut]:
         """
-        Partially update a workflow. Only fields present in the body are applied.
+        Partially update a workflow — only supplied fields are changed.
+
+        Any combination of `name`, `description`, and `definition` may be
+        included; omitted fields are left unchanged. At least one field must be
+        present (empty body returns 422). If `definition` is provided it is fully
+        validated; an invalid graph returns 422. Requires at least `editor` role.
+
+        Use `PUT` when replacing the full workflow definition in one operation.
 
         Parameters
         ----------
@@ -454,10 +522,13 @@ class RawWorkflowsClient:
         workspace_id : typing.Optional[str]
 
         name : typing.Optional[str]
+            New workflow name (1–200 characters). Omit to leave unchanged.
 
         description : typing.Optional[str]
+            New description (max 5000 characters). Omit to leave unchanged; pass null to clear.
 
         definition : typing.Optional[WorkflowDefinitionInput]
+            Replacement graph and execution config. Omit to leave unchanged; must be valid if supplied.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -526,13 +597,19 @@ class RawWorkflowsClient:
         """
         List confirmed uploads attached to a workflow.
 
+        Returns only uploads that have been confirmed (fully transferred and
+        committed to the workflow). In-progress or abandoned uploads are excluded.
+        Each item includes a short-lived download URL for the uploaded file.
+
         Parameters
         ----------
         workflow_id : str
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Maximum items to return (1–100).
 
         workspace_id : typing.Optional[str]
 
@@ -594,7 +671,12 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseEstimateResponse]:
         """
-        Estimate workflow credits without creating a run.
+        Estimate the credit cost of running a workflow without creating a run.
+
+        Computes a breakdown of expected credits per node type based on the
+        workflow's current definition. No run is created, no credits are charged,
+        and no side effects occur. Equivalent to `POST /runs/preview`; prefer that
+        path in new integrations as it is co-located with the run lifecycle.
 
         Parameters
         ----------
@@ -656,7 +738,12 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseEstimateResponse]:
         """
-        Estimate workflow run credits without creating a run.
+        Dry-run credit estimate for a workflow — no run is created.
+
+        Returns a per-node-type credit breakdown based on the workflow's current
+        definition. No run is enqueued, no credits are charged, and the workflow
+        state is not modified. Use this before calling `POST /runs` to confirm
+        the expected cost. Equivalent to `POST /estimate`.
 
         Parameters
         ----------
@@ -720,22 +807,32 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseRunsSummaryOut]:
         """
-        Aggregate run-status counts plus pass_rate and average_duration_seconds.
+        Aggregate run statistics for a workflow over an optional date window.
 
-        ``pass_rate = completed / (completed + failed + cancelled)``;
-        ``None`` when no terminal runs.
-        ``average_duration_seconds = mean(completed_at - started_at)`` over
-        completed runs only; ``None`` when there are zero completed runs.
+        Returns per-status counts (`completed`, `failed`, `cancelled`, `pending`,
+        `running`, `paused`) plus two derived metrics:
+
+        - `pass_rate`: `completed / (completed + failed + cancelled)`. `null` when
+          there are no terminal runs in the window.
+        - `average_duration_seconds`: mean of `completed_at - started_at` over
+          successfully completed runs only. `null` when no runs have completed.
+
+        **Date range:** `from` / `to` filter by `created_at`. Both must be ISO 8601
+        with a UTC offset; a naive datetime returns 422. An inverted range
+        (`from > to`) also returns 422. Omit both to aggregate over all runs.
+
+        Use `GET /runs` with `?status=` filters for individual run details; this
+        endpoint is best for dashboard-style health metrics.
 
         Parameters
         ----------
         workflow_id : str
 
         from_ : typing.Optional[dt.datetime]
-            Filter runs by created_at >= this ISO datetime.
+            Filter runs by created_at >= this ISO datetime (ISO 8601 with UTC offset required).
 
         to : typing.Optional[dt.datetime]
-            Filter runs by created_at <= this ISO datetime.
+            Filter runs by created_at <= this ISO datetime (ISO 8601 with UTC offset required).
 
         workspace_id : typing.Optional[str]
 
@@ -798,7 +895,23 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseListWorkflowRunStepOut]:
         """
-        List steps for a workflow run.
+        List per-node execution steps for a workflow run.
+
+        Returns one entry per node execution attempt, ordered by execution sequence.
+        Each step includes the node type, status, iteration number (for nodes that
+        are retried), start/completion timestamps, and the node's `result` output.
+
+        For audio output nodes, `result` is hydrated with short-lived `playback_url`
+        values (valid for 15 minutes) so callers can stream audio directly without
+        a separate download step.
+
+        `node_display_name` is resolved from the run's definition snapshot, so it
+        reflects the name the node had when the run executed. Nodes that were
+        retried appear as multiple steps with incrementing `iteration` values.
+
+        For a higher-level view with aggregated metrics (pass rates, audio duration
+        by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
+        script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
 
         Parameters
         ----------
@@ -864,6 +977,21 @@ class RawWorkflowsClient:
     ) -> HttpResponse[ApiResponseWorkflowRunOverviewOut]:
         """
         Fetch server-computed overview aggregates for a workflow run.
+
+        Returns structured metric sections (e.g. audio duration totals, validation
+        pass rates) grouped by display section, along with per-language audio
+        breakdowns and per-validator scoring summaries. Also includes a
+        `workflow_snapshot` with the graph definition and per-node completion states.
+
+        This endpoint is best suited for a summary/results view after a run
+        completes. It differs from the other run sub-resources as follows:
+
+        - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
+        - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
+        - `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+        - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
+        - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
+          node state map for a dashboard/overview panel.
 
         Parameters
         ----------
@@ -932,10 +1060,26 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[WorkflowRunDataResponse]:
         """
-        Fetch normalized grouped rows/cards for the run detail Data tab.
+        Paginated script-and-audio data rows for a completed workflow run.
 
-        `pagination.total` is search-scoped and language-independent; language
-        filters only card lists, so returned rows may contain empty `cards`.
+        Returns grouped rows where each row represents one source script line.
+        Within each row, `cards` contain the per-language audio outputs, per-card
+        validation scores (word accuracy, naturalness), and short-lived audio
+        `playback_url` values (valid for 15 minutes).
+
+        **Filtering:**
+        - `search` narrows which rows are returned based on their source script text.
+        - `language` narrows the `cards` list within each returned row to a single
+          locale. Rows with no matching cards are still returned (with empty `cards`),
+          and `pagination.total` always reflects the search-filtered row count
+          regardless of `language`.
+
+        **Pagination:** `pagination.total` is scoped to the `search` filter only.
+
+        Response includes a `partial` field indicating whether any data is still
+        being computed (e.g. audio not yet generated, validation not yet scored).
+        This endpoint sets `Cache-Control: no-store` because playback URLs are
+        short-lived and data may change while a run is still in progress.
 
         Parameters
         ----------
@@ -944,14 +1088,16 @@ class RawWorkflowsClient:
         run_id : str
 
         search : typing.Optional[str]
-            Case-insensitive search over visible grouped source/script text.
+            Case-insensitive search over the source/script text of each row.
 
         language : typing.Optional[str]
-            Exact full-locale card filter. `_` is normalized to `-`; filtering cards preserves row visibility and pagination.total remains language-independent, so rows may return empty cards.
+            Exact full-locale code to filter cards within each row (e.g. `en-US`). `_` is normalized to `-`. Filtering is card-level only — rows remain visible even when all their cards are filtered out, and `pagination.total` is unaffected.
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Maximum rows to return (1–100).
 
         workspace_id : typing.Optional[str]
 
@@ -1016,7 +1162,20 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseDownloadUrlOut]:
         """
-        Create a temporary download URL for a workflow run export.
+        Create a temporary download URL for a complete workflow run export.
+
+        Returns a pre-signed URL pointing to a ZIP archive containing all audio
+        output files produced by the run. The URL is valid for 15 minutes
+        (`expires_at`). The archive is generated on first request and cached for
+        subsequent calls; re-calling this endpoint before expiry returns a new
+        URL for the same cached archive.
+
+        Only available for runs in `completed` status — returns 409 for runs that
+        are still active or ended in `failed`/`cancelled`. Returns 404 if the run
+        produced no audio files.
+
+        To download output from a single output node rather than the whole run,
+        use `GET /runs/{run_id}/nodes/{node_id}/download`.
 
         Parameters
         ----------
@@ -1104,7 +1263,20 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseDownloadUrlOut]:
         """
-        Create a temporary download URL for a node-level workflow export.
+        Create a temporary download URL for a single output node's audio export.
+
+        Returns a pre-signed URL for a ZIP archive containing the audio files
+        produced by one specific output node within the run. Useful when a
+        workflow has multiple output nodes and the caller wants only one node's
+        results rather than the full run archive.
+
+        `node_id` must identify an output-category node in the run's definition
+        snapshot. Passing a node ID that belongs to a non-output node type (e.g.
+        a processing or validation node) returns 404. Returns 404 if the node
+        produced no audio files, and 409 if the run has not yet completed.
+
+        The URL is valid for 15 minutes. To download all output nodes in a single
+        archive, use `GET /runs/{run_id}/download` instead.
 
         Parameters
         ----------
@@ -1193,10 +1365,17 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowRunOut]:
         """
-        Pause a workflow run.
+        Pause an active workflow run at the next safe checkpoint.
 
-        A running run finishes its current wave (preserving in-flight work) and parks at the
-        next wave boundary; a pending run parks immediately. Fire-and-forget and idempotent.
+        For a running run, the current wave of parallel nodes is allowed to finish
+        before the run parks (in-flight work is preserved, not abandoned). For a
+        pending run that has not yet started, it parks immediately. The run
+        transitions to `paused` status once drained; during the drain period,
+        `status` remains `running` with `pause_requested_at` set.
+
+        The operation is idempotent: pausing an already-paused run returns it
+        unchanged. A paused run can be resumed via `POST /runs/{run_id}/resume`
+        or permanently stopped via `POST /runs/{run_id}/cancel`.
 
         Parameters
         ----------
@@ -1263,8 +1442,15 @@ class RawWorkflowsClient:
         """
         Resume a paused workflow run from its last completed wave.
 
-        Best-effort: if the workflow already has another active run, or the caller is at their
-        concurrent-run limit, the run stays paused and a 409 explains why (retry later).
+        Transitions the run from `paused` back to `running` and schedules
+        execution to continue from where it left off — no nodes that already
+        completed are re-executed.
+
+        Returns 409 if the workspace already has another active run for this
+        workflow, or if the caller is at the concurrent-run limit. In that case
+        the run stays `paused` and the caller can retry later. Only runs in
+        `paused` status can be resumed; attempting to resume a `running`,
+        `completed`, `failed`, or `cancelled` run returns 409.
 
         Parameters
         ----------
@@ -1328,7 +1514,12 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowOut]:
         """
-        Duplicate a workflow.
+        Create a copy of an existing workflow in the same workspace.
+
+        The new workflow inherits the source's `name` (suffixed with " (Copy)"),
+        `description`, and `definition`. Runs from the original workflow are not
+        copied — the duplicate starts with zero runs. Requires at least `editor`
+        role. Returns 201 with the new workflow on success.
 
         Parameters
         ----------
@@ -1396,6 +1587,7 @@ class AsyncRawWorkflowsClient:
         order: typing.Optional[typing.Sequence[ListWorkflowsRequestOrderItem]] = None,
         last_run_after: typing.Optional[dt.datetime] = None,
         last_run_before: typing.Optional[dt.datetime] = None,
+        has_failed_run: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -1404,23 +1596,42 @@ class AsyncRawWorkflowsClient:
         """
         List workflows in the current workspace.
 
-        Multi-sort: `sort` and `order` are parallel lists.
-        `?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
-        runs_count DESC, secondarily by name ASC. When `order` is shorter than
-        `sort`, missing entries default per-field:
-        `name=asc, updated_at=desc, runs_count=desc`. When `sort` is omitted,
-        list defaults to `updated_at DESC`. Every sort path appends
-        `Workflow.id ASC` as a deterministic tiebreaker for pagination stability.
+        Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
+        header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
+        `last_run_status`) computed over all runs for that workflow.
 
-        `paused` is accepted but currently returns an empty result because
-        backend pause state is not implemented. `last_run_status` is the raw
-        RunStatus value, including values like `pending` or `cancelled`, and
-        pagination `total` is the filtered total for the current query.
+        **Status filter:** `status` narrows by the UI-derived state of the workflow's
+        most recent run. `completed` matches only workflows whose latest run succeeded
+        (completed-only), and `failed` matches only workflows whose latest run failed —
+        the two buckets are disjoint. A workflow whose latest run was `cancelled` matches
+        neither bucket and surfaces only in the unfiltered list. `running` matches active
+        (running or paused) workflows. `draft` matches workflows with no runs yet.
+        `paused` is accepted but currently returns no results.
+
+        **Multi-sort:** `sort` and `order` are parallel query lists.
+        `?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
+        `runs_count DESC`, then by `name ASC`. When `order` has fewer entries than
+        `sort`, missing positions use per-field defaults (`name=asc`,
+        `updated_at=desc`, `runs_count=desc`). Omitting `sort` defaults to
+        `updated_at DESC`. A stable `id ASC` tiebreaker is always appended so
+        offset/limit pagination is consistent when sort keys tie.
+
+        **Date range:** `last_run_after` / `last_run_before` filter by the time of
+        the most recent run. Both must be ISO 8601 with a UTC offset; a naive
+        datetime returns 422. An inverted range (`after > before`) also returns 422.
+
+        **Failure history:** `has_failed_run` is orthogonal to `status`. `status`
+        keys off the latest run only; `has_failed_run=true` matches workflows with a
+        `failed` run *anywhere* in their history, so a workflow whose latest run
+        completed still matches if an earlier run failed. It composes with the other
+        filters (AND). `cancelled` runs do not count as failures.
+
+        `pagination.total` reflects the filtered count for the current query.
 
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `completed` means FINISHED — it matches workflows whose latest run is completed, failed, or cancelled, so it overlaps `failed` on failed runs. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `paused` is accepted for forward compatibility and currently returns no rows.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -1432,14 +1643,19 @@ class AsyncRawWorkflowsClient:
             Parallel to sort[]; shorter is padded with per-field defaults.
 
         last_run_after : typing.Optional[dt.datetime]
-            Filter workflows whose last_run_at is at or after this ISO datetime.
+            Filter workflows whose last_run_at is at or after this ISO datetime (ISO 8601 with UTC offset required).
 
         last_run_before : typing.Optional[dt.datetime]
-            Filter workflows whose last_run_at is at or before this ISO datetime.
+            Filter workflows whose last_run_at is at or before this ISO datetime (ISO 8601 with UTC offset required).
+
+        has_failed_run : typing.Optional[bool]
+            Filter by failure history — ORTHOGONAL to `status` (which is latest-run based). `true` returns only workflows with at least one run that ended in `failed` state anywhere in their history; a workflow whose latest run succeeded still matches if an earlier run failed. `false` returns only workflows that have never had a failed run. Composes (ANDs) with `status`/`search`/date filters. `cancelled` runs are not treated as failures.
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Maximum items to return (1–100).
 
         workspace_id : typing.Optional[str]
 
@@ -1461,6 +1677,7 @@ class AsyncRawWorkflowsClient:
                 "order": order,
                 "last_run_after": serialize_datetime(last_run_after) if last_run_after is not None else None,
                 "last_run_before": serialize_datetime(last_run_before) if last_run_before is not None else None,
+                "has_failed_run": has_failed_run,
                 "offset": offset,
                 "limit": limit,
             },
@@ -1509,17 +1726,29 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowOut]:
         """
-        Create a workflow.
+        Create a new workflow in the current workspace.
+
+        Validates the workflow `definition` (graph structure, node types, edge
+        connectivity) before persisting. Returns 422 with structured details if
+        the definition fails validation. Requires at least `editor` role in the
+        workspace; viewers cannot create workflows.
+
+        The `definition` contains a `graph` (nodes and edges) and an `execution`
+        block (ordered step list and execution params). Omitting `definition`
+        creates a workflow with an empty graph that can be edited later.
 
         Parameters
         ----------
         name : str
+            Human-readable workflow name (1–200 characters, non-blank).
 
         workspace_id : typing.Optional[str]
 
         description : typing.Optional[str]
+            Optional description shown in the workflow list (max 5000 characters).
 
         definition : typing.Optional[WorkflowDefinitionInput]
+            Graph and execution config. Omit to create an empty workflow.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1584,7 +1813,16 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowOut]:
         """
-        Fetch a workflow by id.
+        Fetch a single workflow by ID.
+
+        Returns the full workflow including its `definition` (graph nodes/edges and
+        execution config), aggregate run stats, and the latest run status. The
+        `definition` is returned with any backwards-compatible config migrations
+        applied, so node configs always reflect the current schema even if the
+        workflow was saved with an older version.
+
+        Use `GET /workflows` to list multiple workflows without fetching their
+        full definitions.
 
         Parameters
         ----------
@@ -1649,19 +1887,28 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowOut]:
         """
-        Update a workflow.
+        Replace a workflow's name, description, and definition (full update).
+
+        All fields in the request body are required. The `definition` is
+        validated before persisting; an invalid graph returns 422. Existing runs
+        are not affected — each run captures a `definition_snapshot` at start
+        time. Requires at least `editor` role. Use `PATCH` to update only
+        specific fields without supplying the full definition.
 
         Parameters
         ----------
         workflow_id : str
 
         name : str
+            Human-readable workflow name (1–200 characters, non-blank).
 
         definition : WorkflowDefinitionInput
+            Full replacement graph and execution config. Must be valid.
 
         workspace_id : typing.Optional[str]
 
         description : typing.Optional[str]
+            Optional description (max 5000 characters). Pass null to clear.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1726,7 +1973,12 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseDict]:
         """
-        Soft-delete a workflow.
+        Delete a workflow and hide it from all list and get endpoints.
+
+        The workflow is soft-deleted: its data (including runs and their outputs)
+        is retained for audit and GDPR-purge purposes but is no longer accessible
+        via the API. Subsequent `GET`, `PUT`, `PATCH`, or run requests on the
+        same ID return 404. Requires at least `editor` role.
 
         Parameters
         ----------
@@ -1791,7 +2043,14 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowOut]:
         """
-        Partially update a workflow. Only fields present in the body are applied.
+        Partially update a workflow — only supplied fields are changed.
+
+        Any combination of `name`, `description`, and `definition` may be
+        included; omitted fields are left unchanged. At least one field must be
+        present (empty body returns 422). If `definition` is provided it is fully
+        validated; an invalid graph returns 422. Requires at least `editor` role.
+
+        Use `PUT` when replacing the full workflow definition in one operation.
 
         Parameters
         ----------
@@ -1800,10 +2059,13 @@ class AsyncRawWorkflowsClient:
         workspace_id : typing.Optional[str]
 
         name : typing.Optional[str]
+            New workflow name (1–200 characters). Omit to leave unchanged.
 
         description : typing.Optional[str]
+            New description (max 5000 characters). Omit to leave unchanged; pass null to clear.
 
         definition : typing.Optional[WorkflowDefinitionInput]
+            Replacement graph and execution config. Omit to leave unchanged; must be valid if supplied.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1872,13 +2134,19 @@ class AsyncRawWorkflowsClient:
         """
         List confirmed uploads attached to a workflow.
 
+        Returns only uploads that have been confirmed (fully transferred and
+        committed to the workflow). In-progress or abandoned uploads are excluded.
+        Each item includes a short-lived download URL for the uploaded file.
+
         Parameters
         ----------
         workflow_id : str
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Maximum items to return (1–100).
 
         workspace_id : typing.Optional[str]
 
@@ -1940,7 +2208,12 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseEstimateResponse]:
         """
-        Estimate workflow credits without creating a run.
+        Estimate the credit cost of running a workflow without creating a run.
+
+        Computes a breakdown of expected credits per node type based on the
+        workflow's current definition. No run is created, no credits are charged,
+        and no side effects occur. Equivalent to `POST /runs/preview`; prefer that
+        path in new integrations as it is co-located with the run lifecycle.
 
         Parameters
         ----------
@@ -2002,7 +2275,12 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseEstimateResponse]:
         """
-        Estimate workflow run credits without creating a run.
+        Dry-run credit estimate for a workflow — no run is created.
+
+        Returns a per-node-type credit breakdown based on the workflow's current
+        definition. No run is enqueued, no credits are charged, and the workflow
+        state is not modified. Use this before calling `POST /runs` to confirm
+        the expected cost. Equivalent to `POST /estimate`.
 
         Parameters
         ----------
@@ -2066,22 +2344,32 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseRunsSummaryOut]:
         """
-        Aggregate run-status counts plus pass_rate and average_duration_seconds.
+        Aggregate run statistics for a workflow over an optional date window.
 
-        ``pass_rate = completed / (completed + failed + cancelled)``;
-        ``None`` when no terminal runs.
-        ``average_duration_seconds = mean(completed_at - started_at)`` over
-        completed runs only; ``None`` when there are zero completed runs.
+        Returns per-status counts (`completed`, `failed`, `cancelled`, `pending`,
+        `running`, `paused`) plus two derived metrics:
+
+        - `pass_rate`: `completed / (completed + failed + cancelled)`. `null` when
+          there are no terminal runs in the window.
+        - `average_duration_seconds`: mean of `completed_at - started_at` over
+          successfully completed runs only. `null` when no runs have completed.
+
+        **Date range:** `from` / `to` filter by `created_at`. Both must be ISO 8601
+        with a UTC offset; a naive datetime returns 422. An inverted range
+        (`from > to`) also returns 422. Omit both to aggregate over all runs.
+
+        Use `GET /runs` with `?status=` filters for individual run details; this
+        endpoint is best for dashboard-style health metrics.
 
         Parameters
         ----------
         workflow_id : str
 
         from_ : typing.Optional[dt.datetime]
-            Filter runs by created_at >= this ISO datetime.
+            Filter runs by created_at >= this ISO datetime (ISO 8601 with UTC offset required).
 
         to : typing.Optional[dt.datetime]
-            Filter runs by created_at <= this ISO datetime.
+            Filter runs by created_at <= this ISO datetime (ISO 8601 with UTC offset required).
 
         workspace_id : typing.Optional[str]
 
@@ -2144,7 +2432,23 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseListWorkflowRunStepOut]:
         """
-        List steps for a workflow run.
+        List per-node execution steps for a workflow run.
+
+        Returns one entry per node execution attempt, ordered by execution sequence.
+        Each step includes the node type, status, iteration number (for nodes that
+        are retried), start/completion timestamps, and the node's `result` output.
+
+        For audio output nodes, `result` is hydrated with short-lived `playback_url`
+        values (valid for 15 minutes) so callers can stream audio directly without
+        a separate download step.
+
+        `node_display_name` is resolved from the run's definition snapshot, so it
+        reflects the name the node had when the run executed. Nodes that were
+        retried appear as multiple steps with incrementing `iteration` values.
+
+        For a higher-level view with aggregated metrics (pass rates, audio duration
+        by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
+        script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
 
         Parameters
         ----------
@@ -2210,6 +2514,21 @@ class AsyncRawWorkflowsClient:
     ) -> AsyncHttpResponse[ApiResponseWorkflowRunOverviewOut]:
         """
         Fetch server-computed overview aggregates for a workflow run.
+
+        Returns structured metric sections (e.g. audio duration totals, validation
+        pass rates) grouped by display section, along with per-language audio
+        breakdowns and per-validator scoring summaries. Also includes a
+        `workflow_snapshot` with the graph definition and per-node completion states.
+
+        This endpoint is best suited for a summary/results view after a run
+        completes. It differs from the other run sub-resources as follows:
+
+        - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
+        - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
+        - `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+        - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
+        - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
+          node state map for a dashboard/overview panel.
 
         Parameters
         ----------
@@ -2278,10 +2597,26 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[WorkflowRunDataResponse]:
         """
-        Fetch normalized grouped rows/cards for the run detail Data tab.
+        Paginated script-and-audio data rows for a completed workflow run.
 
-        `pagination.total` is search-scoped and language-independent; language
-        filters only card lists, so returned rows may contain empty `cards`.
+        Returns grouped rows where each row represents one source script line.
+        Within each row, `cards` contain the per-language audio outputs, per-card
+        validation scores (word accuracy, naturalness), and short-lived audio
+        `playback_url` values (valid for 15 minutes).
+
+        **Filtering:**
+        - `search` narrows which rows are returned based on their source script text.
+        - `language` narrows the `cards` list within each returned row to a single
+          locale. Rows with no matching cards are still returned (with empty `cards`),
+          and `pagination.total` always reflects the search-filtered row count
+          regardless of `language`.
+
+        **Pagination:** `pagination.total` is scoped to the `search` filter only.
+
+        Response includes a `partial` field indicating whether any data is still
+        being computed (e.g. audio not yet generated, validation not yet scored).
+        This endpoint sets `Cache-Control: no-store` because playback URLs are
+        short-lived and data may change while a run is still in progress.
 
         Parameters
         ----------
@@ -2290,14 +2625,16 @@ class AsyncRawWorkflowsClient:
         run_id : str
 
         search : typing.Optional[str]
-            Case-insensitive search over visible grouped source/script text.
+            Case-insensitive search over the source/script text of each row.
 
         language : typing.Optional[str]
-            Exact full-locale card filter. `_` is normalized to `-`; filtering cards preserves row visibility and pagination.total remains language-independent, so rows may return empty cards.
+            Exact full-locale code to filter cards within each row (e.g. `en-US`). `_` is normalized to `-`. Filtering is card-level only — rows remain visible even when all their cards are filtered out, and `pagination.total` is unaffected.
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Maximum rows to return (1–100).
 
         workspace_id : typing.Optional[str]
 
@@ -2362,7 +2699,20 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseDownloadUrlOut]:
         """
-        Create a temporary download URL for a workflow run export.
+        Create a temporary download URL for a complete workflow run export.
+
+        Returns a pre-signed URL pointing to a ZIP archive containing all audio
+        output files produced by the run. The URL is valid for 15 minutes
+        (`expires_at`). The archive is generated on first request and cached for
+        subsequent calls; re-calling this endpoint before expiry returns a new
+        URL for the same cached archive.
+
+        Only available for runs in `completed` status — returns 409 for runs that
+        are still active or ended in `failed`/`cancelled`. Returns 404 if the run
+        produced no audio files.
+
+        To download output from a single output node rather than the whole run,
+        use `GET /runs/{run_id}/nodes/{node_id}/download`.
 
         Parameters
         ----------
@@ -2450,7 +2800,20 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseDownloadUrlOut]:
         """
-        Create a temporary download URL for a node-level workflow export.
+        Create a temporary download URL for a single output node's audio export.
+
+        Returns a pre-signed URL for a ZIP archive containing the audio files
+        produced by one specific output node within the run. Useful when a
+        workflow has multiple output nodes and the caller wants only one node's
+        results rather than the full run archive.
+
+        `node_id` must identify an output-category node in the run's definition
+        snapshot. Passing a node ID that belongs to a non-output node type (e.g.
+        a processing or validation node) returns 404. Returns 404 if the node
+        produced no audio files, and 409 if the run has not yet completed.
+
+        The URL is valid for 15 minutes. To download all output nodes in a single
+        archive, use `GET /runs/{run_id}/download` instead.
 
         Parameters
         ----------
@@ -2539,10 +2902,17 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowRunOut]:
         """
-        Pause a workflow run.
+        Pause an active workflow run at the next safe checkpoint.
 
-        A running run finishes its current wave (preserving in-flight work) and parks at the
-        next wave boundary; a pending run parks immediately. Fire-and-forget and idempotent.
+        For a running run, the current wave of parallel nodes is allowed to finish
+        before the run parks (in-flight work is preserved, not abandoned). For a
+        pending run that has not yet started, it parks immediately. The run
+        transitions to `paused` status once drained; during the drain period,
+        `status` remains `running` with `pause_requested_at` set.
+
+        The operation is idempotent: pausing an already-paused run returns it
+        unchanged. A paused run can be resumed via `POST /runs/{run_id}/resume`
+        or permanently stopped via `POST /runs/{run_id}/cancel`.
 
         Parameters
         ----------
@@ -2609,8 +2979,15 @@ class AsyncRawWorkflowsClient:
         """
         Resume a paused workflow run from its last completed wave.
 
-        Best-effort: if the workflow already has another active run, or the caller is at their
-        concurrent-run limit, the run stays paused and a 409 explains why (retry later).
+        Transitions the run from `paused` back to `running` and schedules
+        execution to continue from where it left off — no nodes that already
+        completed are re-executed.
+
+        Returns 409 if the workspace already has another active run for this
+        workflow, or if the caller is at the concurrent-run limit. In that case
+        the run stays `paused` and the caller can retry later. Only runs in
+        `paused` status can be resumed; attempting to resume a `running`,
+        `completed`, `failed`, or `cancelled` run returns 409.
 
         Parameters
         ----------
@@ -2674,7 +3051,12 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowOut]:
         """
-        Duplicate a workflow.
+        Create a copy of an existing workflow in the same workspace.
+
+        The new workflow inherits the source's `name` (suffixed with " (Copy)"),
+        `description`, and `definition`. Runs from the original workflow are not
+        copied — the duplicate starts with zero runs. Requires at least `editor`
+        role. Returns 201 with the new workflow on success.
 
         Parameters
         ----------

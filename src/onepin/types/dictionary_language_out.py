@@ -7,8 +7,15 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class DictionaryLanguageOut(UniversalBaseModel):
-    code: str
-    count: int
+    code: str = pydantic.Field()
+    """
+    BCP-47 locale code (e.g. `ko-kr`, `en-us`).
+    """
+
+    count: int = pydantic.Field()
+    """
+    Number of active dictionary entries for this locale.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

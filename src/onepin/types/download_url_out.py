@@ -8,9 +8,20 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class DownloadUrlOut(UniversalBaseModel):
-    url: str
-    filename: str
-    expires_at: dt.datetime
+    url: str = pydantic.Field()
+    """
+    Pre-signed download URL. Valid until `expires_at`; do not cache beyond that time.
+    """
+
+    filename: str = pydantic.Field()
+    """
+    Suggested filename for the downloaded ZIP archive.
+    """
+
+    expires_at: dt.datetime = pydantic.Field()
+    """
+    UTC datetime after which the URL is no longer valid (15 minutes from generation).
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

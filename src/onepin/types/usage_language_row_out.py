@@ -7,17 +7,40 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class UsageLanguageRowOut(UniversalBaseModel):
-    locale_code: str
-    display_name: str
-    share: float = pydantic.Field()
+    locale_code: str = pydantic.Field()
     """
-    Fractional share in the range 0..1; multiply by 100 for percent display.
+    BCP-47 locale code (e.g. `en-us`, `ko-kr`).
     """
 
-    credits: int
-    characters: int
-    lines: int
-    allocation_basis: str
+    display_name: str = pydantic.Field()
+    """
+    Human-readable language name (e.g. `English (US)`).
+    """
+
+    share: float = pydantic.Field()
+    """
+    Fractional share of workspace usage in the range 0..1; multiply by 100 for percent display.
+    """
+
+    credits: int = pydantic.Field()
+    """
+    Credits consumed for this language in the period.
+    """
+
+    characters: int = pydantic.Field()
+    """
+    Characters processed for this language in the period.
+    """
+
+    lines: int = pydantic.Field()
+    """
+    Script lines generated for this language in the period.
+    """
+
+    allocation_basis: str = pydantic.Field()
+    """
+    How credit share is allocated for this language (e.g. `characters`).
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

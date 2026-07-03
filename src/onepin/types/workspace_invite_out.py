@@ -8,13 +8,40 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class WorkspaceInviteOut(UniversalBaseModel):
-    id: str
-    email: str
-    role: str
-    status: str
-    expires_at: dt.datetime
-    invited_by: str
-    created_at: dt.datetime
+    id: str = pydantic.Field()
+    """
+    Unique invite ID.
+    """
+
+    email: str = pydantic.Field()
+    """
+    Email address the invite was sent to.
+    """
+
+    role: str = pydantic.Field()
+    """
+    Role the invitee will receive on acceptance: `admin`, `editor`, or `viewer`.
+    """
+
+    status: str = pydantic.Field()
+    """
+    Current invite status: `pending`, `accepted`, `revoked`, or `expired`.
+    """
+
+    expires_at: dt.datetime = pydantic.Field()
+    """
+    When the invite expires (UTC). Invites have a 14-day TTL from creation.
+    """
+
+    invited_by: str = pydantic.Field()
+    """
+    User ID of the admin who created the invite.
+    """
+
+    created_at: dt.datetime = pydantic.Field()
+    """
+    When the invite was created (UTC).
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

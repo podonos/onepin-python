@@ -7,13 +7,40 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class UsageRunsOut(UniversalBaseModel):
-    total: int
-    completed: int
-    failed: int
-    cancelled: int
-    running: int
-    pending: int
-    paused: typing.Optional[int] = None
+    total: int = pydantic.Field()
+    """
+    Total workflow runs initiated in the period.
+    """
+
+    completed: int = pydantic.Field()
+    """
+    Runs that finished successfully.
+    """
+
+    failed: int = pydantic.Field()
+    """
+    Runs that terminated with an error.
+    """
+
+    cancelled: int = pydantic.Field()
+    """
+    Runs that were cancelled by the user or system.
+    """
+
+    running: int = pydantic.Field()
+    """
+    Runs currently in progress.
+    """
+
+    pending: int = pydantic.Field()
+    """
+    Runs queued but not yet started.
+    """
+
+    paused: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Runs currently paused awaiting manual review.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

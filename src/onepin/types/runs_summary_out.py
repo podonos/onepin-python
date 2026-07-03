@@ -7,15 +7,50 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class RunsSummaryOut(UniversalBaseModel):
-    total_runs: int
-    completed: int
-    failed: int
-    cancelled: int
-    pending: int
-    running: int
-    paused: int
-    pass_rate: typing.Optional[float] = None
-    average_duration_seconds: typing.Optional[float] = None
+    total_runs: int = pydantic.Field()
+    """
+    Total runs in the queried window.
+    """
+
+    completed: int = pydantic.Field()
+    """
+    Runs that finished successfully.
+    """
+
+    failed: int = pydantic.Field()
+    """
+    Runs that ended in a failure state.
+    """
+
+    cancelled: int = pydantic.Field()
+    """
+    Runs explicitly cancelled by a user.
+    """
+
+    pending: int = pydantic.Field()
+    """
+    Runs queued but not yet started.
+    """
+
+    running: int = pydantic.Field()
+    """
+    Runs currently executing.
+    """
+
+    paused: int = pydantic.Field()
+    """
+    Runs paused at a wave boundary.
+    """
+
+    pass_rate: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Fraction of terminal runs that completed successfully: `completed / (completed + failed + cancelled)`. Null when there are no terminal runs.
+    """
+
+    average_duration_seconds: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Mean wall-clock duration in seconds over completed runs only (`completed_at - started_at`). Null when no runs have completed.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

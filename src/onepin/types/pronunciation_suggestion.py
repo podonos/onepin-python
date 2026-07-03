@@ -7,8 +7,15 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class PronunciationSuggestion(UniversalBaseModel):
-    pronunciation: str
-    ipa: typing.Optional[str] = None
+    pronunciation: str = pydantic.Field()
+    """
+    Suggested phonetic respelling, suitable for use as the `pronunciation` field when creating a `spelled`-method entry.
+    """
+
+    ipa: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    IPA transcription. Always `null` in this version; automatic generation is a planned enhancement.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

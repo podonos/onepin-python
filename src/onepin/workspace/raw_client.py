@@ -23,15 +23,16 @@ class RawWorkspaceClient:
         self, ws_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ApiResponseWorkspaceSettingsOut]:
         """
-        Return workspace-level settings (default_language, theme).
+        Return workspace-level settings for the specified workspace.
 
-        Settings are workspace-scoped: every member of the workspace sees the
-        same defaults. Per-user UI preferences (e.g. personal dark-mode) belong
-        in a future user_settings endpoint.
+        Currently exposes `default_language` (the locale used as the default for
+        new workflow nodes) and `theme` (the workspace's display color theme).
+        Settings are workspace-scoped: all members of the workspace share the
+        same values. Per-user preferences (e.g. personal dark mode) are outside
+        the scope of this endpoint.
 
-        Path-based authorization (via get_workspace_from_path_for_auth_context) prevents the
-        header-vs-path bypass class — the {ws_id} URL segment is the source of
-        truth for which workspace is being read.
+        If settings have not yet been explicitly configured for the workspace,
+        defaults are returned (and persisted) on first access.
 
         Parameters
         ----------
@@ -89,15 +90,16 @@ class AsyncRawWorkspaceClient:
         self, ws_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ApiResponseWorkspaceSettingsOut]:
         """
-        Return workspace-level settings (default_language, theme).
+        Return workspace-level settings for the specified workspace.
 
-        Settings are workspace-scoped: every member of the workspace sees the
-        same defaults. Per-user UI preferences (e.g. personal dark-mode) belong
-        in a future user_settings endpoint.
+        Currently exposes `default_language` (the locale used as the default for
+        new workflow nodes) and `theme` (the workspace's display color theme).
+        Settings are workspace-scoped: all members of the workspace share the
+        same values. Per-user preferences (e.g. personal dark mode) are outside
+        the scope of this endpoint.
 
-        Path-based authorization (via get_workspace_from_path_for_auth_context) prevents the
-        header-vs-path bypass class — the {ws_id} URL segment is the source of
-        truth for which workspace is being read.
+        If settings have not yet been explicitly configured for the workspace,
+        defaults are returned (and persisted) on first access.
 
         Parameters
         ----------

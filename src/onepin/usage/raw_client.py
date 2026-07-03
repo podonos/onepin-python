@@ -42,7 +42,24 @@ class RawUsageClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseUsageSummaryOut]:
         """
-        Return workspace usage totals plus tab-specific aggregate activity buckets.
+        Return aggregated usage totals and activity chart data for the workspace.
+
+        Combines credit consumption, character and line counts, and workflow run
+        statistics for the requested rolling window (`range`) with a chart-ready
+        activity series (`activity`) bucketed by `activity_view`.
+
+        The `credits.used` field reflects the authenticated user's own billing-period
+        consumption; all other aggregate fields (characters, lines, runs, daily
+        buckets, activity buckets) are workspace-scoped across all members.
+
+        Date boundaries are computed in the supplied `timezone` (IANA, e.g.
+        `America/New_York`) so "today" and "this week" align with the caller's local
+        calendar. Defaults to UTC.
+
+        Use `GET /usage/by-language` for a language-level breakdown, or
+        `GET /usage/activity` for the event-by-event feed.
+
+        Dual-auth: Bearer JWT or API key (scope `workspace:read`).
 
         Parameters
         ----------
@@ -118,11 +135,21 @@ class RawUsageClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseUsageByLanguageOut]:
         """
-        Return workspace generated-audio usage grouped by language.
+        Return workspace audio generation usage broken down by language.
 
-        ``share`` is a 0..1 fraction. When ``activity_view`` is supplied, rows use
-        that tab's local-calendar period; otherwise they preserve legacy ``range``
-        behavior.
+        Each row represents one locale with its share of total credit and character
+        consumption. `share` is a 0..1 fraction of workspace-wide usage for the
+        period; multiply by 100 for a percentage.
+
+        Period selection: supply `activity_view` to align the language rows with
+        the same period shown on the Usage dashboard chart (daily = last 7 local
+        days, weekly = last 12 Monday-start weeks, monthly = last 12 months). When
+        `activity_view` is provided, `range` is ignored and `range` in the response
+        is `null`. Omit `activity_view` to use the rolling `range` window instead.
+
+        Date boundaries are computed in the supplied `timezone` (IANA). Defaults to UTC.
+
+        Dual-auth: Bearer JWT or API key (scope `workspace:read`).
 
         Parameters
         ----------
@@ -201,7 +228,25 @@ class RawUsageClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiListResponseUsageActivityOut]:
         """
-        Return the workspace usage activity feed with stable action filters and cursor pagination.
+        Return the workspace activity feed as a cursor-paginated event list.
+
+        Each item represents a discrete workspace event (workflow run, voice generated,
+        template applied, member invited, API key created, settings changed). Events are
+        ordered newest-first within the requested rolling window.
+
+        Filtering:
+        - `type` narrows to a single action kind (e.g. `workflow_run`).
+        - `user_id` restricts to events triggered by a specific workspace member;
+          returns 404 if the user is not a member of this workspace.
+        - Both filters can be combined.
+
+        Pagination: pass the `cursor` value from a previous response to retrieve the
+        next page. An absent or null `cursor` in the response means no further pages
+        exist. Page size is controlled by `limit` (1–100, default 20).
+
+        Date boundaries are computed in the supplied `timezone` (IANA). Defaults to UTC.
+
+        Dual-auth: Bearer JWT or API key (scope `workspace:read`).
 
         Parameters
         ----------
@@ -293,7 +338,24 @@ class AsyncRawUsageClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseUsageSummaryOut]:
         """
-        Return workspace usage totals plus tab-specific aggregate activity buckets.
+        Return aggregated usage totals and activity chart data for the workspace.
+
+        Combines credit consumption, character and line counts, and workflow run
+        statistics for the requested rolling window (`range`) with a chart-ready
+        activity series (`activity`) bucketed by `activity_view`.
+
+        The `credits.used` field reflects the authenticated user's own billing-period
+        consumption; all other aggregate fields (characters, lines, runs, daily
+        buckets, activity buckets) are workspace-scoped across all members.
+
+        Date boundaries are computed in the supplied `timezone` (IANA, e.g.
+        `America/New_York`) so "today" and "this week" align with the caller's local
+        calendar. Defaults to UTC.
+
+        Use `GET /usage/by-language` for a language-level breakdown, or
+        `GET /usage/activity` for the event-by-event feed.
+
+        Dual-auth: Bearer JWT or API key (scope `workspace:read`).
 
         Parameters
         ----------
@@ -369,11 +431,21 @@ class AsyncRawUsageClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseUsageByLanguageOut]:
         """
-        Return workspace generated-audio usage grouped by language.
+        Return workspace audio generation usage broken down by language.
 
-        ``share`` is a 0..1 fraction. When ``activity_view`` is supplied, rows use
-        that tab's local-calendar period; otherwise they preserve legacy ``range``
-        behavior.
+        Each row represents one locale with its share of total credit and character
+        consumption. `share` is a 0..1 fraction of workspace-wide usage for the
+        period; multiply by 100 for a percentage.
+
+        Period selection: supply `activity_view` to align the language rows with
+        the same period shown on the Usage dashboard chart (daily = last 7 local
+        days, weekly = last 12 Monday-start weeks, monthly = last 12 months). When
+        `activity_view` is provided, `range` is ignored and `range` in the response
+        is `null`. Omit `activity_view` to use the rolling `range` window instead.
+
+        Date boundaries are computed in the supplied `timezone` (IANA). Defaults to UTC.
+
+        Dual-auth: Bearer JWT or API key (scope `workspace:read`).
 
         Parameters
         ----------
@@ -452,7 +524,25 @@ class AsyncRawUsageClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiListResponseUsageActivityOut]:
         """
-        Return the workspace usage activity feed with stable action filters and cursor pagination.
+        Return the workspace activity feed as a cursor-paginated event list.
+
+        Each item represents a discrete workspace event (workflow run, voice generated,
+        template applied, member invited, API key created, settings changed). Events are
+        ordered newest-first within the requested rolling window.
+
+        Filtering:
+        - `type` narrows to a single action kind (e.g. `workflow_run`).
+        - `user_id` restricts to events triggered by a specific workspace member;
+          returns 404 if the user is not a member of this workspace.
+        - Both filters can be combined.
+
+        Pagination: pass the `cursor` value from a previous response to retrieve the
+        next page. An absent or null `cursor` in the response means no further pages
+        exist. Page size is controlled by `limit` (1–100, default 20).
+
+        Date boundaries are computed in the supplied `timezone` (IANA). Defaults to UTC.
+
+        Dual-auth: Bearer JWT or API key (scope `workspace:read`).
 
         Parameters
         ----------

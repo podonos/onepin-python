@@ -7,7 +7,10 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class UsageCharactersOut(UniversalBaseModel):
-    total: int
+    total: int = pydantic.Field()
+    """
+    Total characters processed across all workflow runs in the period.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

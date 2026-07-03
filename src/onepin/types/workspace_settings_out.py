@@ -7,8 +7,15 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class WorkspaceSettingsOut(UniversalBaseModel):
-    default_language: typing.Optional[str] = None
-    theme: typing.Optional[str] = None
+    default_language: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Default locale code for new workflow nodes (e.g. `en-US`). Null if not yet configured.
+    """
+
+    theme: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Workspace display theme identifier. Null if not yet configured.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

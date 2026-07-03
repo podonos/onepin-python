@@ -7,8 +7,15 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class UsageLinesOut(UniversalBaseModel):
-    total: int
-    avg_chars_per_line: typing.Optional[float] = None
+    total: int = pydantic.Field()
+    """
+    Total script lines generated in the period.
+    """
+
+    avg_chars_per_line: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Average character count per generated line, or `null` when no lines exist.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

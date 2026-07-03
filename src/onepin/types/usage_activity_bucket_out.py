@@ -8,13 +8,40 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class UsageActivityBucketOut(UniversalBaseModel):
-    label: str
-    start: dt.datetime
-    end: dt.datetime
-    credits: int
-    characters: int
-    lines: int
-    runs: int
+    label: str = pydantic.Field()
+    """
+    Human-readable label for the bucket period (e.g. `Mon`, `Jan`, `Week 1`).
+    """
+
+    start: dt.datetime = pydantic.Field()
+    """
+    Start of the bucket period (inclusive), in UTC.
+    """
+
+    end: dt.datetime = pydantic.Field()
+    """
+    End of the bucket period (exclusive), in UTC.
+    """
+
+    credits: int = pydantic.Field()
+    """
+    Credits consumed in this bucket.
+    """
+
+    characters: int = pydantic.Field()
+    """
+    Characters processed in this bucket.
+    """
+
+    lines: int = pydantic.Field()
+    """
+    Script lines generated in this bucket.
+    """
+
+    runs: int = pydantic.Field()
+    """
+    Workflow runs in this bucket.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

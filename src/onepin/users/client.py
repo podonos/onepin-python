@@ -6,16 +6,8 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.api_list_response_template_out import ApiListResponseTemplateOut
 from ..types.api_response_balance_response import ApiResponseBalanceResponse
-from ..types.api_response_customer_subscription_response import ApiResponseCustomerSubscriptionResponse
-from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_email_notification_preferences_out import ApiResponseEmailNotificationPreferencesOut
-from ..types.api_response_invoice_list_response import ApiResponseInvoiceListResponse
-from ..types.api_response_list_payment_method_response import ApiResponseListPaymentMethodResponse
 from ..types.api_response_plan_limits import ApiResponsePlanLimits
-from ..types.api_response_setup_intent_response import ApiResponseSetupIntentResponse
-from ..types.api_response_union_customer_subscription_response_none_type import (
-    ApiResponseUnionCustomerSubscriptionResponseNoneType,
-)
 from ..types.template_category import TemplateCategory
 from .raw_client import AsyncRawUsersClient, RawUsersClient
 from .types.list_my_templates_api_v1users_me_templates_get_request_sort import (
@@ -41,280 +33,18 @@ class UsersClient:
         """
         return self._raw_client
 
-    def get_current_subscription(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseUnionCustomerSubscriptionResponseNoneType:
-        """
-        Get the current user's active subscription.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseUnionCustomerSubscriptionResponseNoneType
-            Successful Response
-
-        Examples
-        --------
-        from onepin import OnePinClient
-
-        client = OnePinClient(
-            token="YOUR_TOKEN",
-        )
-        client.users.get_current_subscription()
-        """
-        _response = self._raw_client.get_current_subscription(request_options=request_options)
-        return _response.data
-
-    def subscribe(
-        self, *, plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseCustomerSubscriptionResponse:
-        """
-        Create a subscription using the default payment method.
-
-        Parameters
-        ----------
-        plan_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseCustomerSubscriptionResponse
-            Successful Response
-
-        Examples
-        --------
-        from onepin import OnePinClient
-
-        client = OnePinClient(
-            token="YOUR_TOKEN",
-        )
-        client.users.subscribe(
-            plan_id="plan_id",
-        )
-        """
-        _response = self._raw_client.subscribe(plan_id=plan_id, request_options=request_options)
-        return _response.data
-
-    def cancel_subscription(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseCustomerSubscriptionResponse:
-        """
-        Cancel the current user's subscription at period end.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseCustomerSubscriptionResponse
-            Successful Response
-
-        Examples
-        --------
-        from onepin import OnePinClient
-
-        client = OnePinClient(
-            token="YOUR_TOKEN",
-        )
-        client.users.cancel_subscription()
-        """
-        _response = self._raw_client.cancel_subscription(request_options=request_options)
-        return _response.data
-
-    def change_plan(
-        self, *, new_plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseCustomerSubscriptionResponse:
-        """
-        Switch the current user's subscription to a different plan.
-
-        Parameters
-        ----------
-        new_plan_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseCustomerSubscriptionResponse
-            Successful Response
-
-        Examples
-        --------
-        from onepin import OnePinClient
-
-        client = OnePinClient(
-            token="YOUR_TOKEN",
-        )
-        client.users.change_plan(
-            new_plan_id="new_plan_id",
-        )
-        """
-        _response = self._raw_client.change_plan(new_plan_id=new_plan_id, request_options=request_options)
-        return _response.data
-
-    def cancel_scheduled_change(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseCustomerSubscriptionResponse:
-        """
-        Cancel a scheduled plan downgrade.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseCustomerSubscriptionResponse
-            Successful Response
-
-        Examples
-        --------
-        from onepin import OnePinClient
-
-        client = OnePinClient(
-            token="YOUR_TOKEN",
-        )
-        client.users.cancel_scheduled_change()
-        """
-        _response = self._raw_client.cancel_scheduled_change(request_options=request_options)
-        return _response.data
-
-    def list_payment_methods(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseListPaymentMethodResponse:
-        """
-        List the current user's saved payment methods.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseListPaymentMethodResponse
-            Successful Response
-
-        Examples
-        --------
-        from onepin import OnePinClient
-
-        client = OnePinClient(
-            token="YOUR_TOKEN",
-        )
-        client.users.list_payment_methods()
-        """
-        _response = self._raw_client.list_payment_methods(request_options=request_options)
-        return _response.data
-
-    def add_payment_method(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseSetupIntentResponse:
-        """
-        Create a Stripe SetupIntent to add a new payment method.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseSetupIntentResponse
-            Successful Response
-
-        Examples
-        --------
-        from onepin import OnePinClient
-
-        client = OnePinClient(
-            token="YOUR_TOKEN",
-        )
-        client.users.add_payment_method()
-        """
-        _response = self._raw_client.add_payment_method(request_options=request_options)
-        return _response.data
-
-    def delete_payment_method(
-        self, payment_method_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseDict:
-        """
-        Detach a payment method from the current user's account.
-
-        Parameters
-        ----------
-        payment_method_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseDict
-            Successful Response
-
-        Examples
-        --------
-        from onepin import OnePinClient
-
-        client = OnePinClient(
-            token="YOUR_TOKEN",
-        )
-        client.users.delete_payment_method(
-            payment_method_id="payment_method_id",
-        )
-        """
-        _response = self._raw_client.delete_payment_method(payment_method_id, request_options=request_options)
-        return _response.data
-
-    def set_default_payment_method(
-        self, payment_method_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseDict:
-        """
-        Set a payment method as the default for the current user.
-
-        Parameters
-        ----------
-        payment_method_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseDict
-            Successful Response
-
-        Examples
-        --------
-        from onepin import OnePinClient
-
-        client = OnePinClient(
-            token="YOUR_TOKEN",
-        )
-        client.users.set_default_payment_method(
-            payment_method_id="payment_method_id",
-        )
-        """
-        _response = self._raw_client.set_default_payment_method(payment_method_id, request_options=request_options)
-        return _response.data
-
     def get_my_credits(self, *, request_options: typing.Optional[RequestOptions] = None) -> ApiResponseBalanceResponse:
         """
-        Return the current user's credit balance + monthly grant + period anchor.
+        Return the caller's current credit balance and billing period details.
 
-        Free-tier users have no Subscription row; the response falls back to the
-        canonical FREE Plan (1000 credits/mo, calendar-month boundary).
+        `balance` is the authoritative gate value: use it to decide whether to
+        attempt a workflow run. `remaining` is a display convenience derived from
+        settled ledger entries and may temporarily exceed `balance` while a workflow
+        run holds an open reserve. `used` reflects credits consumed in the current
+        billing period. `plan_grant` is the total monthly credit allowance for the
+        caller's plan, enabling a "X / Y used" display. `period_start` and
+        `period_end` mark the boundaries of the current billing window; free-tier
+        callers use a calendar-month boundary.
 
         Parameters
         ----------
@@ -340,7 +70,14 @@ class UsersClient:
 
     def get_my_plan_limits(self, *, request_options: typing.Optional[RequestOptions] = None) -> ApiResponsePlanLimits:
         """
-        Return the typed plan limits for the current user (FE plan-card UI consumer).
+        Return the plan limits that govern the caller's current tier.
+
+        Includes numeric quotas (`monthly_credits`, `concurrent_runs_per_user`,
+        `storage_bytes_per_workspace`, `workspaces_per_owner`) and feature flags
+        (`byok_enabled`, `auto_fix_enabled`, `auto_edit_enabled`). `null` on list
+        fields such as `tts_models_allowlist` or `supported_languages` means all
+        available options are permitted. Use this endpoint to gate feature access in
+        your application rather than hardcoding tier names, which may change.
 
         Parameters
         ----------
@@ -364,49 +101,15 @@ class UsersClient:
         _response = self._raw_client.get_my_plan_limits(request_options=request_options)
         return _response.data
 
-    def list_invoices(
-        self,
-        *,
-        limit: typing.Optional[int] = None,
-        starting_after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ApiResponseInvoiceListResponse:
-        """
-        List invoices for the current user.
-
-        Parameters
-        ----------
-        limit : typing.Optional[int]
-
-        starting_after : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseInvoiceListResponse
-            Successful Response
-
-        Examples
-        --------
-        from onepin import OnePinClient
-
-        client = OnePinClient(
-            token="YOUR_TOKEN",
-        )
-        client.users.list_invoices()
-        """
-        _response = self._raw_client.list_invoices(
-            limit=limit, starting_after=starting_after, request_options=request_options
-        )
-        return _response.data
-
     def get_current_notification_preferences(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseEmailNotificationPreferencesOut:
         """
-        Get the current user's email notification preferences.
+        Return the caller's current email notification settings.
+
+        Each boolean field corresponds to a notification category. `true` means the
+        caller will receive that email; `false` means they have opted out. Use
+        `PATCH /me/notification-preferences` to change individual preferences.
 
         Parameters
         ----------
@@ -438,13 +141,19 @@ class UsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEmailNotificationPreferencesOut:
         """
-        Partially update the current user's email notification preferences.
+        Partially update the caller's email notification preferences.
+
+        Send only the fields you want to change; omitted fields are left unchanged.
+        All provided fields must be boolean — explicit `null` values are rejected
+        with a 422. Returns the full updated preference object.
 
         Parameters
         ----------
         completed_generation_email : typing.Optional[bool]
+            Set to true to enable or false to disable completion emails. Omit to leave unchanged.
 
         failed_generation_email : typing.Optional[bool]
+            Set to true to enable or false to disable failure emails. Omit to leave unchanged.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -483,12 +192,13 @@ class UsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiListResponseTemplateOut:
         """
-        List templates the current user created in the current workspace.
+        List workflow templates created by the caller in the current workspace.
 
-        Scoped on both `(workspace_id, created_by)` so when workspaces become
-        multi-user this endpoint keeps returning only the caller's own rows —
-        other workspace members' public/starter templates surface via the
-        gallery endpoint (`GET /api/v1/templates`) instead.
+        Returns only templates owned by the caller; templates shared by other
+        workspace members or platform starter templates are not included — use
+        `GET /api/v1/templates` for the full gallery. Supports offset-based
+        pagination via `offset` / `limit`. Combine `category`, `search`, and
+        `favorites_only` to narrow results; multiple `category` values are OR'd.
 
         Parameters
         ----------
@@ -496,12 +206,16 @@ class UsersClient:
             Repeat for OR, e.g. ?category=media&category=creative
 
         search : typing.Optional[str]
+            Full-text search against template name and description.
 
         sort : typing.Optional[ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort]
+            Sort order: `recent` (last updated), `name` (A–Z), or `uses` (most used).
 
         offset : typing.Optional[int]
+            Number of results to skip for pagination.
 
         limit : typing.Optional[int]
+            Maximum number of results to return (1–100).
 
         favorites_only : typing.Optional[bool]
 
@@ -552,356 +266,20 @@ class AsyncUsersClient:
         """
         return self._raw_client
 
-    async def get_current_subscription(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseUnionCustomerSubscriptionResponseNoneType:
-        """
-        Get the current user's active subscription.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseUnionCustomerSubscriptionResponseNoneType
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from onepin import AsyncOnePinClient
-
-        client = AsyncOnePinClient(
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.users.get_current_subscription()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_current_subscription(request_options=request_options)
-        return _response.data
-
-    async def subscribe(
-        self, *, plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseCustomerSubscriptionResponse:
-        """
-        Create a subscription using the default payment method.
-
-        Parameters
-        ----------
-        plan_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseCustomerSubscriptionResponse
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from onepin import AsyncOnePinClient
-
-        client = AsyncOnePinClient(
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.users.subscribe(
-                plan_id="plan_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.subscribe(plan_id=plan_id, request_options=request_options)
-        return _response.data
-
-    async def cancel_subscription(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseCustomerSubscriptionResponse:
-        """
-        Cancel the current user's subscription at period end.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseCustomerSubscriptionResponse
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from onepin import AsyncOnePinClient
-
-        client = AsyncOnePinClient(
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.users.cancel_subscription()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.cancel_subscription(request_options=request_options)
-        return _response.data
-
-    async def change_plan(
-        self, *, new_plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseCustomerSubscriptionResponse:
-        """
-        Switch the current user's subscription to a different plan.
-
-        Parameters
-        ----------
-        new_plan_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseCustomerSubscriptionResponse
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from onepin import AsyncOnePinClient
-
-        client = AsyncOnePinClient(
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.users.change_plan(
-                new_plan_id="new_plan_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.change_plan(new_plan_id=new_plan_id, request_options=request_options)
-        return _response.data
-
-    async def cancel_scheduled_change(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseCustomerSubscriptionResponse:
-        """
-        Cancel a scheduled plan downgrade.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseCustomerSubscriptionResponse
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from onepin import AsyncOnePinClient
-
-        client = AsyncOnePinClient(
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.users.cancel_scheduled_change()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.cancel_scheduled_change(request_options=request_options)
-        return _response.data
-
-    async def list_payment_methods(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseListPaymentMethodResponse:
-        """
-        List the current user's saved payment methods.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseListPaymentMethodResponse
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from onepin import AsyncOnePinClient
-
-        client = AsyncOnePinClient(
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.users.list_payment_methods()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.list_payment_methods(request_options=request_options)
-        return _response.data
-
-    async def add_payment_method(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseSetupIntentResponse:
-        """
-        Create a Stripe SetupIntent to add a new payment method.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseSetupIntentResponse
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from onepin import AsyncOnePinClient
-
-        client = AsyncOnePinClient(
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.users.add_payment_method()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.add_payment_method(request_options=request_options)
-        return _response.data
-
-    async def delete_payment_method(
-        self, payment_method_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseDict:
-        """
-        Detach a payment method from the current user's account.
-
-        Parameters
-        ----------
-        payment_method_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseDict
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from onepin import AsyncOnePinClient
-
-        client = AsyncOnePinClient(
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.users.delete_payment_method(
-                payment_method_id="payment_method_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.delete_payment_method(payment_method_id, request_options=request_options)
-        return _response.data
-
-    async def set_default_payment_method(
-        self, payment_method_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> ApiResponseDict:
-        """
-        Set a payment method as the default for the current user.
-
-        Parameters
-        ----------
-        payment_method_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseDict
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from onepin import AsyncOnePinClient
-
-        client = AsyncOnePinClient(
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.users.set_default_payment_method(
-                payment_method_id="payment_method_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.set_default_payment_method(
-            payment_method_id, request_options=request_options
-        )
-        return _response.data
-
     async def get_my_credits(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseBalanceResponse:
         """
-        Return the current user's credit balance + monthly grant + period anchor.
+        Return the caller's current credit balance and billing period details.
 
-        Free-tier users have no Subscription row; the response falls back to the
-        canonical FREE Plan (1000 credits/mo, calendar-month boundary).
+        `balance` is the authoritative gate value: use it to decide whether to
+        attempt a workflow run. `remaining` is a display convenience derived from
+        settled ledger entries and may temporarily exceed `balance` while a workflow
+        run holds an open reserve. `used` reflects credits consumed in the current
+        billing period. `plan_grant` is the total monthly credit allowance for the
+        caller's plan, enabling a "X / Y used" display. `period_start` and
+        `period_end` mark the boundaries of the current billing window; free-tier
+        callers use a calendar-month boundary.
 
         Parameters
         ----------
@@ -937,7 +315,14 @@ class AsyncUsersClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponsePlanLimits:
         """
-        Return the typed plan limits for the current user (FE plan-card UI consumer).
+        Return the plan limits that govern the caller's current tier.
+
+        Includes numeric quotas (`monthly_credits`, `concurrent_runs_per_user`,
+        `storage_bytes_per_workspace`, `workspaces_per_owner`) and feature flags
+        (`byok_enabled`, `auto_fix_enabled`, `auto_edit_enabled`). `null` on list
+        fields such as `tts_models_allowlist` or `supported_languages` means all
+        available options are permitted. Use this endpoint to gate feature access in
+        your application rather than hardcoding tier names, which may change.
 
         Parameters
         ----------
@@ -969,57 +354,15 @@ class AsyncUsersClient:
         _response = await self._raw_client.get_my_plan_limits(request_options=request_options)
         return _response.data
 
-    async def list_invoices(
-        self,
-        *,
-        limit: typing.Optional[int] = None,
-        starting_after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ApiResponseInvoiceListResponse:
-        """
-        List invoices for the current user.
-
-        Parameters
-        ----------
-        limit : typing.Optional[int]
-
-        starting_after : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseInvoiceListResponse
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from onepin import AsyncOnePinClient
-
-        client = AsyncOnePinClient(
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.users.list_invoices()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.list_invoices(
-            limit=limit, starting_after=starting_after, request_options=request_options
-        )
-        return _response.data
-
     async def get_current_notification_preferences(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ApiResponseEmailNotificationPreferencesOut:
         """
-        Get the current user's email notification preferences.
+        Return the caller's current email notification settings.
+
+        Each boolean field corresponds to a notification category. `true` means the
+        caller will receive that email; `false` means they have opted out. Use
+        `PATCH /me/notification-preferences` to change individual preferences.
 
         Parameters
         ----------
@@ -1059,13 +402,19 @@ class AsyncUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEmailNotificationPreferencesOut:
         """
-        Partially update the current user's email notification preferences.
+        Partially update the caller's email notification preferences.
+
+        Send only the fields you want to change; omitted fields are left unchanged.
+        All provided fields must be boolean — explicit `null` values are rejected
+        with a 422. Returns the full updated preference object.
 
         Parameters
         ----------
         completed_generation_email : typing.Optional[bool]
+            Set to true to enable or false to disable completion emails. Omit to leave unchanged.
 
         failed_generation_email : typing.Optional[bool]
+            Set to true to enable or false to disable failure emails. Omit to leave unchanged.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1112,12 +461,13 @@ class AsyncUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiListResponseTemplateOut:
         """
-        List templates the current user created in the current workspace.
+        List workflow templates created by the caller in the current workspace.
 
-        Scoped on both `(workspace_id, created_by)` so when workspaces become
-        multi-user this endpoint keeps returning only the caller's own rows —
-        other workspace members' public/starter templates surface via the
-        gallery endpoint (`GET /api/v1/templates`) instead.
+        Returns only templates owned by the caller; templates shared by other
+        workspace members or platform starter templates are not included — use
+        `GET /api/v1/templates` for the full gallery. Supports offset-based
+        pagination via `offset` / `limit`. Combine `category`, `search`, and
+        `favorites_only` to narrow results; multiple `category` values are OR'd.
 
         Parameters
         ----------
@@ -1125,12 +475,16 @@ class AsyncUsersClient:
             Repeat for OR, e.g. ?category=media&category=creative
 
         search : typing.Optional[str]
+            Full-text search against template name and description.
 
         sort : typing.Optional[ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort]
+            Sort order: `recent` (last updated), `name` (A–Z), or `uses` (most used).
 
         offset : typing.Optional[int]
+            Number of results to skip for pagination.
 
         limit : typing.Optional[int]
+            Maximum number of results to return (1–100).
 
         favorites_only : typing.Optional[bool]
 

@@ -14,11 +14,15 @@ from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_counted_list_response_voice_out import ApiCountedListResponseVoiceOut
 from ..types.api_list_response_voice_similar_out import ApiListResponseVoiceSimilarOut
 from ..types.api_response_dict import ApiResponseDict
+from ..types.api_response_voice_facets_out import ApiResponseVoiceFacetsOut
 from ..types.api_response_voice_out import ApiResponseVoiceOut
 from ..types.voice_accent import VoiceAccent
 from ..types.voice_age import VoiceAge
 from ..types.voice_category import VoiceCategory
 from ..types.voice_gender import VoiceGender
+from .types.get_voice_facets_api_v1voices_facets_get_request_source_item import (
+    GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem,
+)
 from .types.list_voices_request_language_item import ListVoicesRequestLanguageItem
 from .types.list_voices_request_order_item import ListVoicesRequestOrderItem
 from .types.list_voices_request_provider_item import ListVoicesRequestProviderItem
@@ -58,11 +62,11 @@ class RawVoicesClient:
         `?gender=female&gender=neutral&category=narration&source=platform&source=workspace`.
         Filters combine across fields with AND; within a field, values OR.
 
-        `language` uses Postgres `?|` (exists-any) against `voices.supported_languages`.
-        Platform voices with NULL `supported_languages` (catalog gaps) are treated
-        as general-use and match every locale filter. User-uploaded / cloned voices
-        with NULL stay excluded — NULL there means "language unknown" pending the
-        clone flow's language detection.
+        `language` matches a voice when any of its declared locales matches any
+        requested value. Platform voices with no declared locales (catalog gaps)
+        are treated as general-use and match every language filter. User-uploaded
+        / cloned voices with no declared locales are excluded — that state means
+        "language unknown" pending the clone flow's language detection.
 
         Multi-sort: `sort` and `order` are parallel lists. `?sort=uses_count&sort=name&order=desc&order=asc`
         orders primarily by uses_count DESC, secondarily by name ASC. When `order`
@@ -75,13 +79,16 @@ class RawVoicesClient:
         Parameters
         ----------
         offset : typing.Optional[int]
+            Number of results to skip for pagination.
 
         limit : typing.Optional[int]
+            Maximum number of results to return (1–100).
 
         favorites_only : typing.Optional[bool]
+            When true, return only voices in the workspace's favorites list.
 
         source : typing.Optional[typing.Sequence[ListVoicesRequestSourceItem]]
-            Repeat for OR across scopes
+            Repeat for OR across scopes: `platform` for system-provided voices, `workspace` for workspace-owned voices.
 
         gender : typing.Optional[typing.Sequence[VoiceGender]]
             Repeat for OR
@@ -96,6 +103,7 @@ class RawVoicesClient:
             Repeat for OR
 
         search : typing.Optional[str]
+            Full-text search against voice name, description, and tags.
 
         sort : typing.Optional[typing.Sequence[ListVoicesRequestSortItem]]
             Repeat for multi-sort. Pairs with `order` index-wise.
@@ -176,6 +184,141 @@ class RawVoicesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def get_voice_facets(
+        self,
+        *,
+        favorites_only: typing.Optional[bool] = None,
+        source: typing.Optional[typing.Sequence[GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem]] = None,
+        gender: typing.Optional[typing.Sequence[VoiceGender]] = None,
+        age: typing.Optional[typing.Sequence[VoiceAge]] = None,
+        category: typing.Optional[typing.Sequence[VoiceCategory]] = None,
+        accent: typing.Optional[typing.Sequence[VoiceAccent]] = None,
+        search: typing.Optional[str] = None,
+        provider: typing.Optional[typing.Sequence[str]] = None,
+        model: typing.Optional[typing.Sequence[str]] = None,
+        language: typing.Optional[typing.Sequence[str]] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseVoiceFacetsOut]:
+        """
+        Filter-bar options (chips) for the voice browser, one list per dimension.
+
+        Returns `providers`, `models`, `languages` (data-driven) plus `genders`,
+        `ages`, `categories`, `accents` (fixed enums) as `VoiceFacetItem[]` so the FE
+        builds the whole filter bar — with per-chip count badges — in a single request
+        instead of hardcoding option lists (mirrors `GET /dictionary/languages`). Each
+        item is `{value, label, count}`: `value` is passed straight back to
+        `GET /voices`; `label` is the display name for providers/models and `null`
+        elsewhere (the FE owns language + enum labels); `count` is the number of
+        matching voices. For `languages`/`models`, `count` counts only voices that
+        explicitly declare the value — "general-use" platform voices (no declared
+        locales/models) that `GET /voices` matches against every language/model filter
+        are not counted, so a chip's count can be lower than the `GET /voices` result.
+
+        Accepts the SAME filters as `GET /voices` (tab scope `source`/`favorites_only`,
+        plus `provider`/`model`/`language`/`gender`/`age`/`category`/`accent`/`search`).
+        `count` is context-aware (faceted search): each dimension's counts apply every
+        OTHER active filter but exclude that dimension's own selection — e.g. with
+        `provider=elevenlabs` the language counts are scoped to ElevenLabs, while the
+        provider chips still show every provider so the caller can switch.
+
+        Count-0 policy: data-driven dimensions omit count-0 values (only present ones,
+        each a valid `GET /voices` filter — providers/models restricted to the enabled
+        catalog, languages to the supported-locale allowlist, so a chip never 422s).
+        Enum dimensions always return the full enum in natural order, count-0 included,
+        for the FE to grey out.
+
+        Parameters
+        ----------
+        favorites_only : typing.Optional[bool]
+            Favorites tab scope
+
+        source : typing.Optional[typing.Sequence[GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem]]
+            Tab scope — repeat for OR, same values as GET /voices (e.g. platform, workspace)
+
+        gender : typing.Optional[typing.Sequence[VoiceGender]]
+            Repeat for OR
+
+        age : typing.Optional[typing.Sequence[VoiceAge]]
+            Repeat for OR
+
+        category : typing.Optional[typing.Sequence[VoiceCategory]]
+            Repeat for OR
+
+        accent : typing.Optional[typing.Sequence[VoiceAccent]]
+            Repeat for OR
+
+        search : typing.Optional[str]
+
+        provider : typing.Optional[typing.Sequence[str]]
+            Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
+
+        model : typing.Optional[typing.Sequence[str]]
+            Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
+
+        language : typing.Optional[typing.Sequence[str]]
+            Repeat for OR, e.g. ?language=en-us&language=ko-kr
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseVoiceFacetsOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v1/voices/facets",
+            method="GET",
+            params={
+                "favorites_only": favorites_only,
+                "source": source,
+                "gender": gender,
+                "age": age,
+                "category": category,
+                "accent": accent,
+                "search": search,
+                "provider": provider,
+                "model": model,
+                "language": language,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseVoiceFacetsOut,
+                    parse_obj_as(
+                        type_=ApiResponseVoiceFacetsOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def get(
         self,
         voice_id: str,
@@ -184,7 +327,13 @@ class RawVoicesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseVoiceOut]:
         """
-        Get a voice by ID, scoped to caller workspace + platform voices.
+        Fetch a single voice by its ID.
+
+        Returns both platform (system-wide) voices and voices that belong to the
+        caller's workspace. Returns 404 when the voice does not exist or is not
+        accessible to the caller's workspace. The `sample_url` field is a
+        time-limited presigned URL valid for 1 hour; regenerate it by calling this
+        endpoint again rather than caching it long-term.
 
         Parameters
         ----------
@@ -248,13 +397,23 @@ class RawVoicesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiListResponseVoiceSimilarOut]:
         """
-        Return voices nearest to a reference voice embedding.
+        Return voices acoustically similar to a reference voice.
+
+        Results are ranked by semantic similarity score (descending) and include the
+        reference voice's workspace voices and all platform voices. Each result
+        includes a `similarity_score` between 0 and 1. Optionally filter by one or
+        more `language` BCP-47 codes (repeat the parameter for OR semantics); up to
+        16 language values are accepted. Returns 503 when the reference voice has no
+        embedding yet — retry after the indicated `Retry-After` interval. Prefer this
+        endpoint over `GET /voices` with manual filtering when building a
+        "voices like this" recommendation UI.
 
         Parameters
         ----------
         voice_id : str
 
         limit : typing.Optional[int]
+            Number of similar voices to return (1–50).
 
         language : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?language=en-us&language=ko-kr
@@ -319,7 +478,12 @@ class RawVoicesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseVoiceOut]:
         """
-        Mark a voice as a workspace favorite.
+        Add a voice to the current workspace's favorites.
+
+        Favorites are workspace-scoped, not per-user: all members of the workspace
+        see the same favorited set. Idempotent — favoriting a voice that is already
+        favorited succeeds without error. Returns the voice with `is_favorite=true`.
+        Requires the caller to have at least editor role in the workspace.
 
         Parameters
         ----------
@@ -381,7 +545,11 @@ class RawVoicesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseDict]:
         """
-        Remove a voice from workspace favorites.
+        Remove a voice from the current workspace's favorites.
+
+        Idempotent — removing a voice that is not currently favorited succeeds
+        without error. Requires the caller to have at least editor role in the
+        workspace.
 
         Parameters
         ----------
@@ -467,11 +635,11 @@ class AsyncRawVoicesClient:
         `?gender=female&gender=neutral&category=narration&source=platform&source=workspace`.
         Filters combine across fields with AND; within a field, values OR.
 
-        `language` uses Postgres `?|` (exists-any) against `voices.supported_languages`.
-        Platform voices with NULL `supported_languages` (catalog gaps) are treated
-        as general-use and match every locale filter. User-uploaded / cloned voices
-        with NULL stay excluded — NULL there means "language unknown" pending the
-        clone flow's language detection.
+        `language` matches a voice when any of its declared locales matches any
+        requested value. Platform voices with no declared locales (catalog gaps)
+        are treated as general-use and match every language filter. User-uploaded
+        / cloned voices with no declared locales are excluded — that state means
+        "language unknown" pending the clone flow's language detection.
 
         Multi-sort: `sort` and `order` are parallel lists. `?sort=uses_count&sort=name&order=desc&order=asc`
         orders primarily by uses_count DESC, secondarily by name ASC. When `order`
@@ -484,13 +652,16 @@ class AsyncRawVoicesClient:
         Parameters
         ----------
         offset : typing.Optional[int]
+            Number of results to skip for pagination.
 
         limit : typing.Optional[int]
+            Maximum number of results to return (1–100).
 
         favorites_only : typing.Optional[bool]
+            When true, return only voices in the workspace's favorites list.
 
         source : typing.Optional[typing.Sequence[ListVoicesRequestSourceItem]]
-            Repeat for OR across scopes
+            Repeat for OR across scopes: `platform` for system-provided voices, `workspace` for workspace-owned voices.
 
         gender : typing.Optional[typing.Sequence[VoiceGender]]
             Repeat for OR
@@ -505,6 +676,7 @@ class AsyncRawVoicesClient:
             Repeat for OR
 
         search : typing.Optional[str]
+            Full-text search against voice name, description, and tags.
 
         sort : typing.Optional[typing.Sequence[ListVoicesRequestSortItem]]
             Repeat for multi-sort. Pairs with `order` index-wise.
@@ -585,6 +757,141 @@ class AsyncRawVoicesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def get_voice_facets(
+        self,
+        *,
+        favorites_only: typing.Optional[bool] = None,
+        source: typing.Optional[typing.Sequence[GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem]] = None,
+        gender: typing.Optional[typing.Sequence[VoiceGender]] = None,
+        age: typing.Optional[typing.Sequence[VoiceAge]] = None,
+        category: typing.Optional[typing.Sequence[VoiceCategory]] = None,
+        accent: typing.Optional[typing.Sequence[VoiceAccent]] = None,
+        search: typing.Optional[str] = None,
+        provider: typing.Optional[typing.Sequence[str]] = None,
+        model: typing.Optional[typing.Sequence[str]] = None,
+        language: typing.Optional[typing.Sequence[str]] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseVoiceFacetsOut]:
+        """
+        Filter-bar options (chips) for the voice browser, one list per dimension.
+
+        Returns `providers`, `models`, `languages` (data-driven) plus `genders`,
+        `ages`, `categories`, `accents` (fixed enums) as `VoiceFacetItem[]` so the FE
+        builds the whole filter bar — with per-chip count badges — in a single request
+        instead of hardcoding option lists (mirrors `GET /dictionary/languages`). Each
+        item is `{value, label, count}`: `value` is passed straight back to
+        `GET /voices`; `label` is the display name for providers/models and `null`
+        elsewhere (the FE owns language + enum labels); `count` is the number of
+        matching voices. For `languages`/`models`, `count` counts only voices that
+        explicitly declare the value — "general-use" platform voices (no declared
+        locales/models) that `GET /voices` matches against every language/model filter
+        are not counted, so a chip's count can be lower than the `GET /voices` result.
+
+        Accepts the SAME filters as `GET /voices` (tab scope `source`/`favorites_only`,
+        plus `provider`/`model`/`language`/`gender`/`age`/`category`/`accent`/`search`).
+        `count` is context-aware (faceted search): each dimension's counts apply every
+        OTHER active filter but exclude that dimension's own selection — e.g. with
+        `provider=elevenlabs` the language counts are scoped to ElevenLabs, while the
+        provider chips still show every provider so the caller can switch.
+
+        Count-0 policy: data-driven dimensions omit count-0 values (only present ones,
+        each a valid `GET /voices` filter — providers/models restricted to the enabled
+        catalog, languages to the supported-locale allowlist, so a chip never 422s).
+        Enum dimensions always return the full enum in natural order, count-0 included,
+        for the FE to grey out.
+
+        Parameters
+        ----------
+        favorites_only : typing.Optional[bool]
+            Favorites tab scope
+
+        source : typing.Optional[typing.Sequence[GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem]]
+            Tab scope — repeat for OR, same values as GET /voices (e.g. platform, workspace)
+
+        gender : typing.Optional[typing.Sequence[VoiceGender]]
+            Repeat for OR
+
+        age : typing.Optional[typing.Sequence[VoiceAge]]
+            Repeat for OR
+
+        category : typing.Optional[typing.Sequence[VoiceCategory]]
+            Repeat for OR
+
+        accent : typing.Optional[typing.Sequence[VoiceAccent]]
+            Repeat for OR
+
+        search : typing.Optional[str]
+
+        provider : typing.Optional[typing.Sequence[str]]
+            Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
+
+        model : typing.Optional[typing.Sequence[str]]
+            Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
+
+        language : typing.Optional[typing.Sequence[str]]
+            Repeat for OR, e.g. ?language=en-us&language=ko-kr
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseVoiceFacetsOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v1/voices/facets",
+            method="GET",
+            params={
+                "favorites_only": favorites_only,
+                "source": source,
+                "gender": gender,
+                "age": age,
+                "category": category,
+                "accent": accent,
+                "search": search,
+                "provider": provider,
+                "model": model,
+                "language": language,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseVoiceFacetsOut,
+                    parse_obj_as(
+                        type_=ApiResponseVoiceFacetsOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def get(
         self,
         voice_id: str,
@@ -593,7 +900,13 @@ class AsyncRawVoicesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseVoiceOut]:
         """
-        Get a voice by ID, scoped to caller workspace + platform voices.
+        Fetch a single voice by its ID.
+
+        Returns both platform (system-wide) voices and voices that belong to the
+        caller's workspace. Returns 404 when the voice does not exist or is not
+        accessible to the caller's workspace. The `sample_url` field is a
+        time-limited presigned URL valid for 1 hour; regenerate it by calling this
+        endpoint again rather than caching it long-term.
 
         Parameters
         ----------
@@ -657,13 +970,23 @@ class AsyncRawVoicesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiListResponseVoiceSimilarOut]:
         """
-        Return voices nearest to a reference voice embedding.
+        Return voices acoustically similar to a reference voice.
+
+        Results are ranked by semantic similarity score (descending) and include the
+        reference voice's workspace voices and all platform voices. Each result
+        includes a `similarity_score` between 0 and 1. Optionally filter by one or
+        more `language` BCP-47 codes (repeat the parameter for OR semantics); up to
+        16 language values are accepted. Returns 503 when the reference voice has no
+        embedding yet — retry after the indicated `Retry-After` interval. Prefer this
+        endpoint over `GET /voices` with manual filtering when building a
+        "voices like this" recommendation UI.
 
         Parameters
         ----------
         voice_id : str
 
         limit : typing.Optional[int]
+            Number of similar voices to return (1–50).
 
         language : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?language=en-us&language=ko-kr
@@ -728,7 +1051,12 @@ class AsyncRawVoicesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseVoiceOut]:
         """
-        Mark a voice as a workspace favorite.
+        Add a voice to the current workspace's favorites.
+
+        Favorites are workspace-scoped, not per-user: all members of the workspace
+        see the same favorited set. Idempotent — favoriting a voice that is already
+        favorited succeeds without error. Returns the voice with `is_favorite=true`.
+        Requires the caller to have at least editor role in the workspace.
 
         Parameters
         ----------
@@ -790,7 +1118,11 @@ class AsyncRawVoicesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseDict]:
         """
-        Remove a voice from workspace favorites.
+        Remove a voice from the current workspace's favorites.
+
+        Idempotent — removing a voice that is not currently favorited succeeds
+        without error. Requires the caller to have at least editor role in the
+        workspace.
 
         Parameters
         ----------

@@ -58,7 +58,16 @@ class RawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiListResponseDictionaryOut]:
         """
-        List dictionary entries for a single language in the current workspace.
+        List dictionary entries for a single locale in the current workspace.
+
+        Returns a paginated list of entries for the BCP-47 `language` locale
+        specified via the `?language=` query parameter (required, e.g. `ko-kr`).
+        Use `GET /dictionary/search` instead when you need to match by word text
+        across multiple locales, or `GET /dictionary/languages` to discover which
+        locales have entries before filtering here.
+
+        `audio_url` on entries with `method=recorded` is a short-lived presigned URL
+        — do not cache it across sessions.
 
         Parameters
         ----------
@@ -66,15 +75,19 @@ class RawDictionaryClient:
             BCP-47 language code, e.g. en-us, ko-kr
 
         method : typing.Optional[typing.Sequence[DictionaryMethod]]
-            Repeat for OR, e.g. ?method=spelled&method=recorded
+            Filter by one or more entry methods. Repeat to OR: `?method=spelled&method=recorded`. Omit to return all methods.
 
         sort : typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestSort]
+            Field to sort by. `uses_count` ranks the most-applied entries first, useful for auditing high-impact corrections.
 
         order : typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestOrder]
+            Sort direction.
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Page size (max 50).
 
         workspace_id : typing.Optional[str]
 
@@ -146,26 +159,52 @@ class RawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseDictionaryOut]:
         """
-        Create a new dictionary entry in the current workspace.
+        Create a pronunciation dictionary entry in the current workspace.
+
+        Dictionary entries teach the synthesis pipeline how to pronounce words that
+        it would otherwise handle incorrectly — brand names, acronyms, technical
+        terms, proper nouns, and foreign loanwords. Each entry is scoped to a single
+        BCP-47 locale and is applied during workflow execution when that locale is
+        the synthesis target.
+
+        Three methods are supported via the `method` field:
+
+        - `spelled` — provide a phonetic respelling in `pronunciation` (e.g.
+          `"Poh-doh-nohs"`). `pronunciation` is required for this method.
+        - `recorded` — attach a reference audio clip by supplying an `upload_id`
+          from a completed `/uploads` staging upload with category `dictionary`.
+          The audio is copied to permanent storage on create; the upload slot is
+          consumed and cannot be reused for a different entry.
+        - `ipa` — supply an IPA transcription in `ipa`. `pronunciation` is optional
+          as a human-readable gloss alongside the IPA.
+
+        Returns 409 if a `(word, language)` pair already exists in the workspace.
+        Requires `editor` workspace role and the `dictionary:write` scope.
 
         Parameters
         ----------
         word : str
+            The surface form of the word or phrase as it appears in a script.
 
         method : DictionaryMethod
+            Pronunciation method: `spelled` (phonetic respelling), `recorded` (reference audio clip), or `ipa` (IPA transcription).
 
         language : str
+            BCP-47 locale this entry applies to (e.g. `ko-kr`). Case-insensitive; stored lowercase.
 
         workspace_id : typing.Optional[str]
 
         description : typing.Optional[str]
+            Optional human-readable note about the entry (e.g. context, source).
 
         pronunciation : typing.Optional[str]
+            Phonetic respelling. Required when `method` is `spelled`.
 
         upload_id : typing.Optional[str]
+            ID of a completed staging upload (category `dictionary`). Required when `method` is `recorded`; consumed on create.
 
         ipa : typing.Optional[str]
-            User-provided IPA transcription. Persisted as-is. Auto-generation via phonemizer/LLM is a POD-256 follow-up.
+            IPA transcription of the word. Supplied by the caller; automatic generation is a planned enhancement.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -239,19 +278,32 @@ class RawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiListResponseDictionaryOut]:
         """
-        Cross-language search over dictionary entries.
+        Search dictionary entries by word text across one or more locales.
+
+        Performs a case-insensitive substring match on the `word` field. Optionally
+        narrow to one or more BCP-47 locales by repeating `?language=` (OR logic).
+        Omitting `language` searches across all locales in the workspace.
+
+        Use `GET /dictionary` (locale-scoped list) when you want the full entry list
+        for a specific locale; use this endpoint when you need to find how a word
+        is defined across languages or when the user is typing a search query.
 
         Parameters
         ----------
         search : str
+            Substring to match against the `word` field (case-insensitive).
 
         sort : typing.Optional[SearchDictionaryEntriesApiV1DictionarySearchGetRequestSort]
+            Field to sort by.
 
         order : typing.Optional[SearchDictionaryEntriesApiV1DictionarySearchGetRequestOrder]
+            Sort direction.
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Page size (max 50).
 
         language : typing.Optional[typing.Sequence[SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem]]
             Repeat for OR, e.g. ?language=en-us&language=ko-kr
@@ -316,7 +368,12 @@ class RawDictionaryClient:
         self, *, workspace_id: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ApiResponseListDictionaryLanguageOut]:
         """
-        Return distinct languages with entry counts, ordered by count DESC, code ASC.
+        Return all locales that have at least one dictionary entry, with entry counts.
+
+        Results are ordered by entry count descending, then BCP-47 locale code
+        ascending. Use this endpoint to populate a locale filter dropdown before
+        calling `GET /dictionary?language=`, rather than hard-coding the supported
+        locale list in your client.
 
         Parameters
         ----------
@@ -377,21 +434,25 @@ class RawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponsePronunciationSuggestion]:
         """
-        Return a deterministic FE-parity pronunciation fallback.
+        Generate a pronunciation suggestion for a word before saving it as a dictionary entry.
 
-        ``language`` is reserved for future per-locale rules; ``ipa`` is reserved
-        for a future generator and is always ``None`` in this version.
+        Returns a `pronunciation` string suitable for use as the `pronunciation` field
+        when creating a `spelled`-method dictionary entry. The suggestion is
+        deterministic (same word always returns the same result) and is intended as a
+        starting point for human review, not as a production-ready transcription.
 
-        Workspace scoping is enforced via ``get_current_workspace`` even though the
-        response is workspace-independent today: this keeps all ``/api/v1/``
-        endpoints uniform (see CLAUDE.md §Workspace Scoping) and leaves room for
-        per-workspace dictionary overrides when the generator lands.
+        `language` is accepted to maintain a consistent request shape for future
+        per-locale phonetic rules; it does not affect the current output. `ipa` is
+        always `null` in this version — automatic IPA generation is a planned
+        enhancement.
 
         Parameters
         ----------
         word : str
+            The word or phrase to generate a pronunciation suggestion for.
 
         language : str
+            BCP-47 locale of the word. Reserved for future per-locale phonetic rules; does not affect current output.
 
         workspace_id : typing.Optional[str]
 
@@ -462,7 +523,20 @@ class RawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseDictionaryOut]:
         """
-        Update a dictionary entry scoped to the current workspace.
+        Update fields on an existing dictionary entry in the current workspace.
+
+        Supports partial updates — only the fields included in the request body are
+        changed; omitted fields retain their current values. Passing `null` for
+        `word`, `method`, or `language` is rejected with 422, as these fields are
+        required on the stored entry.
+
+        To replace the reference audio on a `recorded`-method entry, supply a new
+        `upload_id` pointing to a completed staging upload. The previous audio is
+        orphaned (not deleted from storage) and the new file is copied to permanent
+        storage atomically.
+
+        Returns 409 if the new `(word, language)` combination already exists in the
+        workspace. Requires `editor` workspace role and the `dictionary:write` scope.
 
         Parameters
         ----------
@@ -471,19 +545,25 @@ class RawDictionaryClient:
         workspace_id : typing.Optional[str]
 
         word : typing.Optional[str]
+            Updated surface form. Omit to leave unchanged.
 
         description : typing.Optional[str]
+            Updated human-readable note. Omit to leave unchanged.
 
         pronunciation : typing.Optional[str]
+            Updated phonetic respelling. Required when changing `method` to `spelled`.
 
         upload_id : typing.Optional[str]
+            New staging upload ID to replace the reference audio. Required when changing `method` to `recorded`.
 
         method : typing.Optional[DictionaryMethod]
+            Updated pronunciation method. Omit to leave unchanged.
 
         language : typing.Optional[str]
+            Updated BCP-47 locale. Omit to leave unchanged.
 
         ipa : typing.Optional[str]
-            User-provided IPA transcription. Persisted as-is. Auto-generation via phonemizer/LLM is a POD-256 follow-up.
+            Updated IPA transcription. Omit to leave unchanged; supply `null` explicitly to clear.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -550,7 +630,13 @@ class RawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseDict]:
         """
-        Soft-delete a dictionary entry scoped to the current workspace.
+        Delete a dictionary entry from the current workspace.
+
+        The entry is removed from the workspace's dictionary and will no longer
+        influence synthesis output in subsequent workflow runs. The operation is not
+        reversible via the API — create a new entry to restore the pronunciation.
+        Returns an empty `data` object on success. Requires `editor` workspace role
+        and the `dictionary:write` scope.
 
         Parameters
         ----------
@@ -622,7 +708,16 @@ class AsyncRawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiListResponseDictionaryOut]:
         """
-        List dictionary entries for a single language in the current workspace.
+        List dictionary entries for a single locale in the current workspace.
+
+        Returns a paginated list of entries for the BCP-47 `language` locale
+        specified via the `?language=` query parameter (required, e.g. `ko-kr`).
+        Use `GET /dictionary/search` instead when you need to match by word text
+        across multiple locales, or `GET /dictionary/languages` to discover which
+        locales have entries before filtering here.
+
+        `audio_url` on entries with `method=recorded` is a short-lived presigned URL
+        — do not cache it across sessions.
 
         Parameters
         ----------
@@ -630,15 +725,19 @@ class AsyncRawDictionaryClient:
             BCP-47 language code, e.g. en-us, ko-kr
 
         method : typing.Optional[typing.Sequence[DictionaryMethod]]
-            Repeat for OR, e.g. ?method=spelled&method=recorded
+            Filter by one or more entry methods. Repeat to OR: `?method=spelled&method=recorded`. Omit to return all methods.
 
         sort : typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestSort]
+            Field to sort by. `uses_count` ranks the most-applied entries first, useful for auditing high-impact corrections.
 
         order : typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestOrder]
+            Sort direction.
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Page size (max 50).
 
         workspace_id : typing.Optional[str]
 
@@ -710,26 +809,52 @@ class AsyncRawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseDictionaryOut]:
         """
-        Create a new dictionary entry in the current workspace.
+        Create a pronunciation dictionary entry in the current workspace.
+
+        Dictionary entries teach the synthesis pipeline how to pronounce words that
+        it would otherwise handle incorrectly — brand names, acronyms, technical
+        terms, proper nouns, and foreign loanwords. Each entry is scoped to a single
+        BCP-47 locale and is applied during workflow execution when that locale is
+        the synthesis target.
+
+        Three methods are supported via the `method` field:
+
+        - `spelled` — provide a phonetic respelling in `pronunciation` (e.g.
+          `"Poh-doh-nohs"`). `pronunciation` is required for this method.
+        - `recorded` — attach a reference audio clip by supplying an `upload_id`
+          from a completed `/uploads` staging upload with category `dictionary`.
+          The audio is copied to permanent storage on create; the upload slot is
+          consumed and cannot be reused for a different entry.
+        - `ipa` — supply an IPA transcription in `ipa`. `pronunciation` is optional
+          as a human-readable gloss alongside the IPA.
+
+        Returns 409 if a `(word, language)` pair already exists in the workspace.
+        Requires `editor` workspace role and the `dictionary:write` scope.
 
         Parameters
         ----------
         word : str
+            The surface form of the word or phrase as it appears in a script.
 
         method : DictionaryMethod
+            Pronunciation method: `spelled` (phonetic respelling), `recorded` (reference audio clip), or `ipa` (IPA transcription).
 
         language : str
+            BCP-47 locale this entry applies to (e.g. `ko-kr`). Case-insensitive; stored lowercase.
 
         workspace_id : typing.Optional[str]
 
         description : typing.Optional[str]
+            Optional human-readable note about the entry (e.g. context, source).
 
         pronunciation : typing.Optional[str]
+            Phonetic respelling. Required when `method` is `spelled`.
 
         upload_id : typing.Optional[str]
+            ID of a completed staging upload (category `dictionary`). Required when `method` is `recorded`; consumed on create.
 
         ipa : typing.Optional[str]
-            User-provided IPA transcription. Persisted as-is. Auto-generation via phonemizer/LLM is a POD-256 follow-up.
+            IPA transcription of the word. Supplied by the caller; automatic generation is a planned enhancement.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -803,19 +928,32 @@ class AsyncRawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiListResponseDictionaryOut]:
         """
-        Cross-language search over dictionary entries.
+        Search dictionary entries by word text across one or more locales.
+
+        Performs a case-insensitive substring match on the `word` field. Optionally
+        narrow to one or more BCP-47 locales by repeating `?language=` (OR logic).
+        Omitting `language` searches across all locales in the workspace.
+
+        Use `GET /dictionary` (locale-scoped list) when you want the full entry list
+        for a specific locale; use this endpoint when you need to find how a word
+        is defined across languages or when the user is typing a search query.
 
         Parameters
         ----------
         search : str
+            Substring to match against the `word` field (case-insensitive).
 
         sort : typing.Optional[SearchDictionaryEntriesApiV1DictionarySearchGetRequestSort]
+            Field to sort by.
 
         order : typing.Optional[SearchDictionaryEntriesApiV1DictionarySearchGetRequestOrder]
+            Sort direction.
 
         offset : typing.Optional[int]
+            Zero-based pagination offset.
 
         limit : typing.Optional[int]
+            Page size (max 50).
 
         language : typing.Optional[typing.Sequence[SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem]]
             Repeat for OR, e.g. ?language=en-us&language=ko-kr
@@ -880,7 +1018,12 @@ class AsyncRawDictionaryClient:
         self, *, workspace_id: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ApiResponseListDictionaryLanguageOut]:
         """
-        Return distinct languages with entry counts, ordered by count DESC, code ASC.
+        Return all locales that have at least one dictionary entry, with entry counts.
+
+        Results are ordered by entry count descending, then BCP-47 locale code
+        ascending. Use this endpoint to populate a locale filter dropdown before
+        calling `GET /dictionary?language=`, rather than hard-coding the supported
+        locale list in your client.
 
         Parameters
         ----------
@@ -941,21 +1084,25 @@ class AsyncRawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponsePronunciationSuggestion]:
         """
-        Return a deterministic FE-parity pronunciation fallback.
+        Generate a pronunciation suggestion for a word before saving it as a dictionary entry.
 
-        ``language`` is reserved for future per-locale rules; ``ipa`` is reserved
-        for a future generator and is always ``None`` in this version.
+        Returns a `pronunciation` string suitable for use as the `pronunciation` field
+        when creating a `spelled`-method dictionary entry. The suggestion is
+        deterministic (same word always returns the same result) and is intended as a
+        starting point for human review, not as a production-ready transcription.
 
-        Workspace scoping is enforced via ``get_current_workspace`` even though the
-        response is workspace-independent today: this keeps all ``/api/v1/``
-        endpoints uniform (see CLAUDE.md §Workspace Scoping) and leaves room for
-        per-workspace dictionary overrides when the generator lands.
+        `language` is accepted to maintain a consistent request shape for future
+        per-locale phonetic rules; it does not affect the current output. `ipa` is
+        always `null` in this version — automatic IPA generation is a planned
+        enhancement.
 
         Parameters
         ----------
         word : str
+            The word or phrase to generate a pronunciation suggestion for.
 
         language : str
+            BCP-47 locale of the word. Reserved for future per-locale phonetic rules; does not affect current output.
 
         workspace_id : typing.Optional[str]
 
@@ -1026,7 +1173,20 @@ class AsyncRawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseDictionaryOut]:
         """
-        Update a dictionary entry scoped to the current workspace.
+        Update fields on an existing dictionary entry in the current workspace.
+
+        Supports partial updates — only the fields included in the request body are
+        changed; omitted fields retain their current values. Passing `null` for
+        `word`, `method`, or `language` is rejected with 422, as these fields are
+        required on the stored entry.
+
+        To replace the reference audio on a `recorded`-method entry, supply a new
+        `upload_id` pointing to a completed staging upload. The previous audio is
+        orphaned (not deleted from storage) and the new file is copied to permanent
+        storage atomically.
+
+        Returns 409 if the new `(word, language)` combination already exists in the
+        workspace. Requires `editor` workspace role and the `dictionary:write` scope.
 
         Parameters
         ----------
@@ -1035,19 +1195,25 @@ class AsyncRawDictionaryClient:
         workspace_id : typing.Optional[str]
 
         word : typing.Optional[str]
+            Updated surface form. Omit to leave unchanged.
 
         description : typing.Optional[str]
+            Updated human-readable note. Omit to leave unchanged.
 
         pronunciation : typing.Optional[str]
+            Updated phonetic respelling. Required when changing `method` to `spelled`.
 
         upload_id : typing.Optional[str]
+            New staging upload ID to replace the reference audio. Required when changing `method` to `recorded`.
 
         method : typing.Optional[DictionaryMethod]
+            Updated pronunciation method. Omit to leave unchanged.
 
         language : typing.Optional[str]
+            Updated BCP-47 locale. Omit to leave unchanged.
 
         ipa : typing.Optional[str]
-            User-provided IPA transcription. Persisted as-is. Auto-generation via phonemizer/LLM is a POD-256 follow-up.
+            Updated IPA transcription. Omit to leave unchanged; supply `null` explicitly to clear.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1114,7 +1280,13 @@ class AsyncRawDictionaryClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseDict]:
         """
-        Soft-delete a dictionary entry scoped to the current workspace.
+        Delete a dictionary entry from the current workspace.
+
+        The entry is removed from the workspace's dictionary and will no longer
+        influence synthesis output in subsequent workflow runs. The operation is not
+        reversible via the API — create a new entry to restore the pronunciation.
+        Returns an empty `data` object on success. Requires `editor` workspace role
+        and the `dictionary:write` scope.
 
         Parameters
         ----------

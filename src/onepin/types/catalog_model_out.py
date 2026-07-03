@@ -11,15 +11,18 @@ class CatalogModelOut(UniversalBaseModel):
     """
     Catalog model entry — lean, customer-safe.
 
-    ``config_schema`` is the per-model TTS config JSON-schema (from the provider
-    registry's Pydantic config class). ``voice_count`` is the number of active
-    platform voices catalogued under this exact ``(provider, model)``.
+    ``config_schema`` is the per-model NATIVE TTS config JSON-schema. POD-670:
+    ``config_schema`` is now DEPRECATED as the FE slider source — read ``controls``
+    instead (the provider-agnostic canonical supported-set). ``config_schema`` is
+    kept populated for back-compat until the FE migrates (POD-718). ``voice_count``
+    is the number of active platform voices catalogued under this ``(provider, model)``.
     """
 
     model: str
     display_name: str
     content_type: typing.Optional[str] = None
     config_schema: typing.Optional[typing.Dict[str, typing.Any]] = None
+    controls: typing.Optional[typing.Dict[str, typing.Any]] = None
     voice_count: int
     links: typing.Optional[typing.Dict[str, CatalogLink]] = None
 

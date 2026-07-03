@@ -14,7 +14,7 @@ class CatalogVoiceOut(UniversalBaseModel):
     Lean voice entry for ``/providers/{p}/models/{m}/voices``.
 
     ``provider``/``model`` are implied by the path, so they are omitted here.
-    ``preview_url`` is a short-lived presigned S3 URL for the preview sample.
+    ``preview_url`` is a short-lived presigned URL for the preview sample.
     """
 
     id: str
@@ -25,6 +25,7 @@ class CatalogVoiceOut(UniversalBaseModel):
     accent: typing.Optional[VoiceAccent] = None
     supported_languages: typing.Optional[typing.List[str]] = None
     preview_url: typing.Optional[str] = None
+    emotion_options: typing.Optional[typing.List[str]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

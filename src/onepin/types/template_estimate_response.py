@@ -19,23 +19,90 @@ class TemplateEstimateResponse(UniversalBaseModel):
     workflows still use `EstimateResponse` once real script text exists.
     """
 
-    unit_chars: int
-    variable_min_credits_per_unit: int
-    variable_expected_credits_per_unit: int
-    variable_max_credits_per_unit: int
-    fixed_min_credits: int
-    fixed_expected_credits: int
-    fixed_max_credits: int
-    total_min_credits_per_unit: int
-    total_expected_credits_per_unit: int
-    total_max_credits_per_unit: int
-    breakdown: typing.List[NodeEstimate]
-    source_snapshot: TemplateEstimateResponseSourceSnapshot
-    source_node_ids: typing.List[str]
-    definition_fingerprint: str
-    rate_fingerprint: str
-    cache_status: TemplateEstimateResponseCacheStatus
-    computed_at: dt.datetime
+    unit_chars: int = pydantic.Field()
+    """
+    Character count of the synthetic input used to compute the per-unit rates. Divide your expected script length by this value and multiply by the per-unit credit fields to project total cost.
+    """
+
+    variable_min_credits_per_unit: int = pydantic.Field()
+    """
+    Minimum variable credits per `unit_chars` characters (best-case pricing, scales with script length).
+    """
+
+    variable_expected_credits_per_unit: int = pydantic.Field()
+    """
+    Expected variable credits per `unit_chars` characters (typical pricing).
+    """
+
+    variable_max_credits_per_unit: int = pydantic.Field()
+    """
+    Maximum variable credits per `unit_chars` characters (worst-case pricing).
+    """
+
+    fixed_min_credits: int = pydantic.Field()
+    """
+    Minimum fixed credits charged once per run regardless of script length.
+    """
+
+    fixed_expected_credits: int = pydantic.Field()
+    """
+    Expected fixed credits per run.
+    """
+
+    fixed_max_credits: int = pydantic.Field()
+    """
+    Maximum fixed credits per run.
+    """
+
+    total_min_credits_per_unit: int = pydantic.Field()
+    """
+    Total minimum credits per `unit_chars` (variable_min + fixed_min).
+    """
+
+    total_expected_credits_per_unit: int = pydantic.Field()
+    """
+    Total expected credits per `unit_chars`.
+    """
+
+    total_max_credits_per_unit: int = pydantic.Field()
+    """
+    Total maximum credits per `unit_chars`.
+    """
+
+    breakdown: typing.List[NodeEstimate] = pydantic.Field()
+    """
+    Per-node credit breakdown showing which processing steps drive the cost.
+    """
+
+    source_snapshot: TemplateEstimateResponseSourceSnapshot = pydantic.Field()
+    """
+    `draft` when the estimate is based on the owner's live definition; `published` when based on the gallery snapshot.
+    """
+
+    source_node_ids: typing.List[str] = pydantic.Field()
+    """
+    IDs of the source nodes used to anchor the estimate calculation.
+    """
+
+    definition_fingerprint: str = pydantic.Field()
+    """
+    Hash of the template definition at the time this estimate was computed. Changes when the workflow graph is modified.
+    """
+
+    rate_fingerprint: str = pydantic.Field()
+    """
+    Hash of the pricing rates used. Changes when credit rates are updated.
+    """
+
+    cache_status: TemplateEstimateResponseCacheStatus = pydantic.Field()
+    """
+    `hit` — served from cache; `miss` — computed fresh (no prior cache); `stale` — recomputed because the definition or rates changed.
+    """
+
+    computed_at: dt.datetime = pydantic.Field()
+    """
+    UTC timestamp when this estimate was last computed.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

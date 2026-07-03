@@ -6,23 +6,14 @@ from json.decoder import JSONDecodeError
 from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
-from ..core.jsonable_encoder import encode_path_param
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_list_response_template_out import ApiListResponseTemplateOut
 from ..types.api_response_balance_response import ApiResponseBalanceResponse
-from ..types.api_response_customer_subscription_response import ApiResponseCustomerSubscriptionResponse
-from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_email_notification_preferences_out import ApiResponseEmailNotificationPreferencesOut
-from ..types.api_response_invoice_list_response import ApiResponseInvoiceListResponse
-from ..types.api_response_list_payment_method_response import ApiResponseListPaymentMethodResponse
 from ..types.api_response_plan_limits import ApiResponsePlanLimits
-from ..types.api_response_setup_intent_response import ApiResponseSetupIntentResponse
-from ..types.api_response_union_customer_subscription_response_none_type import (
-    ApiResponseUnionCustomerSubscriptionResponseNoneType,
-)
 from ..types.template_category import TemplateCategory
 from .types.list_my_templates_api_v1users_me_templates_get_request_sort import (
     ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort,
@@ -37,495 +28,20 @@ class RawUsersClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get_current_subscription(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]:
-        """
-        Get the current user's active subscription.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/subscription",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseUnionCustomerSubscriptionResponseNoneType,
-                    parse_obj_as(
-                        type_=ApiResponseUnionCustomerSubscriptionResponseNoneType,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def subscribe(
-        self, *, plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseCustomerSubscriptionResponse]:
-        """
-        Create a subscription using the default payment method.
-
-        Parameters
-        ----------
-        plan_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiResponseCustomerSubscriptionResponse]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/subscription",
-            method="POST",
-            json={
-                "plan_id": plan_id,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseCustomerSubscriptionResponse,
-                    parse_obj_as(
-                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def cancel_subscription(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseCustomerSubscriptionResponse]:
-        """
-        Cancel the current user's subscription at period end.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiResponseCustomerSubscriptionResponse]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/subscription/cancel",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseCustomerSubscriptionResponse,
-                    parse_obj_as(
-                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def change_plan(
-        self, *, new_plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseCustomerSubscriptionResponse]:
-        """
-        Switch the current user's subscription to a different plan.
-
-        Parameters
-        ----------
-        new_plan_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiResponseCustomerSubscriptionResponse]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/subscription/change-plan",
-            method="POST",
-            json={
-                "new_plan_id": new_plan_id,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseCustomerSubscriptionResponse,
-                    parse_obj_as(
-                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def cancel_scheduled_change(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseCustomerSubscriptionResponse]:
-        """
-        Cancel a scheduled plan downgrade.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiResponseCustomerSubscriptionResponse]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/subscription/cancel-scheduled-change",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseCustomerSubscriptionResponse,
-                    parse_obj_as(
-                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def list_payment_methods(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseListPaymentMethodResponse]:
-        """
-        List the current user's saved payment methods.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiResponseListPaymentMethodResponse]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/payment-methods",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseListPaymentMethodResponse,
-                    parse_obj_as(
-                        type_=ApiResponseListPaymentMethodResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def add_payment_method(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseSetupIntentResponse]:
-        """
-        Create a Stripe SetupIntent to add a new payment method.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiResponseSetupIntentResponse]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/payment-methods",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseSetupIntentResponse,
-                    parse_obj_as(
-                        type_=ApiResponseSetupIntentResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def delete_payment_method(
-        self, payment_method_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseDict]:
-        """
-        Detach a payment method from the current user's account.
-
-        Parameters
-        ----------
-        payment_method_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiResponseDict]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/v1/users/me/payment-methods/{encode_path_param(payment_method_id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseDict,
-                    parse_obj_as(
-                        type_=ApiResponseDict,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def set_default_payment_method(
-        self, payment_method_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ApiResponseDict]:
-        """
-        Set a payment method as the default for the current user.
-
-        Parameters
-        ----------
-        payment_method_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiResponseDict]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/v1/users/me/payment-methods/{encode_path_param(payment_method_id)}/default",
-            method="PUT",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseDict,
-                    parse_obj_as(
-                        type_=ApiResponseDict,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     def get_my_credits(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ApiResponseBalanceResponse]:
         """
-        Return the current user's credit balance + monthly grant + period anchor.
+        Return the caller's current credit balance and billing period details.
 
-        Free-tier users have no Subscription row; the response falls back to the
-        canonical FREE Plan (1000 credits/mo, calendar-month boundary).
+        `balance` is the authoritative gate value: use it to decide whether to
+        attempt a workflow run. `remaining` is a display convenience derived from
+        settled ledger entries and may temporarily exceed `balance` while a workflow
+        run holds an open reserve. `used` reflects credits consumed in the current
+        billing period. `plan_grant` is the total monthly credit allowance for the
+        caller's plan, enabling a "X / Y used" display. `period_start` and
+        `period_end` mark the boundaries of the current billing window; free-tier
+        callers use a calendar-month boundary.
 
         Parameters
         ----------
@@ -576,7 +92,14 @@ class RawUsersClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ApiResponsePlanLimits]:
         """
-        Return the typed plan limits for the current user (FE plan-card UI consumer).
+        Return the plan limits that govern the caller's current tier.
+
+        Includes numeric quotas (`monthly_credits`, `concurrent_runs_per_user`,
+        `storage_bytes_per_workspace`, `workspaces_per_owner`) and feature flags
+        (`byok_enabled`, `auto_fix_enabled`, `auto_edit_enabled`). `null` on list
+        fields such as `tts_models_allowlist` or `supported_languages` means all
+        available options are permitted. Use this endpoint to gate feature access in
+        your application rather than hardcoding tier names, which may change.
 
         Parameters
         ----------
@@ -623,74 +146,15 @@ class RawUsersClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def list_invoices(
-        self,
-        *,
-        limit: typing.Optional[int] = None,
-        starting_after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ApiResponseInvoiceListResponse]:
-        """
-        List invoices for the current user.
-
-        Parameters
-        ----------
-        limit : typing.Optional[int]
-
-        starting_after : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiResponseInvoiceListResponse]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/invoices",
-            method="GET",
-            params={
-                "limit": limit,
-                "starting_after": starting_after,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseInvoiceListResponse,
-                    parse_obj_as(
-                        type_=ApiResponseInvoiceListResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     def get_current_notification_preferences(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ApiResponseEmailNotificationPreferencesOut]:
         """
-        Get the current user's email notification preferences.
+        Return the caller's current email notification settings.
+
+        Each boolean field corresponds to a notification category. `true` means the
+        caller will receive that email; `false` means they have opted out. Use
+        `PATCH /me/notification-preferences` to change individual preferences.
 
         Parameters
         ----------
@@ -745,13 +209,19 @@ class RawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseEmailNotificationPreferencesOut]:
         """
-        Partially update the current user's email notification preferences.
+        Partially update the caller's email notification preferences.
+
+        Send only the fields you want to change; omitted fields are left unchanged.
+        All provided fields must be boolean — explicit `null` values are rejected
+        with a 422. Returns the full updated preference object.
 
         Parameters
         ----------
         completed_generation_email : typing.Optional[bool]
+            Set to true to enable or false to disable completion emails. Omit to leave unchanged.
 
         failed_generation_email : typing.Optional[bool]
+            Set to true to enable or false to disable failure emails. Omit to leave unchanged.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -817,12 +287,13 @@ class RawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiListResponseTemplateOut]:
         """
-        List templates the current user created in the current workspace.
+        List workflow templates created by the caller in the current workspace.
 
-        Scoped on both `(workspace_id, created_by)` so when workspaces become
-        multi-user this endpoint keeps returning only the caller's own rows —
-        other workspace members' public/starter templates surface via the
-        gallery endpoint (`GET /api/v1/templates`) instead.
+        Returns only templates owned by the caller; templates shared by other
+        workspace members or platform starter templates are not included — use
+        `GET /api/v1/templates` for the full gallery. Supports offset-based
+        pagination via `offset` / `limit`. Combine `category`, `search`, and
+        `favorites_only` to narrow results; multiple `category` values are OR'd.
 
         Parameters
         ----------
@@ -830,12 +301,16 @@ class RawUsersClient:
             Repeat for OR, e.g. ?category=media&category=creative
 
         search : typing.Optional[str]
+            Full-text search against template name and description.
 
         sort : typing.Optional[ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort]
+            Sort order: `recent` (last updated), `name` (A–Z), or `uses` (most used).
 
         offset : typing.Optional[int]
+            Number of results to skip for pagination.
 
         limit : typing.Optional[int]
+            Maximum number of results to return (1–100).
 
         favorites_only : typing.Optional[bool]
 
@@ -900,495 +375,20 @@ class AsyncRawUsersClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def get_current_subscription(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]:
-        """
-        Get the current user's active subscription.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/subscription",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseUnionCustomerSubscriptionResponseNoneType,
-                    parse_obj_as(
-                        type_=ApiResponseUnionCustomerSubscriptionResponseNoneType,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def subscribe(
-        self, *, plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]:
-        """
-        Create a subscription using the default payment method.
-
-        Parameters
-        ----------
-        plan_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/subscription",
-            method="POST",
-            json={
-                "plan_id": plan_id,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseCustomerSubscriptionResponse,
-                    parse_obj_as(
-                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def cancel_subscription(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]:
-        """
-        Cancel the current user's subscription at period end.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/subscription/cancel",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseCustomerSubscriptionResponse,
-                    parse_obj_as(
-                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def change_plan(
-        self, *, new_plan_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]:
-        """
-        Switch the current user's subscription to a different plan.
-
-        Parameters
-        ----------
-        new_plan_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/subscription/change-plan",
-            method="POST",
-            json={
-                "new_plan_id": new_plan_id,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseCustomerSubscriptionResponse,
-                    parse_obj_as(
-                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def cancel_scheduled_change(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]:
-        """
-        Cancel a scheduled plan downgrade.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiResponseCustomerSubscriptionResponse]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/subscription/cancel-scheduled-change",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseCustomerSubscriptionResponse,
-                    parse_obj_as(
-                        type_=ApiResponseCustomerSubscriptionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def list_payment_methods(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseListPaymentMethodResponse]:
-        """
-        List the current user's saved payment methods.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiResponseListPaymentMethodResponse]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/payment-methods",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseListPaymentMethodResponse,
-                    parse_obj_as(
-                        type_=ApiResponseListPaymentMethodResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def add_payment_method(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseSetupIntentResponse]:
-        """
-        Create a Stripe SetupIntent to add a new payment method.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiResponseSetupIntentResponse]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/payment-methods",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseSetupIntentResponse,
-                    parse_obj_as(
-                        type_=ApiResponseSetupIntentResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def delete_payment_method(
-        self, payment_method_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseDict]:
-        """
-        Detach a payment method from the current user's account.
-
-        Parameters
-        ----------
-        payment_method_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiResponseDict]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/v1/users/me/payment-methods/{encode_path_param(payment_method_id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseDict,
-                    parse_obj_as(
-                        type_=ApiResponseDict,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def set_default_payment_method(
-        self, payment_method_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ApiResponseDict]:
-        """
-        Set a payment method as the default for the current user.
-
-        Parameters
-        ----------
-        payment_method_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiResponseDict]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/v1/users/me/payment-methods/{encode_path_param(payment_method_id)}/default",
-            method="PUT",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseDict,
-                    parse_obj_as(
-                        type_=ApiResponseDict,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     async def get_my_credits(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ApiResponseBalanceResponse]:
         """
-        Return the current user's credit balance + monthly grant + period anchor.
+        Return the caller's current credit balance and billing period details.
 
-        Free-tier users have no Subscription row; the response falls back to the
-        canonical FREE Plan (1000 credits/mo, calendar-month boundary).
+        `balance` is the authoritative gate value: use it to decide whether to
+        attempt a workflow run. `remaining` is a display convenience derived from
+        settled ledger entries and may temporarily exceed `balance` while a workflow
+        run holds an open reserve. `used` reflects credits consumed in the current
+        billing period. `plan_grant` is the total monthly credit allowance for the
+        caller's plan, enabling a "X / Y used" display. `period_start` and
+        `period_end` mark the boundaries of the current billing window; free-tier
+        callers use a calendar-month boundary.
 
         Parameters
         ----------
@@ -1439,7 +439,14 @@ class AsyncRawUsersClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ApiResponsePlanLimits]:
         """
-        Return the typed plan limits for the current user (FE plan-card UI consumer).
+        Return the plan limits that govern the caller's current tier.
+
+        Includes numeric quotas (`monthly_credits`, `concurrent_runs_per_user`,
+        `storage_bytes_per_workspace`, `workspaces_per_owner`) and feature flags
+        (`byok_enabled`, `auto_fix_enabled`, `auto_edit_enabled`). `null` on list
+        fields such as `tts_models_allowlist` or `supported_languages` means all
+        available options are permitted. Use this endpoint to gate feature access in
+        your application rather than hardcoding tier names, which may change.
 
         Parameters
         ----------
@@ -1486,74 +493,15 @@ class AsyncRawUsersClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def list_invoices(
-        self,
-        *,
-        limit: typing.Optional[int] = None,
-        starting_after: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ApiResponseInvoiceListResponse]:
-        """
-        List invoices for the current user.
-
-        Parameters
-        ----------
-        limit : typing.Optional[int]
-
-        starting_after : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiResponseInvoiceListResponse]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/users/me/invoices",
-            method="GET",
-            params={
-                "limit": limit,
-                "starting_after": starting_after,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseInvoiceListResponse,
-                    parse_obj_as(
-                        type_=ApiResponseInvoiceListResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     async def get_current_notification_preferences(
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ApiResponseEmailNotificationPreferencesOut]:
         """
-        Get the current user's email notification preferences.
+        Return the caller's current email notification settings.
+
+        Each boolean field corresponds to a notification category. `true` means the
+        caller will receive that email; `false` means they have opted out. Use
+        `PATCH /me/notification-preferences` to change individual preferences.
 
         Parameters
         ----------
@@ -1608,13 +556,19 @@ class AsyncRawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseEmailNotificationPreferencesOut]:
         """
-        Partially update the current user's email notification preferences.
+        Partially update the caller's email notification preferences.
+
+        Send only the fields you want to change; omitted fields are left unchanged.
+        All provided fields must be boolean — explicit `null` values are rejected
+        with a 422. Returns the full updated preference object.
 
         Parameters
         ----------
         completed_generation_email : typing.Optional[bool]
+            Set to true to enable or false to disable completion emails. Omit to leave unchanged.
 
         failed_generation_email : typing.Optional[bool]
+            Set to true to enable or false to disable failure emails. Omit to leave unchanged.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1680,12 +634,13 @@ class AsyncRawUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiListResponseTemplateOut]:
         """
-        List templates the current user created in the current workspace.
+        List workflow templates created by the caller in the current workspace.
 
-        Scoped on both `(workspace_id, created_by)` so when workspaces become
-        multi-user this endpoint keeps returning only the caller's own rows —
-        other workspace members' public/starter templates surface via the
-        gallery endpoint (`GET /api/v1/templates`) instead.
+        Returns only templates owned by the caller; templates shared by other
+        workspace members or platform starter templates are not included — use
+        `GET /api/v1/templates` for the full gallery. Supports offset-based
+        pagination via `offset` / `limit`. Combine `category`, `search`, and
+        `favorites_only` to narrow results; multiple `category` values are OR'd.
 
         Parameters
         ----------
@@ -1693,12 +648,16 @@ class AsyncRawUsersClient:
             Repeat for OR, e.g. ?category=media&category=creative
 
         search : typing.Optional[str]
+            Full-text search against template name and description.
 
         sort : typing.Optional[ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort]
+            Sort order: `recent` (last updated), `name` (A–Z), or `uses` (most used).
 
         offset : typing.Optional[int]
+            Number of results to skip for pagination.
 
         limit : typing.Optional[int]
+            Maximum number of results to return (1–100).
 
         favorites_only : typing.Optional[bool]
 

@@ -16,12 +16,35 @@ class UsageByLanguageOut(UniversalBaseModel):
     Rolling range used for rows, or null when activity_view supplies the effective period.
     """
 
-    activity_view: typing.Optional[UsageByLanguageOutActivityView] = None
-    timezone: str
-    period: UsagePeriodOut
-    languages: typing.Optional[typing.List[UsageLanguageRowOut]] = None
-    total_credits: typing.Optional[int] = None
-    untagged_credits: typing.Optional[int] = None
+    activity_view: typing.Optional[UsageByLanguageOutActivityView] = pydantic.Field(default=None)
+    """
+    Activity view period applied when `range` is null.
+    """
+
+    timezone: str = pydantic.Field()
+    """
+    IANA timezone used for period boundary computation.
+    """
+
+    period: UsagePeriodOut = pydantic.Field()
+    """
+    Absolute UTC start and end of the reporting period.
+    """
+
+    languages: typing.Optional[typing.List[UsageLanguageRowOut]] = pydantic.Field(default=None)
+    """
+    Per-language rows ordered by credit consumption descending.
+    """
+
+    total_credits: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Total credits across all languages in the period.
+    """
+
+    untagged_credits: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Credits that could not be attributed to a specific language.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

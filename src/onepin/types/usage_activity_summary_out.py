@@ -11,10 +11,26 @@ from .usage_activity_summary_out_view import UsageActivitySummaryOutView
 
 
 class UsageActivitySummaryOut(UniversalBaseModel):
-    view: UsageActivitySummaryOutView
-    bucket_unit: UsageActivitySummaryOutBucketUnit
-    range_label: str
-    buckets: typing.Optional[typing.List[UsageActivityBucketOut]] = None
+    view: UsageActivitySummaryOutView = pydantic.Field()
+    """
+    The activity view period applied: `daily`, `weekly`, or `monthly`.
+    """
+
+    bucket_unit: UsageActivitySummaryOutBucketUnit = pydantic.Field()
+    """
+    Time unit for each bucket: `day`, `week`, or `month`.
+    """
+
+    range_label: str = pydantic.Field()
+    """
+    Human-readable label for the chart range (e.g. `Last 7 days`, `Last 12 weeks`).
+    """
+
+    buckets: typing.Optional[typing.List[UsageActivityBucketOut]] = pydantic.Field(default=None)
+    """
+    Ordered list of time buckets covering the activity view period, newest last.
+    """
+
     total: int = pydantic.Field()
     """
     Total generated line count across all activity buckets.
@@ -25,7 +41,10 @@ class UsageActivitySummaryOut(UniversalBaseModel):
     Average generated line count per activity bucket, rounded to 1 decimal.
     """
 
-    peak: typing.Optional[UsageActivityPeakOut] = None
+    peak: typing.Optional[UsageActivityPeakOut] = pydantic.Field(default=None)
+    """
+    The bucket with the highest line count, or `null` when there is no activity.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

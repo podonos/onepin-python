@@ -42,7 +42,11 @@ client = OnePinClient(
     token="<token>",
 )
 
-client.webhooks.clerk_webhook()
+client.dictionary.create_dictionary_entry(
+    word="word",
+    method="spelled",
+    language="language",
+)
 ```
 
 ## Environments
@@ -73,7 +77,11 @@ client = AsyncOnePinClient(
 
 
 async def main() -> None:
-    await client.webhooks.clerk_webhook()
+    await client.dictionary.create_dictionary_entry(
+        word="word",
+        method="spelled",
+        language="language",
+    )
 
 
 asyncio.run(main())
@@ -88,7 +96,7 @@ will be thrown.
 from onepin.core.api_error import ApiError
 
 try:
-    client.webhooks.clerk_webhook()
+    client.dictionary.create_dictionary_entry(...)
 except ApiError as e:
     print(e.status_code)
     print(e.body)
@@ -128,7 +136,7 @@ The `.with_raw_response` property returns a "raw" client that can be used to acc
 from onepin import OnePinClient
 
 client = OnePinClient(...)
-response = client.webhooks.with_raw_response.clerk_webhook()
+response = client.dictionary.with_raw_response.create_dictionary_entry(...)
 print(response.headers)  # access the response headers
 print(response.status_code)  # access the response status code
 print(response.data)  # access the underlying object
@@ -159,7 +167,7 @@ Which status codes are retried depends on the `retryStatusCodes` generator confi
 Use the `max_retries` request option to configure this behavior.
 
 ```python
-client.webhooks.clerk_webhook(request_options={
+client.dictionary.create_dictionary_entry(..., request_options={
     "max_retries": 1
 })
 ```
@@ -174,7 +182,7 @@ from onepin import OnePinClient
 client = OnePinClient(..., timeout=20.0)
 
 # Override timeout for a specific method
-client.webhooks.clerk_webhook(request_options={
+client.dictionary.create_dictionary_entry(..., request_options={
     "timeout_in_seconds": 1
 })
 ```

@@ -25,7 +25,17 @@ class AuthClient:
 
     def whoami(self, *, request_options: typing.Optional[RequestOptions] = None) -> ApiResponseAuthWhoamiOut:
         """
-        Return the resolved Clerk or API-key authentication context.
+        Return the resolved authentication context for the current credential.
+
+        Useful for verifying that a Bearer JWT or API key is valid and discovering
+        which workspace and permission scopes it grants — call this first when
+        debugging authentication issues or bootstrapping an SDK integration.
+
+        The `auth_kind` field indicates whether the credential is a session token
+        (`clerk`) or a programmatic key (`api_key`). For API keys, `workspace_id`
+        and `api_key_id` are always populated; for session tokens, `workspace_id`
+        reflects the `X-Workspace-Id` header value (if present) and `api_key_id`
+        is `null`. The `scopes` list is sorted and deduplicated.
 
         Parameters
         ----------
@@ -67,7 +77,17 @@ class AsyncAuthClient:
 
     async def whoami(self, *, request_options: typing.Optional[RequestOptions] = None) -> ApiResponseAuthWhoamiOut:
         """
-        Return the resolved Clerk or API-key authentication context.
+        Return the resolved authentication context for the current credential.
+
+        Useful for verifying that a Bearer JWT or API key is valid and discovering
+        which workspace and permission scopes it grants — call this first when
+        debugging authentication issues or bootstrapping an SDK integration.
+
+        The `auth_kind` field indicates whether the credential is a session token
+        (`clerk`) or a programmatic key (`api_key`). For API keys, `workspace_id`
+        and `api_key_id` are always populated; for session tokens, `workspace_id`
+        reflects the `X-Workspace-Id` header value (if present) and `api_key_id`
+        is `null`. The `scopes` list is sorted and deduplicated.
 
         Parameters
         ----------

@@ -13,30 +13,125 @@ from .voice_source import VoiceSource
 
 
 class VoiceSimilarOut(UniversalBaseModel):
-    id: str
-    name: str
-    provider: str
-    provider_voice_id: str
-    model: typing.Optional[str] = None
-    description: typing.Optional[str] = None
-    is_active: bool
-    gender: typing.Optional[VoiceGender] = None
-    accent: typing.Optional[VoiceAccent] = None
-    age: typing.Optional[VoiceAge] = None
-    category: typing.Optional[VoiceCategory] = None
-    color: typing.Optional[str] = None
-    tags: typing.Optional[typing.List[str]] = None
-    descriptor: typing.Optional[str] = None
-    uses_count: typing.Optional[int] = None
-    user_id: typing.Optional[str] = None
-    source: typing.Optional[VoiceSource] = None
-    duration_seconds: typing.Optional[float] = None
-    sample_url: typing.Optional[str] = None
-    supported_languages: typing.Optional[typing.List[str]] = None
-    is_favorite: typing.Optional[bool] = None
-    created_at: dt.datetime
-    updated_at: dt.datetime
-    similarity_score: float
+    id: str = pydantic.Field()
+    """
+    Unique voice identifier.
+    """
+
+    name: str = pydantic.Field()
+    """
+    Display name of the voice.
+    """
+
+    provider: str = pydantic.Field()
+    """
+    Speech synthesis provider code for this voice.
+    """
+
+    provider_voice_id: str = pydantic.Field()
+    """
+    Provider-assigned voice identifier used when submitting synthesis requests.
+    """
+
+    description: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Human-readable description of the voice's character and style.
+    """
+
+    is_active: bool = pydantic.Field()
+    """
+    Whether the voice is available for use. Inactive voices are not returned by list or synthesis endpoints.
+    """
+
+    gender: typing.Optional[VoiceGender] = pydantic.Field(default=None)
+    """
+    Perceived gender presentation of the voice.
+    """
+
+    accent: typing.Optional[VoiceAccent] = pydantic.Field(default=None)
+    """
+    Accent of the voice, if classified.
+    """
+
+    age: typing.Optional[VoiceAge] = pydantic.Field(default=None)
+    """
+    Perceived age range of the voice, if classified.
+    """
+
+    category: typing.Optional[VoiceCategory] = pydantic.Field(default=None)
+    """
+    Intended use-case category (e.g. narration, conversational).
+    """
+
+    color: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Brand color associated with the voice in the UI, as a hex string.
+    """
+
+    tags: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Freeform keyword tags for filtering and search.
+    """
+
+    descriptor: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Short one-line voice personality descriptor.
+    """
+
+    uses_count: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Number of times this voice has been used in workflow runs across the platform.
+    """
+
+    user_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Owner user ID for workspace-cloned or user-created voices. Null for platform voices.
+    """
+
+    source: typing.Optional[VoiceSource] = pydantic.Field(default=None)
+    """
+    Origin of the voice: `platform` for system-provided voices, `workspace` for voices added or cloned by the workspace.
+    """
+
+    duration_seconds: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Duration of the audio sample in seconds, if available.
+    """
+
+    sample_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Time-limited presigned URL for the audio preview sample. Valid for 1 hour; regenerate by fetching the voice again.
+    """
+
+    supported_languages: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    BCP-47 language codes this voice supports. Null for platform voices means the voice is treated as general-use across all locales.
+    """
+
+    supported_models: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Model identifiers this voice is compatible with. Null means compatible with all available models for the provider.
+    """
+
+    is_favorite: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether this voice is in the current workspace's favorites list.
+    """
+
+    created_at: dt.datetime = pydantic.Field()
+    """
+    When the voice was added to the platform or workspace.
+    """
+
+    updated_at: dt.datetime = pydantic.Field()
+    """
+    When the voice record was last updated.
+    """
+
+    similarity_score: float = pydantic.Field()
+    """
+    Acoustic similarity to the reference voice, from 0 (least similar) to 1 (identical).
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
