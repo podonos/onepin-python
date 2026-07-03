@@ -82,6 +82,8 @@ class TestListMode:
                     "name": "Main",
                     "slug": "main",
                     "color_idx": 0,
+                    "routing_price_sensitivity": 0.5,
+                    "routing_llm_fit": True,
                     "created_by": "u",
                     "created_at": "2025-01-01T00:00:00Z",
                     "updated_at": "2025-01-01T00:00:00Z",
