@@ -269,7 +269,7 @@ jobs:
     outputs:
       version: ${{ steps.ver.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Check out the resolved release TAG (qualified as refs/tags/ so a same-named
           # branch can never be selected). Full history + tags so hatch-vcs stamps the
