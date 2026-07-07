@@ -218,7 +218,11 @@ def _emit(cmd: Cmd, resp: Any, bound: dict[str, Any], json_on: bool, *, limit: i
 
 
 def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int) -> None:
-    items = list(islice(iter(pager), limit))
+    # The SDK returns a SyncPager when generated with pagination enabled, and a
+    # list-envelope model (items under .data) otherwise. Iterating a pydantic
+    # envelope directly would yield (field, value) tuples — unwrap .data first.
+    # SyncPager has no .data attribute, so this is a no-op for real pagers.
+    items = list(islice(iter(getattr(pager, "data", pager)), limit))
     rows = [to_jsonable(item) for item in items]
     if json_on:
         render_json(rows)
