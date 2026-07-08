@@ -26,10 +26,11 @@ groups:
           client_class_name: OnePinClient
           package_name: onepin
           flat_layout: false
-          # Honor x-fern-pagination in the spec: list endpoints return SyncPager/AsyncPager
-          # instead of raw list envelopes. The CLI (unwrap="pager") and the public docs
-          # both assume pager-returning list() methods.
-          pagination: true
+          # NOTE on pagination: fern-python-sdk has NO `pagination` config key (its
+          # SDKCustomConfig forbids extra keys — a `pagination: true` here breaks every
+          # regen with a pydantic extra_forbidden error). Pager generation is driven by
+          # the x-fern-pagination annotations already present in the spec, gated only by
+          # CLI/generator support. The CLI's pager output path handles both shapes.
           # Re-export the hand-rolled version gate (src/onepin/_version_gate.py, preserved by
           # .fernignore) from the generated package __init__ on every regen, so programmatic
           # users get `from onepin import make_client` (a version-gated OnePinClient).
