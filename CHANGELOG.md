@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1](https://github.com/podonos/onepin-python/compare/v0.8.0...v0.8.1) (2026-07-07)
+
+
+### Bug Fixes
+
+* **cli:** unwrap .data list envelopes in pager output ([7086729](https://github.com/podonos/onepin-python/commit/70867293ef63dc3b4e7747aa2e222e627268624e))
+* **fern:** enable pagination in python-sdk generator config ([107f35c](https://github.com/podonos/onepin-python/commit/107f35c661815d1eb154077ef1f020f8a2888425))
+
 ## [0.8.0](https://github.com/podonos/onepin-python/compare/v0.7.1...v0.8.0) (2026-07-03)
 
 
