@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.3](https://github.com/podonos/onepin-python/compare/v0.8.2...v0.8.3) (2026-07-08)
+
+
+### Bug Fixes
+
+* **fern:** remove invalid pagination key breaking every SDK regen ([#75](https://github.com/podonos/onepin-python/issues/75)) ([c9827a0](https://github.com/podonos/onepin-python/commit/c9827a0bf89f155bfaa19775e7c6622c82d9de54))
+
 ## [0.8.2](https://github.com/podonos/onepin-python/compare/v0.8.1...v0.8.2) (2026-07-08)
 
 
