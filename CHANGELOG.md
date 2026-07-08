@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.2](https://github.com/podonos/onepin-python/compare/v0.8.1...v0.8.2) (2026-07-08)
+
+
+### Bug Fixes
+
+* **cli:** accept any provider in voices list --provider; docs: 30 TTS models ([#72](https://github.com/podonos/onepin-python/issues/72)) ([3c88600](https://github.com/podonos/onepin-python/commit/3c88600513bc73ae9bc3fb55463d662473ca0c18))
+
 ## [0.8.1](https://github.com/podonos/onepin-python/compare/v0.8.0...v0.8.1) (2026-07-07)
 
 
