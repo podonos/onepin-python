@@ -462,11 +462,15 @@ TABLE: list[Cmd] = [
             Opt("--favorites-only", "bool", False, help="Only favorited voices."),
             Opt("--gender", ("male", "female", "neutral"), None, transform="wrap_list", help="Filter by gender."),
             Opt(
+                # Free-form on purpose: the provider catalog grows server-side (fish_audio,
+                # inworld, ...) and a hardcoded choice list goes stale. The server filters
+                # unknown providers to an empty result rather than erroring.
                 "--provider",
-                ("cartesia", "elevenlabs", "naver", "respeecher", "rime"),
+                "str",
                 None,
-                transform="wrap_list",
-                help="Filter by provider.",
+                transform="comma_list",
+                multiple=False,
+                help="Filter by provider(s), comma-separated (e.g. elevenlabs,fish_audio).",
             ),
             Opt(
                 "--language",

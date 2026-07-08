@@ -797,9 +797,9 @@
         {
           "default": null,
           "flag": "--provider",
-          "help": "Filter by provider.",
+          "help": "Filter by provider(s), comma-separated (e.g. elevenlabs,fish_audio).",
           "required": false,
-          "type": "choice[cartesia,elevenlabs,naver,respeecher,rime]"
+          "type": "text"
         },
         {
           "default": null,
