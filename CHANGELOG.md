@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0](https://github.com/podonos/onepin-python/compare/v0.8.3...v0.9.0) (2026-07-09)
+
+
+### Features
+
+* OnepinClient() with credential auto-resolution ([#77](https://github.com/podonos/onepin-python/issues/77)) ([174685b](https://github.com/podonos/onepin-python/commit/174685b6f5b58416013290ed7b0cbdc2b7f6a3ba))
+
 ## [0.8.3](https://github.com/podonos/onepin-python/compare/v0.8.2...v0.8.3) (2026-07-08)
 
 
