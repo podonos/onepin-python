@@ -64,7 +64,7 @@ of the GA nodes (keyed by display name + category), not a slug reference.
 |------|----------|---------|------------|
 | **Single script input** | source | Entry point; emits one script in one locale to its output. | script text / `.txt`/`.csv` |
 | **Normalizer** | processing | Text normalization before TTS (e.g. `"123 main st."` → `"one two three main street"`); multilingual. | language code |
-| **Voice Generator** | processing | TTS for one script in one locale → an audio object. **100+ TTS models** across providers, each with different config support and pricing (the spread from cheapest-but-reasonable to most expensive is ~40×). | **auto-route** picks the best model for the language/locale from Onepin's TTS benchmark, balancing performance against price, or set provider + model manually; speed, emotion, tone, and more (model-dependent) |
+| **Voice Generator** | processing | TTS for one script in one locale → an audio object. **24 TTS models** across providers, each with different config support and pricing (the spread from cheapest-but-reasonable to most expensive is ~40×). | **auto-route** picks the best model for the language/locale from Onepin's TTS benchmark, balancing performance against price, or set provider + model manually; speed, emotion, tone, and more (model-dependent) |
 | **Validator – Word accuracy** | validation | ASR-based word accuracy in [0, 100] (from WER); emits **pass** / **fail** pins. | threshold (default 85, adjustable), max-retry |
 | **Validator – Naturalness** | validation | Internal-AI naturalness score in [0, 100]; emits **pass** / **fail** pins. | threshold (default 85, adjustable), max-retry |
 | **Onepin storage** | output (sink) | Aggregates audio + scripts + validation results for download/visualization. | — |
