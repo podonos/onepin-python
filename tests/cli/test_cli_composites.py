@@ -115,8 +115,17 @@ class TestWorkflowRun:
         patch_client(client)
         result = runner.invoke(
             app,
-            ["--api-key", "op_live_x", "workflows", "run", "wf-1",
-             "--script", "Hello world!", "--source-language", "en-us"],
+            [
+                "--api-key",
+                "op_live_x",
+                "workflows",
+                "run",
+                "wf-1",
+                "--script",
+                "Hello world!",
+                "--source-language",
+                "en-us",
+            ],
         )
         assert result.exit_code == 0, result.output
         assert client.workflows.runs.start_kwargs["request_options"] == {
