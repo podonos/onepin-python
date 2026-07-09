@@ -3,4 +3,6 @@
 # (src/onepin/) and never overwrites the paths listed here.
 _cli/
 _version_gate.py
+_client.py
+_auth_resolve.py
 py.typed
