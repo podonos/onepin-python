@@ -40,3 +40,13 @@ groups:
                 - make_client
                 - make_async_client
                 - OnePinUpgradeRequiredError
+            # Hand-rolled credential-resolving client (src/onepin/_client.py, preserved by
+            # .fernignore). Gives programmatic users `from onepin import OnepinClient`, which
+            # reads the same key `onepin login` stores. See also _auth_resolve.py.
+            - from: _client
+              imports:
+                - OnepinClient
+                - AsyncOnepinClient
+            - from: _auth_resolve
+              imports:
+                - OnepinAuthError

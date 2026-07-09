@@ -1,6 +1,6 @@
 # onepin
 
-**Onepin is a voice workflow platform that orchestrates, validates, and ships production-ready audio across 100+ TTS models.** This is the official Python SDK + CLI for [Onepin](https://onepin.ai).
+**Onepin is a voice workflow platform that orchestrates, validates, and ships production-ready audio across 24 TTS models.** This is the official Python SDK + CLI for [Onepin](https://onepin.ai).
 
 [![PyPI version](https://img.shields.io/pypi/v/onepin)](https://pypi.org/project/onepin/)
 [![Python versions](https://img.shields.io/pypi/pyversions/onepin)](https://pypi.org/project/onepin/)
@@ -13,7 +13,7 @@ TTS turns text into speech. Onepin runs the production around it: plan the line,
 
 - **Orchestrate** voice workflows as graphs — sources, generators, validators, destinations — from Python or the CLI.
 - **Validate** every line. Word accuracy and naturalness are scored against your thresholds, with automatic retries on a miss.
-- **Reach 100+ TTS models** through one definition: ElevenLabs, Cartesia, Google, Naver, and more, with no per-vendor rewrite.
+- **Reach 24 TTS models** through one definition: ElevenLabs, Cartesia, Google, Naver, and more, with no per-vendor rewrite.
 - **Ship publish-ready voice.** Pull a full-run export or a single node's output straight from a run.
 - **Drive it from your agent.** The bundled Agent Skill runs Onepin from Claude Code, Cursor, Codex, Gemini, and Copilot.
 

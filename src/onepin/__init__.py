@@ -208,6 +208,8 @@ if typing.TYPE_CHECKING:
         workspaces,
     )
     from ._default_clients import DefaultAioHttpClient, DefaultAsyncHttpxClient
+    from ._auth_resolve import OnepinAuthError
+    from ._client import AsyncOnepinClient, OnepinClient
     from ._version_gate import OnePinUpgradeRequiredError, make_async_client, make_client
     from .client import AsyncOnePinClient, OnePinClient
     from .dictionary import (
@@ -349,6 +351,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "OnePinClient": ".client",
     "OnePinClientEnvironment": ".environment",
     "OnePinUpgradeRequiredError": "._version_gate",
+    "OnepinAuthError": "._auth_resolve",
+    "OnepinClient": "._client",
+    "AsyncOnepinClient": "._client",
     "PaginationMeta": ".types",
     "PlanLimits": ".types",
     "PlanTier": ".types",
@@ -606,6 +611,9 @@ __all__ = [
     "OnePinClient",
     "OnePinClientEnvironment",
     "OnePinUpgradeRequiredError",
+    "OnepinAuthError",
+    "OnepinClient",
+    "AsyncOnepinClient",
     "PaginationMeta",
     "PlanLimits",
     "PlanTier",
