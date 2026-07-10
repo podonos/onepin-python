@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0](https://github.com/podonos/onepin-python/compare/v0.9.0...v0.10.0) (2026-07-10)
+
+
+### Features
+
+* **cli:** add run-scoped --script and --source-language to workflows run ([#79](https://github.com/podonos/onepin-python/issues/79)) ([54593f0](https://github.com/podonos/onepin-python/commit/54593f040b21b77ad49d322da7131c37030b7697))
+
 ## [0.9.0](https://github.com/podonos/onepin-python/compare/v0.8.3...v0.9.0) (2026-07-09)
 
 
