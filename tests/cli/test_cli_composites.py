@@ -55,8 +55,10 @@ class _Runs:
     def __init__(self, statuses: list[str]) -> None:
         self._statuses = statuses
         self._i = 0
+        self.start_kwargs: dict | None = None
 
     def start(self, workflow_id, **kw):
+        self.start_kwargs = kw
         return _run_out(self._statuses[0])
 
     def status(self, workflow_id, run_id, **kw):
@@ -107,6 +109,44 @@ class TestWorkflowRun:
         result = runner.invoke(app, ["--api-key", "op_live_x", "workflows", "run", "wf-1", "--watch", "--timeout", "0"])
         assert result.exit_code == 1
         assert "Timed out" in result.output
+
+    def test_script_flags_ride_as_body_params(self, patch_client, tmp_home) -> None:
+        client = _WfClient(["running"])
+        patch_client(client)
+        result = runner.invoke(
+            app,
+            [
+                "--api-key",
+                "op_live_x",
+                "workflows",
+                "run",
+                "wf-1",
+                "--script",
+                "Hello world!",
+                "--source-language",
+                "en-us",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert client.workflows.runs.start_kwargs["request_options"] == {
+            "additional_body_parameters": {"script_text": "Hello world!", "source_language": "en-us"}
+        }
+
+    def test_script_flag_alone_sends_only_script_text(self, patch_client, tmp_home) -> None:
+        client = _WfClient(["running"])
+        patch_client(client)
+        result = runner.invoke(app, ["--api-key", "op_live_x", "workflows", "run", "wf-1", "--script", "Hi"])
+        assert result.exit_code == 0, result.output
+        assert client.workflows.runs.start_kwargs["request_options"] == {
+            "additional_body_parameters": {"script_text": "Hi"}
+        }
+
+    def test_no_script_flags_sends_no_request_options(self, patch_client, tmp_home) -> None:
+        client = _WfClient(["running"])
+        patch_client(client)
+        result = runner.invoke(app, ["--api-key", "op_live_x", "workflows", "run", "wf-1"])
+        assert result.exit_code == 0, result.output
+        assert "request_options" not in client.workflows.runs.start_kwargs
 
 
 # === uploads create ======================================================================

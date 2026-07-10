@@ -1121,6 +1121,20 @@
       "name": "run",
       "options": [
         {
+          "default": null,
+          "flag": "--script",
+          "help": "Run-scoped script text; overrides the saved script for this run only.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--source-language",
+          "help": "BCP-47 language of --script (e.g. en-us); defaults to the saved language.",
+          "required": false,
+          "type": "text"
+        },
+        {
           "default": false,
           "flag": "--watch",
           "help": "Poll run status until a terminal state.",

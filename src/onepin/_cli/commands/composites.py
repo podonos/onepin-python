@@ -27,6 +27,12 @@ TERMINAL_RUN_STATES = frozenset({"completed", "failed", "cancelled"})
 
 def workflow_run(
     workflow_id: str = typer.Argument(..., help="Workflow UUID."),
+    script: Optional[str] = typer.Option(
+        None, "--script", help="Run-scoped script text; overrides the saved script for this run only."
+    ),
+    source_language: Optional[str] = typer.Option(
+        None, "--source-language", help="BCP-47 language of --script (e.g. en-us); defaults to the saved language."
+    ),
     watch: bool = typer.Option(False, "--watch", help="Poll run status until a terminal state."),
     timeout: float = typer.Option(300.0, "--timeout", help="Max seconds to watch before giving up."),
     json_output_local: bool = typer.Option(False, "--json", help="Emit JSON instead of text."),
@@ -41,6 +47,16 @@ def workflow_run(
     with api_errors(json_on):
         client = get_client()
         kwargs = _maybe_workspace(client.workflows.runs.start)
+        # Run-scoped inputs ride as additional body parameters until the generated
+        # start() gains script_text/source_language on the next spec regen — the wire
+        # format is identical either way, so this keeps working after the regen too.
+        overrides = {
+            key: value
+            for key, value in (("script_text", script), ("source_language", source_language))
+            if value is not None
+        }
+        if overrides:
+            kwargs["request_options"] = {"additional_body_parameters": overrides}
         started = client.workflows.runs.start(workflow_id, **kwargs)
         run = to_jsonable(getattr(started, "data", started))
         run_id = run.get("id") if isinstance(run, dict) else None
