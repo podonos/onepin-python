@@ -5,6 +5,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .run_status_counts import RunStatusCounts
 
 
 class WorkflowOut(UniversalBaseModel):
@@ -56,6 +57,11 @@ class WorkflowOut(UniversalBaseModel):
     last_run_status: typing.Optional[str] = pydantic.Field(default=None)
     """
     Raw RunStatus of the most recent run. One of: `pending`, `running`, `completed`, `failed`, `cancelled`, `paused`. Null if never run.
+    """
+
+    run_status_counts: typing.Optional[RunStatusCounts] = pydantic.Field(default=None)
+    """
+    Number of runs per raw RunStatus, computed over ALL runs of this workflow (same population as `runs_count`; NOT affected by the list-level `status` filter). The sum of all values equals `runs_count`; statuses with no runs are 0.
     """
 
     if IS_PYDANTIC_V2:

@@ -14,10 +14,23 @@
           "make_async_client",
           "OnePinUpgradeRequiredError"
         ]
+      },
+      {
+        "from": "_client",
+        "imports": [
+          "OnepinClient",
+          "AsyncOnepinClient"
+        ]
+      },
+      {
+        "from": "_auth_resolve",
+        "imports": [
+          "OnepinAuthError"
+        ]
       }
     ]
   },
-  "originGitCommit": "76a0b71893b02defdab9fb41fea3c42d842d4578",
+  "originGitCommit": "41215c0e6ac788a5ef9da91a94fdcaa669837c82",
   "originGitCommitIsDirty": false,
   "invokedBy": "ci",
   "ciProvider": "github"

@@ -1172,7 +1172,7 @@ client.nodes.get_node_detail_v2(
 
 List all available speech synthesis providers in the catalog.
 
-Returns the full set of processing providers — each with its display name,
+Returns the full set of speech synthesis providers — each with its display name,
 number of available models, and a HATEOAS `models` link to
 `GET /providers/{provider}/models`. The response contains only
 customer-facing metadata; cost, credentials, and base URLs are never included.
@@ -2705,7 +2705,7 @@ client.voices.list()
 <dl>
 <dd>
 
-**provider:** `typing.Optional[typing.List[ListVoicesRequestProviderItem]]` — Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
+**provider:** `typing.Optional[typing.List[str]]` — Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
     
 </dd>
 </dl>
@@ -3485,8 +3485,6 @@ per workspace is allowed at a time; re-inviting the same address while a
 pending invite exists returns 409. Inviting an address that already
 belongs to an active member also returns 409.
 
-The total number of active members plus pending invites is counted against
-the workspace owner's plan seat limit. Exceeding the limit returns 402.
 The invitee's role can be updated before acceptance via
 `PATCH /workspaces/{ws_id}/invites/{invite_id}`, or the invite can be
 cancelled via `DELETE /workspaces/{ws_id}/invites/{invite_id}`.
@@ -3977,10 +3975,6 @@ Error cases (all return 410 Gone):
 - Invite already accepted.
 - Invite was revoked by an admin.
 - Invite has expired (14-day TTL from creation).
-
-The workspace owner's plan seat limit is re-checked at accept time in case
-the plan was downgraded after the invite was sent; exceeding the limit
-returns 402.
 </dd>
 </dl>
 </dd>
@@ -4803,7 +4797,7 @@ client.uploads.confirm(
 <dl>
 <dd>
 
-**context_type:** `UploadConfirmRequestContextType` — Type of resource this upload is being attached to. Currently only `workflow` is supported.
+**context_type:** `UploadConfirmRequestContextType` — Type of resource this upload is being attached to: `workflow` or `playground`.
     
 </dd>
 </dl>
@@ -5382,10 +5376,9 @@ Return the plan limits that govern the caller's current tier.
 
 Includes numeric quotas (`monthly_credits`, `concurrent_runs_per_user`,
 `storage_bytes_per_workspace`, `workspaces_per_owner`) and feature flags
-(`byok_enabled`, `auto_fix_enabled`, `auto_edit_enabled`). `null` on list
-fields such as `tts_models_allowlist` or `supported_languages` means all
-available options are permitted. Use this endpoint to gate feature access in
-your application rather than hardcoding tier names, which may change.
+(`byok_enabled`, `auto_fix_enabled`). Use this endpoint to gate feature
+access in your application rather than hardcoding tier names, which may
+change.
 </dd>
 </dl>
 </dd>
@@ -5728,7 +5721,10 @@ List workflows in the current workspace.
 
 Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
 header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
-`last_run_status`) computed over all runs for that workflow.
+`last_run_status`, `run_status_counts`) computed over all runs for that
+workflow. `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
+`runs_count` and are NOT affected by the `status` filter below, so a collapsed
+row can render an accurate per-tab total without a separate runs query.
 
 **Status filter:** `status` narrows by the UI-derived state of the workflow's
 most recent run. `completed` matches only workflows whose latest run succeeded
@@ -5974,6 +5970,102 @@ client.workflows.create_workflow(
 <dd>
 
 **definition:** `typing.Optional[WorkflowDefinitionInput]` — Graph and execution config. Omit to create an empty workflow.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">check_workflow_name_availability</a>(...) -> ApiResponseWorkflowNameAvailabilityOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Check whether a workflow name is free within the current workspace.
+
+Workflow names are unique per workspace among live (non-deleted) workflows,
+so this lets a client validate a name before create or rename. The `name` is
+trimmed and validated with the same policy as create — an invalid name
+returns 422. The check is case-sensitive and ignores soft-deleted workflows,
+mirroring the underlying uniqueness constraint. Pass `exclude_id` when
+renaming so the workflow's current name is not reported as taken by itself.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workflows.check_workflow_name_availability(
+    name="name",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `str` — Workflow name to check (trimmed before comparison).
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**exclude_id:** `typing.Optional[str]` — Workflow to exclude from the check — its own name then reads as available. Pass the workflow's id when validating a rename.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
     
 </dd>
 </dl>
@@ -6802,8 +6894,10 @@ values (valid for 15 minutes) so callers can stream audio directly without
 a separate download step.
 
 `node_display_name` is resolved from the run's definition snapshot, so it
-reflects the name the node had when the run executed. Nodes that were
-retried appear as multiple steps with incrementing `iteration` values.
+reflects the name the node had when the run executed. When multiple language
+branches reach one output node, repeated sink steps receive locale suffixes
+based on the language introduced by each iteration. Other retried nodes keep
+their snapshot display name and incrementing `iteration` value.
 
 For a higher-level view with aggregated metrics (pass rates, audio duration
 by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
@@ -6903,6 +6997,10 @@ Returns structured metric sections (e.g. audio duration totals, validation
 pass rates) grouped by display section, along with per-language audio
 breakdowns and per-validator scoring summaries. Also includes a
 `workflow_snapshot` with the graph definition and per-node completion states.
+
+Repeated states for one shared output node use the same locale suffixes as
+`GET /runs/{run_id}/steps`, based on the language introduced by each sink
+iteration.
 
 This endpoint is best suited for a summary/results view after a run
 completes. It differs from the other run sub-resources as follows:
@@ -7255,7 +7353,7 @@ results rather than the full run archive.
 
 `node_id` must identify an output-category node in the run's definition
 snapshot. Passing a node ID that belongs to a non-output node type (e.g.
-a processing or validation node) returns 404. Returns 404 if the node
+an operator or validation node) returns 404. Returns 404 if the node
 produced no audio files, and 409 if the run has not yet completed.
 
 The URL is valid for 15 minutes. To download all output nodes in a single
@@ -7796,6 +7894,12 @@ its nodes in the background; poll `GET /runs/{run_id}/status` for
 lightweight progress updates, or `GET /runs/{run_id}` once to load the
 immutable definition snapshot.
 
+The optional request body supplies run-scoped inputs: `script_text`
+(and optionally `source_language`) replaces the source_script text for
+THIS run's snapshot only — the stored workflow definition is not
+modified, so concurrent runs with different scripts cannot race.
+Requires exactly one source_script node (422 otherwise).
+
 Use `POST /runs/preview` or `POST /estimate` to compute the credit cost
 before committing to an actual run — those endpoints are read-only and
 incur no charges.
@@ -7816,7 +7920,7 @@ run for this workflow is already active.
 <dd>
 
 ```python
-from onepin import OnePinClient
+from onepin import OnePinClient, WorkflowRunStartIn
 from onepin.environment import OnePinClientEnvironment
 
 client = OnePinClient(
@@ -7826,6 +7930,7 @@ client = OnePinClient(
 
 client.workflows.runs.start(
     workflow_id="workflow_id",
+    request=WorkflowRunStartIn(),
 )
 
 ```
@@ -7851,6 +7956,14 @@ client.workflows.runs.start(
 <dd>
 
 **workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `typing.Optional[WorkflowRunStartIn]` 
     
 </dd>
 </dl>

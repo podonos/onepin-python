@@ -14,6 +14,11 @@ class WorkflowRunDataValidationOut(UniversalBaseModel):
     WER entries populate ``wer``/``cer``/``transcript``; naturalness entries
     populate ``score`` (0-100). All fields except ``kind`` and ``status`` are
     optional so future validator kinds can omit inapplicable fields.
+
+    ``scored_on`` records which error metric actually drove ``score`` for the
+    word-accuracy (WER) kind: ``"wer"`` for space-delimited scripts, ``"cer"``
+    for space-less scripts (ja/zh/th/…) where word-level WER degenerates. It is
+    ``None`` for kinds that don't score on an error rate (e.g. naturalness).
     """
 
     kind: str
@@ -24,6 +29,7 @@ class WorkflowRunDataValidationOut(UniversalBaseModel):
     wer: typing.Optional[float] = None
     cer: typing.Optional[float] = None
     transcript: typing.Optional[str] = None
+    scored_on: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

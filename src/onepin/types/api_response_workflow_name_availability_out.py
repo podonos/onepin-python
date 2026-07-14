@@ -4,20 +4,13 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .meta import Meta
+from .workflow_name_availability_out import WorkflowNameAvailabilityOut
 
 
-class PlanLimits(UniversalBaseModel):
-    """
-    Typed view of `Plan.limits` JSONB. Source of truth for active plan gates.
-    """
-
-    monthly_credits: int
-    workspaces_per_owner: int
-    concurrent_runs_per_user: int
-    storage_bytes_per_workspace: int
-    retention_days: typing.Optional[int] = None
-    byok_enabled: typing.Optional[bool] = None
-    auto_fix_enabled: typing.Optional[bool] = None
+class ApiResponseWorkflowNameAvailabilityOut(UniversalBaseModel):
+    data: WorkflowNameAvailabilityOut
+    meta: Meta
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

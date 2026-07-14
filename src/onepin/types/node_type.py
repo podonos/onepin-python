@@ -5,9 +5,9 @@ import typing
 NodeType = typing.Union[
     typing.Literal[
         "source_script",
-        "processing_translator",
-        "processing_booster",
-        "processing_generator",
+        "operator_translator",
+        "operator_normalizer",
+        "operator_generator",
         "sink_preview",
         "validator_error_rate",
         "validator_naturalness",

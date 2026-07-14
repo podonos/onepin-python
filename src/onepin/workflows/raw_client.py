@@ -23,6 +23,7 @@ from ..types.api_response_download_url_out import ApiResponseDownloadUrlOut
 from ..types.api_response_estimate_response import ApiResponseEstimateResponse
 from ..types.api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
 from ..types.api_response_runs_summary_out import ApiResponseRunsSummaryOut
+from ..types.api_response_workflow_name_availability_out import ApiResponseWorkflowNameAvailabilityOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
 from ..types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
@@ -61,7 +62,10 @@ class RawWorkflowsClient:
 
         Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
         header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
-        `last_run_status`) computed over all runs for that workflow.
+        `last_run_status`, `run_status_counts`) computed over all runs for that
+        workflow. `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
+        `runs_count` and are NOT affected by the `status` filter below, so a collapsed
+        row can render an accurate per-tab total without a separate runs query.
 
         **Status filter:** `status` narrows by the UI-derived state of the workflow's
         most recent run. `completed` matches only workflows whose latest run succeeded
@@ -244,6 +248,84 @@ class RawWorkflowsClient:
                     ApiResponseWorkflowOut,
                     parse_obj_as(
                         type_=ApiResponseWorkflowOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def check_workflow_name_availability(
+        self,
+        *,
+        name: str,
+        exclude_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseWorkflowNameAvailabilityOut]:
+        """
+        Check whether a workflow name is free within the current workspace.
+
+        Workflow names are unique per workspace among live (non-deleted) workflows,
+        so this lets a client validate a name before create or rename. The `name` is
+        trimmed and validated with the same policy as create — an invalid name
+        returns 422. The check is case-sensitive and ignores soft-deleted workflows,
+        mirroring the underlying uniqueness constraint. Pass `exclude_id` when
+        renaming so the workflow's current name is not reported as taken by itself.
+
+        Parameters
+        ----------
+        name : str
+            Workflow name to check (trimmed before comparison).
+
+        exclude_id : typing.Optional[str]
+            Workflow to exclude from the check — its own name then reads as available. Pass the workflow's id when validating a rename.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseWorkflowNameAvailabilityOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v1/workflows/name-availability",
+            method="GET",
+            params={
+                "name": name,
+                "exclude_id": exclude_id,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowNameAvailabilityOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowNameAvailabilityOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -906,8 +988,10 @@ class RawWorkflowsClient:
         a separate download step.
 
         `node_display_name` is resolved from the run's definition snapshot, so it
-        reflects the name the node had when the run executed. Nodes that were
-        retried appear as multiple steps with incrementing `iteration` values.
+        reflects the name the node had when the run executed. When multiple language
+        branches reach one output node, repeated sink steps receive locale suffixes
+        based on the language introduced by each iteration. Other retried nodes keep
+        their snapshot display name and incrementing `iteration` value.
 
         For a higher-level view with aggregated metrics (pass rates, audio duration
         by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
@@ -982,6 +1066,10 @@ class RawWorkflowsClient:
         pass rates) grouped by display section, along with per-language audio
         breakdowns and per-validator scoring summaries. Also includes a
         `workflow_snapshot` with the graph definition and per-node completion states.
+
+        Repeated states for one shared output node use the same locale suffixes as
+        `GET /runs/{run_id}/steps`, based on the language introduced by each sink
+        iteration.
 
         This endpoint is best suited for a summary/results view after a run
         completes. It differs from the other run sub-resources as follows:
@@ -1272,7 +1360,7 @@ class RawWorkflowsClient:
 
         `node_id` must identify an output-category node in the run's definition
         snapshot. Passing a node ID that belongs to a non-output node type (e.g.
-        a processing or validation node) returns 404. Returns 404 if the node
+        an operator or validation node) returns 404. Returns 404 if the node
         produced no audio files, and 409 if the run has not yet completed.
 
         The URL is valid for 15 minutes. To download all output nodes in a single
@@ -1598,7 +1686,10 @@ class AsyncRawWorkflowsClient:
 
         Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
         header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
-        `last_run_status`) computed over all runs for that workflow.
+        `last_run_status`, `run_status_counts`) computed over all runs for that
+        workflow. `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
+        `runs_count` and are NOT affected by the `status` filter below, so a collapsed
+        row can render an accurate per-tab total without a separate runs query.
 
         **Status filter:** `status` narrows by the UI-derived state of the workflow's
         most recent run. `completed` matches only workflows whose latest run succeeded
@@ -1781,6 +1872,84 @@ class AsyncRawWorkflowsClient:
                     ApiResponseWorkflowOut,
                     parse_obj_as(
                         type_=ApiResponseWorkflowOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def check_workflow_name_availability(
+        self,
+        *,
+        name: str,
+        exclude_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseWorkflowNameAvailabilityOut]:
+        """
+        Check whether a workflow name is free within the current workspace.
+
+        Workflow names are unique per workspace among live (non-deleted) workflows,
+        so this lets a client validate a name before create or rename. The `name` is
+        trimmed and validated with the same policy as create — an invalid name
+        returns 422. The check is case-sensitive and ignores soft-deleted workflows,
+        mirroring the underlying uniqueness constraint. Pass `exclude_id` when
+        renaming so the workflow's current name is not reported as taken by itself.
+
+        Parameters
+        ----------
+        name : str
+            Workflow name to check (trimmed before comparison).
+
+        exclude_id : typing.Optional[str]
+            Workflow to exclude from the check — its own name then reads as available. Pass the workflow's id when validating a rename.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseWorkflowNameAvailabilityOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v1/workflows/name-availability",
+            method="GET",
+            params={
+                "name": name,
+                "exclude_id": exclude_id,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowNameAvailabilityOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowNameAvailabilityOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -2443,8 +2612,10 @@ class AsyncRawWorkflowsClient:
         a separate download step.
 
         `node_display_name` is resolved from the run's definition snapshot, so it
-        reflects the name the node had when the run executed. Nodes that were
-        retried appear as multiple steps with incrementing `iteration` values.
+        reflects the name the node had when the run executed. When multiple language
+        branches reach one output node, repeated sink steps receive locale suffixes
+        based on the language introduced by each iteration. Other retried nodes keep
+        their snapshot display name and incrementing `iteration` value.
 
         For a higher-level view with aggregated metrics (pass rates, audio duration
         by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
@@ -2519,6 +2690,10 @@ class AsyncRawWorkflowsClient:
         pass rates) grouped by display section, along with per-language audio
         breakdowns and per-validator scoring summaries. Also includes a
         `workflow_snapshot` with the graph definition and per-node completion states.
+
+        Repeated states for one shared output node use the same locale suffixes as
+        `GET /runs/{run_id}/steps`, based on the language introduced by each sink
+        iteration.
 
         This endpoint is best suited for a summary/results view after a run
         completes. It differs from the other run sub-resources as follows:
@@ -2809,7 +2984,7 @@ class AsyncRawWorkflowsClient:
 
         `node_id` must identify an output-category node in the run's definition
         snapshot. Passing a node ID that belongs to a non-output node type (e.g.
-        a processing or validation node) returns 404. Returns 404 if the node
+        an operator or validation node) returns 404. Returns 404 if the node
         produced no audio files, and 409 if the run has not yet completed.
 
         The URL is valid for 15 minutes. To download all output nodes in a single

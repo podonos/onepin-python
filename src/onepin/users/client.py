@@ -74,10 +74,9 @@ class UsersClient:
 
         Includes numeric quotas (`monthly_credits`, `concurrent_runs_per_user`,
         `storage_bytes_per_workspace`, `workspaces_per_owner`) and feature flags
-        (`byok_enabled`, `auto_fix_enabled`, `auto_edit_enabled`). `null` on list
-        fields such as `tts_models_allowlist` or `supported_languages` means all
-        available options are permitted. Use this endpoint to gate feature access in
-        your application rather than hardcoding tier names, which may change.
+        (`byok_enabled`, `auto_fix_enabled`). Use this endpoint to gate feature
+        access in your application rather than hardcoding tier names, which may
+        change.
 
         Parameters
         ----------
@@ -319,10 +318,9 @@ class AsyncUsersClient:
 
         Includes numeric quotas (`monthly_credits`, `concurrent_runs_per_user`,
         `storage_bytes_per_workspace`, `workspaces_per_owner`) and feature flags
-        (`byok_enabled`, `auto_fix_enabled`, `auto_edit_enabled`). `null` on list
-        fields such as `tts_models_allowlist` or `supported_languages` means all
-        available options are permitted. Use this endpoint to gate feature access in
-        your application rather than hardcoding tier names, which may change.
+        (`byok_enabled`, `auto_fix_enabled`). Use this endpoint to gate feature
+        access in your application rather than hardcoding tier names, which may
+        change.
 
         Parameters
         ----------

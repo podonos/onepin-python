@@ -33,7 +33,7 @@ class ProvidersClient:
         """
         List all available speech synthesis providers in the catalog.
 
-        Returns the full set of processing providers — each with its display name,
+        Returns the full set of speech synthesis providers — each with its display name,
         number of available models, and a HATEOAS `models` link to
         `GET /providers/{provider}/models`. The response contains only
         customer-facing metadata; cost, credentials, and base URLs are never included.
@@ -300,7 +300,7 @@ class AsyncProvidersClient:
         """
         List all available speech synthesis providers in the catalog.
 
-        Returns the full set of processing providers — each with its display name,
+        Returns the full set of speech synthesis providers — each with its display name,
         number of available models, and a HATEOAS `models` link to
         `GET /providers/{provider}/models`. The response contains only
         customer-facing metadata; cost, credentials, and base URLs are never included.

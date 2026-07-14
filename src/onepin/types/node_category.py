@@ -2,4 +2,4 @@
 
 import typing
 
-NodeCategory = typing.Union[typing.Literal["source", "processing", "validation", "output", "decision"], typing.Any]
+NodeCategory = typing.Union[typing.Literal["source", "operator", "validation", "output", "decision"], typing.Any]

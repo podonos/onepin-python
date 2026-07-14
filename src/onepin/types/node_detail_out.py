@@ -21,6 +21,7 @@ class NodeDetailOut(UniversalBaseModel):
     category: NodeCategory
     inputs: typing.List[PortOut]
     outputs: typing.List[PortOut]
+    input_schema: typing.Optional[typing.Dict[str, typing.Any]] = None
     config_schema: typing.Optional[typing.Dict[str, typing.Any]] = None
     options: typing.Optional[typing.Dict[str, NodeDetailOutOptionsValue]] = None
 

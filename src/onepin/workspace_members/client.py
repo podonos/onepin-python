@@ -92,8 +92,6 @@ class WorkspaceMembersClient:
         pending invite exists returns 409. Inviting an address that already
         belongs to an active member also returns 409.
 
-        The total number of active members plus pending invites is counted against
-        the workspace owner's plan seat limit. Exceeding the limit returns 402.
         The invitee's role can be updated before acceptance via
         `PATCH /workspaces/{ws_id}/invites/{invite_id}`, or the invite can be
         cancelled via `DELETE /workspaces/{ws_id}/invites/{invite_id}`.
@@ -344,10 +342,6 @@ class WorkspaceMembersClient:
         - Invite was revoked by an admin.
         - Invite has expired (14-day TTL from creation).
 
-        The workspace owner's plan seat limit is re-checked at accept time in case
-        the plan was downgraded after the invite was sent; exceeding the limit
-        returns 402.
-
         Parameters
         ----------
         token : str
@@ -461,8 +455,6 @@ class AsyncWorkspaceMembersClient:
         pending invite exists returns 409. Inviting an address that already
         belongs to an active member also returns 409.
 
-        The total number of active members plus pending invites is counted against
-        the workspace owner's plan seat limit. Exceeding the limit returns 402.
         The invitee's role can be updated before acceptance via
         `PATCH /workspaces/{ws_id}/invites/{invite_id}`, or the invite can be
         cancelled via `DELETE /workspaces/{ws_id}/invites/{invite_id}`.
@@ -758,10 +750,6 @@ class AsyncWorkspaceMembersClient:
         - Invite already accepted.
         - Invite was revoked by an admin.
         - Invite has expired (14-day TTL from creation).
-
-        The workspace owner's plan seat limit is re-checked at accept time in case
-        the plan was downgraded after the invite was sent; exceeding the limit
-        returns 402.
 
         Parameters
         ----------

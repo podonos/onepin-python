@@ -25,7 +25,6 @@ from .types.get_voice_facets_api_v1voices_facets_get_request_source_item import 
 )
 from .types.list_voices_request_language_item import ListVoicesRequestLanguageItem
 from .types.list_voices_request_order_item import ListVoicesRequestOrderItem
-from .types.list_voices_request_provider_item import ListVoicesRequestProviderItem
 from .types.list_voices_request_sort_item import ListVoicesRequestSortItem
 from .types.list_voices_request_source_item import ListVoicesRequestSourceItem
 from pydantic import ValidationError
@@ -49,7 +48,7 @@ class RawVoicesClient:
         search: typing.Optional[str] = None,
         sort: typing.Optional[typing.Sequence[ListVoicesRequestSortItem]] = None,
         order: typing.Optional[typing.Sequence[ListVoicesRequestOrderItem]] = None,
-        provider: typing.Optional[typing.Sequence[ListVoicesRequestProviderItem]] = None,
+        provider: typing.Optional[typing.Sequence[str]] = None,
         model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
@@ -111,7 +110,7 @@ class RawVoicesClient:
         order : typing.Optional[typing.Sequence[ListVoicesRequestOrderItem]]
             Parallel to sort[]; shorter is padded with per-field defaults.
 
-        provider : typing.Optional[typing.Sequence[ListVoicesRequestProviderItem]]
+        provider : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
         model : typing.Optional[typing.Sequence[str]]
@@ -622,7 +621,7 @@ class AsyncRawVoicesClient:
         search: typing.Optional[str] = None,
         sort: typing.Optional[typing.Sequence[ListVoicesRequestSortItem]] = None,
         order: typing.Optional[typing.Sequence[ListVoicesRequestOrderItem]] = None,
-        provider: typing.Optional[typing.Sequence[ListVoicesRequestProviderItem]] = None,
+        provider: typing.Optional[typing.Sequence[str]] = None,
         model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
@@ -684,7 +683,7 @@ class AsyncRawVoicesClient:
         order : typing.Optional[typing.Sequence[ListVoicesRequestOrderItem]]
             Parallel to sort[]; shorter is padded with per-field defaults.
 
-        provider : typing.Optional[typing.Sequence[ListVoicesRequestProviderItem]]
+        provider : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
         model : typing.Optional[typing.Sequence[str]]
