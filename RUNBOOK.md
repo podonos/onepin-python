@@ -69,7 +69,9 @@ The package publishes from **two independent lanes** (full model + diagram:
   `repository_dispatch[api-spec-updated]` **only when `environment == 'prod'`** (the
   backend production deploy dispatch), or manually via `workflow_dispatch`.
   Resolves the latest `vX.Y.Z` tag, runs the immutable-index idempotency check (in `resolve`),
-  builds a clean `X.Y.Z`, then publishes to **PyPI** (OIDC trusted publishing + provenance).
+  and builds a clean `X.Y.Z`. A best-effort `@channel` Slack card links to the exact public
+  Actions run; an authorized reviewer must select **Approve in GitHub** before the protected
+  `pypi` environment publishes to **PyPI** (OIDC trusted publishing + provenance).
 
 > **PyPI Trusted Publisher prereq:** the `onepin` PyPI project's Trusted Publisher must
 > point at workflow filename **`promote-prod.yml`** with environment **`pypi`** (it was
@@ -80,7 +82,10 @@ The package publishes from **two independent lanes** (full model + diagram:
 
 Merging the release-please PR tags the version; **`publish.yml`** then builds → **TestPyPI**.
 The customer-facing **PyPI** publish happens separately in **`promote-prod.yml`**, gated on a
-real backend **prod** deploy dispatch (or a manual promote).
+real backend **prod** deploy dispatch (or a manual promote). Once the candidate passes its
+build checks, `notify-approval` posts the package version, tag, repository, trigger type, and
+public Actions run link to Slack. Open **Approve in GitHub** from that card and approve the
+pending `pypi` environment; the Slack message itself cannot approve or publish anything.
 
 Auto-publish on the tag requires the **`RELEASE_PAT`** repo secret. release-please uses this
 token for **all** its GitHub calls, so it needs both `contents: write` (to push the tag, which
@@ -108,6 +113,7 @@ Manual fallback / replay — **PyPI** (promote an existing release tag to custom
 # Used when the pipeline App was absent at the prod deploy, or to re-drive a promote.
 # Supplying -f tag= bypasses the per-sha ancestry resolver (human override).
 # resolve skips (no-op success) a version already on PyPI; only ambiguous PyPI responses abort.
+# A new version still waits for the existing GitHub pypi-environment approval.
 gh workflow run promote-prod.yml --ref main -f tag=vX.Y.Z
 ```
 

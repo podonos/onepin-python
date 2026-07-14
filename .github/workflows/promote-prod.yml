@@ -307,6 +307,54 @@ jobs:
       - uses: actions/upload-artifact@v7
         with: { name: dist, path: dist/* }
 
+  # Alert the release channel only after the exact artifact is built and validated.
+  # The protected `pypi` job starts waiting for GitHub approval in parallel; Slack is
+  # notification-only and a delivery failure must not change the publish decision.
+  notify-approval:
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Notify Slack
+        if: env.SLACK_WEBHOOK_URL != ''
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v3
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "<!channel> PyPI publish approval required for onepin==${{ needs.build.outputs.version }}"
+            blocks:
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "<!channel> *PyPI publish approval required*"
+              - type: section
+                fields:
+                  - type: mrkdwn
+                    text: "*Package*\n`onepin==${{ needs.build.outputs.version }}`"
+                  - type: mrkdwn
+                    text: "*Release*\n`${{ needs.resolve.outputs.tag }}`"
+                  - type: mrkdwn
+                    text: "*Repository*\n`${{ github.repository }}`"
+                  - type: mrkdwn
+                    text: "*Trigger*\n${{ github.event_name == 'repository_dispatch' && 'Production deploy' || 'Manual replay' }}"
+              - type: actions
+                elements:
+                  - type: button
+                    text:
+                      type: plain_text
+                      text: Approve in GitHub
+                    style: primary
+                    url: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Skip Slack notification
+        if: env.SLACK_WEBHOOK_URL == ''
+        run: echo "SLACK_WEBHOOK_URL is not configured; skipping approval notification."
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
   # PyPI publish — body reused verbatim from the original publish.yml `pypi` job
   # (OIDC trusted publishing, environment: pypi, build-provenance attestation).
   pypi:
