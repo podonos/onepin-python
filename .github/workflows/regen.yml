@@ -39,6 +39,9 @@ concurrency:
 jobs:
   regenerate:
     runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.vars.outputs.env }}
+      source_sha: ${{ steps.spec.outputs.resolved_sha }}
     steps:
       - name: Resolve trigger inputs
         id: vars
@@ -78,6 +81,9 @@ jobs:
         uses: actions/checkout@v7
         with:
           token: ${{ steps.app-token.outputs.token }}
+          # create-pull-request configures this App token for its own git operations.
+          # Persisting checkout's credential as well makes newer git send two auth headers.
+          persist-credentials: false
           # The guard tests build the wheel (tests/build) via hatch-vcs, which derives
           # the version from git history + tags; a shallow/tagless checkout would build
           # a bogus low version and trip the version-sanity assertions.
@@ -189,7 +195,7 @@ jobs:
 
       - name: Open regen PR
         if: steps.vars.outputs.open_pr == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.app-token.outputs.token }}
           branch: fern-regen/${{ steps.spec.outputs.resolved_sha }}
@@ -215,3 +221,45 @@ jobs:
       - name: Smoke-check note (dev — no PR)
         if: steps.vars.outputs.open_pr != 'true'
         run: echo "::notice::dev smoke-check passed — generation clean, CLI preserved. No PR (publish gated on prod)."
+
+  notify-failure:
+    if: failure()
+    needs: regenerate
+    runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 5
+    steps:
+      - name: Notify Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE_ENV: ${{ needs.regenerate.outputs.environment || github.event.client_payload.environment || 'manual' }}
+          SOURCE_SHA: ${{ needs.regenerate.outputs.source_sha || github.event.client_payload.sha || github.event.inputs.sha || 'main' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "::notice::SLACK_WEBHOOK_URL is not configured; skipping Slack notification."
+            exit 0
+          fi
+
+          # Dispatch values are external input. Pass them through jq so they cannot break
+          # the JSON payload or alter the Slack message structure.
+          payload=$(jq -nc \
+            --arg repository "$REPOSITORY" \
+            --arg event "$EVENT_NAME" \
+            --arg environment "$SOURCE_ENV" \
+            --arg sha "$SOURCE_SHA" \
+            --arg url "$RUN_URL" \
+            '{text: ("SDK regeneration failed in " + $repository
+              + " (event=" + $event + ", environment=" + $environment + ", spec_sha=" + $sha + ")\n"
+              + $url)}')
+
+          # Notification failures must not obscure the original regeneration failure.
+          code=$(curl -sS --max-time 10 --retry 2 --retry-connrefused \
+            -o /dev/null -w '%{http_code}' -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d "$payload") || code="000"
+          if [ "$code" != "200" ]; then
+            echo "::warning::Slack webhook POST failed or returned HTTP $code"
+          fi
