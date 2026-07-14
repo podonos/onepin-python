@@ -14,6 +14,7 @@ class NodePortsOut(UniversalBaseModel):
     version: int
     inputs: typing.List[PortOut]
     outputs: typing.List[PortOut]
+    input_schema: typing.Optional[typing.Dict[str, typing.Any]] = None
     config_schema: typing.Optional[typing.Dict[str, typing.Any]] = None
 
     if IS_PYDANTIC_V2:

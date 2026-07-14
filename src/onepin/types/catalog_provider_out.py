@@ -11,7 +11,7 @@ class CatalogProviderOut(UniversalBaseModel):
     """
     Catalog provider entry — lean, customer-safe.
 
-    Sourced from the in-memory ``ProviderRegistry`` (TTS / ``processing`` kind).
+    Sourced from the in-memory ``ProviderRegistry`` (TTS / ``operator`` kind).
     Cost, credentials, base_url, and enabled flags are excluded by construction.
     """
 

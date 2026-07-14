@@ -8,9 +8,13 @@ from ...types.api_counted_list_response_workflow_run_list_item import ApiCounted
 from ...types.api_response_workflow_run_detail_out import ApiResponseWorkflowRunDetailOut
 from ...types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ...types.api_response_workflow_run_status_out import ApiResponseWorkflowRunStatusOut
+from ...types.workflow_run_start_in import WorkflowRunStartIn
 from .raw_client import AsyncRawRunsClient, RawRunsClient
 from .types.list_runs_request_order import ListRunsRequestOrder
 from .types.list_runs_request_sort import ListRunsRequestSort
+
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
 
 
 class RunsClient:
@@ -119,6 +123,7 @@ class RunsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
+        request: typing.Optional[WorkflowRunStartIn] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseWorkflowRunOut:
         """
@@ -129,6 +134,12 @@ class RunsClient:
         its nodes in the background; poll `GET /runs/{run_id}/status` for
         lightweight progress updates, or `GET /runs/{run_id}` once to load the
         immutable definition snapshot.
+
+        The optional request body supplies run-scoped inputs: `script_text`
+        (and optionally `source_language`) replaces the source_script text for
+        THIS run's snapshot only — the stored workflow definition is not
+        modified, so concurrent runs with different scripts cannot race.
+        Requires exactly one source_script node (422 otherwise).
 
         Use `POST /runs/preview` or `POST /estimate` to compute the credit cost
         before committing to an actual run — those endpoints are read-only and
@@ -143,6 +154,8 @@ class RunsClient:
 
         workspace_id : typing.Optional[str]
 
+        request : typing.Optional[WorkflowRunStartIn]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -153,16 +166,19 @@ class RunsClient:
 
         Examples
         --------
-        from onepin import OnePinClient
+        from onepin import OnePinClient, WorkflowRunStartIn
 
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
         client.workflows.runs.start(
             workflow_id="workflow_id",
+            request=WorkflowRunStartIn(),
         )
         """
-        _response = self._raw_client.start(workflow_id, workspace_id=workspace_id, request_options=request_options)
+        _response = self._raw_client.start(
+            workflow_id, workspace_id=workspace_id, request=request, request_options=request_options
+        )
         return _response.data
 
     def get(
@@ -451,6 +467,7 @@ class AsyncRunsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
+        request: typing.Optional[WorkflowRunStartIn] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseWorkflowRunOut:
         """
@@ -461,6 +478,12 @@ class AsyncRunsClient:
         its nodes in the background; poll `GET /runs/{run_id}/status` for
         lightweight progress updates, or `GET /runs/{run_id}` once to load the
         immutable definition snapshot.
+
+        The optional request body supplies run-scoped inputs: `script_text`
+        (and optionally `source_language`) replaces the source_script text for
+        THIS run's snapshot only — the stored workflow definition is not
+        modified, so concurrent runs with different scripts cannot race.
+        Requires exactly one source_script node (422 otherwise).
 
         Use `POST /runs/preview` or `POST /estimate` to compute the credit cost
         before committing to an actual run — those endpoints are read-only and
@@ -475,6 +498,8 @@ class AsyncRunsClient:
 
         workspace_id : typing.Optional[str]
 
+        request : typing.Optional[WorkflowRunStartIn]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -487,7 +512,7 @@ class AsyncRunsClient:
         --------
         import asyncio
 
-        from onepin import AsyncOnePinClient
+        from onepin import AsyncOnePinClient, WorkflowRunStartIn
 
         client = AsyncOnePinClient(
             token="YOUR_TOKEN",
@@ -497,13 +522,14 @@ class AsyncRunsClient:
         async def main() -> None:
             await client.workflows.runs.start(
                 workflow_id="workflow_id",
+                request=WorkflowRunStartIn(),
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.start(
-            workflow_id, workspace_id=workspace_id, request_options=request_options
+            workflow_id, workspace_id=workspace_id, request=request, request_options=request_options
         )
         return _response.data
 

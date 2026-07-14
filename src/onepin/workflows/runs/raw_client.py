@@ -10,14 +10,19 @@ from ...core.jsonable_encoder import encode_path_param
 from ...core.parse_error import ParsingError
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
+from ...core.serialization import convert_and_respect_annotation_metadata
 from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.api_counted_list_response_workflow_run_list_item import ApiCountedListResponseWorkflowRunListItem
 from ...types.api_response_workflow_run_detail_out import ApiResponseWorkflowRunDetailOut
 from ...types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ...types.api_response_workflow_run_status_out import ApiResponseWorkflowRunStatusOut
+from ...types.workflow_run_start_in import WorkflowRunStartIn
 from .types.list_runs_request_order import ListRunsRequestOrder
 from .types.list_runs_request_sort import ListRunsRequestSort
 from pydantic import ValidationError
+
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
 
 
 class RawRunsClient:
@@ -137,6 +142,7 @@ class RawRunsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
+        request: typing.Optional[WorkflowRunStartIn] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowRunOut]:
         """
@@ -147,6 +153,12 @@ class RawRunsClient:
         its nodes in the background; poll `GET /runs/{run_id}/status` for
         lightweight progress updates, or `GET /runs/{run_id}` once to load the
         immutable definition snapshot.
+
+        The optional request body supplies run-scoped inputs: `script_text`
+        (and optionally `source_language`) replaces the source_script text for
+        THIS run's snapshot only — the stored workflow definition is not
+        modified, so concurrent runs with different scripts cannot race.
+        Requires exactly one source_script node (422 otherwise).
 
         Use `POST /runs/preview` or `POST /estimate` to compute the credit cost
         before committing to an actual run — those endpoints are read-only and
@@ -161,6 +173,8 @@ class RawRunsClient:
 
         workspace_id : typing.Optional[str]
 
+        request : typing.Optional[WorkflowRunStartIn]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -172,10 +186,15 @@ class RawRunsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs",
             method="POST",
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
+            ),
             headers={
+                "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -559,6 +578,7 @@ class AsyncRawRunsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
+        request: typing.Optional[WorkflowRunStartIn] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowRunOut]:
         """
@@ -569,6 +589,12 @@ class AsyncRawRunsClient:
         its nodes in the background; poll `GET /runs/{run_id}/status` for
         lightweight progress updates, or `GET /runs/{run_id}` once to load the
         immutable definition snapshot.
+
+        The optional request body supplies run-scoped inputs: `script_text`
+        (and optionally `source_language`) replaces the source_script text for
+        THIS run's snapshot only — the stored workflow definition is not
+        modified, so concurrent runs with different scripts cannot race.
+        Requires exactly one source_script node (422 otherwise).
 
         Use `POST /runs/preview` or `POST /estimate` to compute the credit cost
         before committing to an actual run — those endpoints are read-only and
@@ -583,6 +609,8 @@ class AsyncRawRunsClient:
 
         workspace_id : typing.Optional[str]
 
+        request : typing.Optional[WorkflowRunStartIn]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -594,10 +622,15 @@ class AsyncRawRunsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs",
             method="POST",
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
+            ),
             headers={
+                "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:

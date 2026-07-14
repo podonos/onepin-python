@@ -10,7 +10,6 @@ if typing.TYPE_CHECKING:
         GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem,
         ListVoicesRequestLanguageItem,
         ListVoicesRequestOrderItem,
-        ListVoicesRequestProviderItem,
         ListVoicesRequestSortItem,
         ListVoicesRequestSourceItem,
     )
@@ -18,7 +17,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem": ".types",
     "ListVoicesRequestLanguageItem": ".types",
     "ListVoicesRequestOrderItem": ".types",
-    "ListVoicesRequestProviderItem": ".types",
     "ListVoicesRequestSortItem": ".types",
     "ListVoicesRequestSourceItem": ".types",
 }
@@ -49,7 +47,6 @@ __all__ = [
     "GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem",
     "ListVoicesRequestLanguageItem",
     "ListVoicesRequestOrderItem",
-    "ListVoicesRequestProviderItem",
     "ListVoicesRequestSortItem",
     "ListVoicesRequestSourceItem",
 ]

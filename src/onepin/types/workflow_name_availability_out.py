@@ -6,18 +6,20 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
-class PlanLimits(UniversalBaseModel):
+class WorkflowNameAvailabilityOut(UniversalBaseModel):
     """
-    Typed view of `Plan.limits` JSONB. Source of truth for active plan gates.
+    Result of a workflow-name availability check within a workspace.
     """
 
-    monthly_credits: int
-    workspaces_per_owner: int
-    concurrent_runs_per_user: int
-    storage_bytes_per_workspace: int
-    retention_days: typing.Optional[int] = None
-    byok_enabled: typing.Optional[bool] = None
-    auto_fix_enabled: typing.Optional[bool] = None
+    name: str = pydantic.Field()
+    """
+    The normalized (trimmed) name that was checked.
+    """
+
+    available: bool = pydantic.Field()
+    """
+    True when no live workflow in the workspace already uses this name.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

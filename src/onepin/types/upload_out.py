@@ -53,6 +53,16 @@ class UploadOut(UniversalBaseModel):
     File size in bytes. Populated after a successful confirm.
     """
 
+    char_count: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Decoded character count of the uploaded script, using the same definition as usage/billing (`unit_chars`): the sum of Unicode code-point lengths of each stripped, non-empty line (leading/trailing whitespace, blank lines, and newlines excluded). Populated after a successful confirm for `script` uploads in plain-text (`.txt`) format only. `null` while pending, for `.csv` (script column is chosen after confirm), for other formats, and for `dictionary` (audio) uploads.
+    """
+
+    line_count: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Number of non-empty lines in the uploaded script. Populated alongside `char_count` (same scope: confirmed `script` `.txt` uploads); `null` otherwise.
+    """
+
     download_url: typing.Optional[str] = pydantic.Field(default=None)
     """
     Short-lived presigned URL for downloading the confirmed file. `null` for pending uploads.
@@ -60,7 +70,7 @@ class UploadOut(UniversalBaseModel):
 
     context_type: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Resource type this upload is attached to (e.g. `workflow`). Set at confirm time.
+    Resource type this upload is attached to (e.g. `workflow` or `playground`). Set at confirm time.
     """
 
     context_id: typing.Optional[str] = pydantic.Field(default=None)
