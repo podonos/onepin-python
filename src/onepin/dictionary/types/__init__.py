@@ -6,31 +6,31 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .list_dictionary_entries_api_v1dictionary_get_request_language import (
+    from .list_dictionary_entries_api_v1_dictionary_get_request_language import (
         ListDictionaryEntriesApiV1DictionaryGetRequestLanguage,
     )
-    from .list_dictionary_entries_api_v1dictionary_get_request_order import (
+    from .list_dictionary_entries_api_v1_dictionary_get_request_order import (
         ListDictionaryEntriesApiV1DictionaryGetRequestOrder,
     )
-    from .list_dictionary_entries_api_v1dictionary_get_request_sort import (
+    from .list_dictionary_entries_api_v1_dictionary_get_request_sort import (
         ListDictionaryEntriesApiV1DictionaryGetRequestSort,
     )
-    from .search_dictionary_entries_api_v1dictionary_search_get_request_language_item import (
+    from .search_dictionary_entries_api_v1_dictionary_search_get_request_language_item import (
         SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem,
     )
-    from .search_dictionary_entries_api_v1dictionary_search_get_request_order import (
+    from .search_dictionary_entries_api_v1_dictionary_search_get_request_order import (
         SearchDictionaryEntriesApiV1DictionarySearchGetRequestOrder,
     )
-    from .search_dictionary_entries_api_v1dictionary_search_get_request_sort import (
+    from .search_dictionary_entries_api_v1_dictionary_search_get_request_sort import (
         SearchDictionaryEntriesApiV1DictionarySearchGetRequestSort,
     )
 _dynamic_imports: typing.Dict[str, str] = {
-    "ListDictionaryEntriesApiV1DictionaryGetRequestLanguage": ".list_dictionary_entries_api_v1dictionary_get_request_language",
-    "ListDictionaryEntriesApiV1DictionaryGetRequestOrder": ".list_dictionary_entries_api_v1dictionary_get_request_order",
-    "ListDictionaryEntriesApiV1DictionaryGetRequestSort": ".list_dictionary_entries_api_v1dictionary_get_request_sort",
-    "SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem": ".search_dictionary_entries_api_v1dictionary_search_get_request_language_item",
-    "SearchDictionaryEntriesApiV1DictionarySearchGetRequestOrder": ".search_dictionary_entries_api_v1dictionary_search_get_request_order",
-    "SearchDictionaryEntriesApiV1DictionarySearchGetRequestSort": ".search_dictionary_entries_api_v1dictionary_search_get_request_sort",
+    "ListDictionaryEntriesApiV1DictionaryGetRequestLanguage": ".list_dictionary_entries_api_v1_dictionary_get_request_language",
+    "ListDictionaryEntriesApiV1DictionaryGetRequestOrder": ".list_dictionary_entries_api_v1_dictionary_get_request_order",
+    "ListDictionaryEntriesApiV1DictionaryGetRequestSort": ".list_dictionary_entries_api_v1_dictionary_get_request_sort",
+    "SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem": ".search_dictionary_entries_api_v1_dictionary_search_get_request_language_item",
+    "SearchDictionaryEntriesApiV1DictionarySearchGetRequestOrder": ".search_dictionary_entries_api_v1_dictionary_search_get_request_order",
+    "SearchDictionaryEntriesApiV1DictionarySearchGetRequestSort": ".search_dictionary_entries_api_v1_dictionary_search_get_request_sort",
 }
 
 

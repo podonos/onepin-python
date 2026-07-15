@@ -52,6 +52,7 @@ if typing.TYPE_CHECKING:
     from .api_response_workflow_out import ApiResponseWorkflowOut
     from .api_response_workflow_run_detail_out import ApiResponseWorkflowRunDetailOut
     from .api_response_workflow_run_out import ApiResponseWorkflowRunOut
+    from .api_response_workflow_run_outputs_out import ApiResponseWorkflowRunOutputsOut
     from .api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
     from .api_response_workflow_run_status_out import ApiResponseWorkflowRunStatusOut
     from .api_response_workspace_invite_out import ApiResponseWorkspaceInviteOut
@@ -171,6 +172,7 @@ if typing.TYPE_CHECKING:
     from .workflow_run_detail_out import WorkflowRunDetailOut
     from .workflow_run_list_item import WorkflowRunListItem
     from .workflow_run_out import WorkflowRunOut
+    from .workflow_run_outputs_out import WorkflowRunOutputsOut
     from .workflow_run_overview_audio_language_out import WorkflowRunOverviewAudioLanguageOut
     from .workflow_run_overview_capabilities_out import WorkflowRunOverviewCapabilitiesOut
     from .workflow_run_overview_future_links_out import WorkflowRunOverviewFutureLinksOut
@@ -186,6 +188,7 @@ if typing.TYPE_CHECKING:
     from .workflow_run_overview_validator_out import WorkflowRunOverviewValidatorOut
     from .workflow_run_overview_validator_out_status import WorkflowRunOverviewValidatorOutStatus
     from .workflow_run_overview_workflow_out import WorkflowRunOverviewWorkflowOut
+    from .workflow_run_sink_output_out import WorkflowRunSinkOutputOut
     from .workflow_run_start_in import WorkflowRunStartIn
     from .workflow_run_status_out import WorkflowRunStatusOut
     from .workflow_run_step_out import WorkflowRunStepOut
@@ -242,6 +245,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiResponseWorkflowOut": ".api_response_workflow_out",
     "ApiResponseWorkflowRunDetailOut": ".api_response_workflow_run_detail_out",
     "ApiResponseWorkflowRunOut": ".api_response_workflow_run_out",
+    "ApiResponseWorkflowRunOutputsOut": ".api_response_workflow_run_outputs_out",
     "ApiResponseWorkflowRunOverviewOut": ".api_response_workflow_run_overview_out",
     "ApiResponseWorkflowRunStatusOut": ".api_response_workflow_run_status_out",
     "ApiResponseWorkspaceInviteOut": ".api_response_workspace_invite_out",
@@ -359,6 +363,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WorkflowRunDetailOut": ".workflow_run_detail_out",
     "WorkflowRunListItem": ".workflow_run_list_item",
     "WorkflowRunOut": ".workflow_run_out",
+    "WorkflowRunOutputsOut": ".workflow_run_outputs_out",
     "WorkflowRunOverviewAudioLanguageOut": ".workflow_run_overview_audio_language_out",
     "WorkflowRunOverviewCapabilitiesOut": ".workflow_run_overview_capabilities_out",
     "WorkflowRunOverviewFutureLinksOut": ".workflow_run_overview_future_links_out",
@@ -374,6 +379,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WorkflowRunOverviewValidatorOut": ".workflow_run_overview_validator_out",
     "WorkflowRunOverviewValidatorOutStatus": ".workflow_run_overview_validator_out_status",
     "WorkflowRunOverviewWorkflowOut": ".workflow_run_overview_workflow_out",
+    "WorkflowRunSinkOutputOut": ".workflow_run_sink_output_out",
     "WorkflowRunStartIn": ".workflow_run_start_in",
     "WorkflowRunStatusOut": ".workflow_run_status_out",
     "WorkflowRunStepOut": ".workflow_run_step_out",
@@ -454,6 +460,7 @@ __all__ = [
     "ApiResponseWorkflowOut",
     "ApiResponseWorkflowRunDetailOut",
     "ApiResponseWorkflowRunOut",
+    "ApiResponseWorkflowRunOutputsOut",
     "ApiResponseWorkflowRunOverviewOut",
     "ApiResponseWorkflowRunStatusOut",
     "ApiResponseWorkspaceInviteOut",
@@ -571,6 +578,7 @@ __all__ = [
     "WorkflowRunDetailOut",
     "WorkflowRunListItem",
     "WorkflowRunOut",
+    "WorkflowRunOutputsOut",
     "WorkflowRunOverviewAudioLanguageOut",
     "WorkflowRunOverviewCapabilitiesOut",
     "WorkflowRunOverviewFutureLinksOut",
@@ -586,6 +594,7 @@ __all__ = [
     "WorkflowRunOverviewValidatorOut",
     "WorkflowRunOverviewValidatorOutStatus",
     "WorkflowRunOverviewWorkflowOut",
+    "WorkflowRunSinkOutputOut",
     "WorkflowRunStartIn",
     "WorkflowRunStatusOut",
     "WorkflowRunStepOut",

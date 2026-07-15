@@ -26,6 +26,7 @@ from ..types.api_response_runs_summary_out import ApiResponseRunsSummaryOut
 from ..types.api_response_workflow_name_availability_out import ApiResponseWorkflowNameAvailabilityOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
 from ..types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
+from ..types.api_response_workflow_run_outputs_out import ApiResponseWorkflowRunOutputsOut
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from ..types.workflow_list_status import WorkflowListStatus
@@ -988,10 +989,8 @@ class RawWorkflowsClient:
         a separate download step.
 
         `node_display_name` is resolved from the run's definition snapshot, so it
-        reflects the name the node had when the run executed. When multiple language
-        branches reach one output node, repeated sink steps receive locale suffixes
-        based on the language introduced by each iteration. Other retried nodes keep
-        their snapshot display name and incrementing `iteration` value.
+        reflects the name the node had when the run executed. Repeated executions of
+        the same node share that name and are distinguished by `iteration`.
 
         For a higher-level view with aggregated metrics (pass rates, audio duration
         by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
@@ -1051,6 +1050,81 @@ class RawWorkflowsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def get_run_outputs(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseWorkflowRunOutputsOut]:
+        """
+        Fetch one logical output per sink node in a workflow run.
+
+        Every sink from the run's definition snapshot is returned in graph order,
+        including incomplete sinks with empty lines. Completed iterations are
+        unioned per sink with the latest completed value winning for duplicate
+        `line_id` values. Status reflects the latest attempt, so earlier completed
+        lines remain visible when a later attempt fails. Audio playback URLs are
+        short-lived and hydrated only on copied result lines.
+
+        Each sink's union is capped server-side; `truncated: true` on an output
+        signals that its `lines` are an incomplete prefix of the logical result.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseWorkflowRunOutputsOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/outputs",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowRunOutputsOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowRunOutputsOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def get_run_overview(
         self,
         workflow_id: str,
@@ -1067,16 +1141,13 @@ class RawWorkflowsClient:
         breakdowns and per-validator scoring summaries. Also includes a
         `workflow_snapshot` with the graph definition and per-node completion states.
 
-        Repeated states for one shared output node use the same locale suffixes as
-        `GET /runs/{run_id}/steps`, based on the language introduced by each sink
-        iteration.
-
         This endpoint is best suited for a summary/results view after a run
         completes. It differs from the other run sub-resources as follows:
 
         - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
         - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
         - `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+        - `GET /runs/{run_id}/outputs` — one logical result per snapshot sink node.
         - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
         - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
           node state map for a dashboard/overview panel.
@@ -2612,10 +2683,8 @@ class AsyncRawWorkflowsClient:
         a separate download step.
 
         `node_display_name` is resolved from the run's definition snapshot, so it
-        reflects the name the node had when the run executed. When multiple language
-        branches reach one output node, repeated sink steps receive locale suffixes
-        based on the language introduced by each iteration. Other retried nodes keep
-        their snapshot display name and incrementing `iteration` value.
+        reflects the name the node had when the run executed. Repeated executions of
+        the same node share that name and are distinguished by `iteration`.
 
         For a higher-level view with aggregated metrics (pass rates, audio duration
         by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
@@ -2675,6 +2744,81 @@ class AsyncRawWorkflowsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def get_run_outputs(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseWorkflowRunOutputsOut]:
+        """
+        Fetch one logical output per sink node in a workflow run.
+
+        Every sink from the run's definition snapshot is returned in graph order,
+        including incomplete sinks with empty lines. Completed iterations are
+        unioned per sink with the latest completed value winning for duplicate
+        `line_id` values. Status reflects the latest attempt, so earlier completed
+        lines remain visible when a later attempt fails. Audio playback URLs are
+        short-lived and hydrated only on copied result lines.
+
+        Each sink's union is capped server-side; `truncated: true` on an output
+        signals that its `lines` are an incomplete prefix of the logical result.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseWorkflowRunOutputsOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/outputs",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowRunOutputsOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowRunOutputsOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def get_run_overview(
         self,
         workflow_id: str,
@@ -2691,16 +2835,13 @@ class AsyncRawWorkflowsClient:
         breakdowns and per-validator scoring summaries. Also includes a
         `workflow_snapshot` with the graph definition and per-node completion states.
 
-        Repeated states for one shared output node use the same locale suffixes as
-        `GET /runs/{run_id}/steps`, based on the language introduced by each sink
-        iteration.
-
         This endpoint is best suited for a summary/results view after a run
         completes. It differs from the other run sub-resources as follows:
 
         - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
         - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
         - `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+        - `GET /runs/{run_id}/outputs` — one logical result per snapshot sink node.
         - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
         - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
           node state map for a dashboard/overview panel.
