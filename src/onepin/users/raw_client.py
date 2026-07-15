@@ -15,7 +15,7 @@ from ..types.api_response_balance_response import ApiResponseBalanceResponse
 from ..types.api_response_email_notification_preferences_out import ApiResponseEmailNotificationPreferencesOut
 from ..types.api_response_plan_limits import ApiResponsePlanLimits
 from ..types.template_category import TemplateCategory
-from .types.list_my_templates_api_v1users_me_templates_get_request_sort import (
+from .types.list_my_templates_api_v1_users_me_templates_get_request_sort import (
     ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort,
 )
 from pydantic import ValidationError

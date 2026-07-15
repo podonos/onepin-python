@@ -6894,10 +6894,8 @@ values (valid for 15 minutes) so callers can stream audio directly without
 a separate download step.
 
 `node_display_name` is resolved from the run's definition snapshot, so it
-reflects the name the node had when the run executed. When multiple language
-branches reach one output node, repeated sink steps receive locale suffixes
-based on the language introduced by each iteration. Other retried nodes keep
-their snapshot display name and incrementing `iteration` value.
+reflects the name the node had when the run executed. Repeated executions of
+the same node share that name and are distinguished by `iteration`.
 
 For a higher-level view with aggregated metrics (pass rates, audio duration
 by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
@@ -6979,6 +6977,106 @@ client.workflows.get_run_steps(
 </dl>
 </details>
 
+<details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">get_run_outputs</a>(...) -> ApiResponseWorkflowRunOutputsOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Fetch one logical output per sink node in a workflow run.
+
+Every sink from the run's definition snapshot is returned in graph order,
+including incomplete sinks with empty lines. Completed iterations are
+unioned per sink with the latest completed value winning for duplicate
+`line_id` values. Status reflects the latest attempt, so earlier completed
+lines remain visible when a later attempt fails. Audio playback URLs are
+short-lived and hydrated only on copied result lines.
+
+Each sink's union is capped server-side; `truncated: true` on an output
+signals that its `lines` are an incomplete prefix of the logical result.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workflows.get_run_outputs(
+    workflow_id="workflow_id",
+    run_id="run_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workflow_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**run_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">get_run_overview</a>(...) -> ApiResponseWorkflowRunOverviewOut</code></summary>
 <dl>
 <dd>
@@ -6998,16 +7096,13 @@ pass rates) grouped by display section, along with per-language audio
 breakdowns and per-validator scoring summaries. Also includes a
 `workflow_snapshot` with the graph definition and per-node completion states.
 
-Repeated states for one shared output node use the same locale suffixes as
-`GET /runs/{run_id}/steps`, based on the language introduced by each sink
-iteration.
-
 This endpoint is best suited for a summary/results view after a run
 completes. It differs from the other run sub-resources as follows:
 
 - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
 - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
 - `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+- `GET /runs/{run_id}/outputs` — one logical result per snapshot sink node.
 - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
 - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
   node state map for a dashboard/overview panel.

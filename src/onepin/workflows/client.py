@@ -17,6 +17,7 @@ from ..types.api_response_runs_summary_out import ApiResponseRunsSummaryOut
 from ..types.api_response_workflow_name_availability_out import ApiResponseWorkflowNameAvailabilityOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
 from ..types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
+from ..types.api_response_workflow_run_outputs_out import ApiResponseWorkflowRunOutputsOut
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from ..types.workflow_list_status import WorkflowListStatus
@@ -724,10 +725,8 @@ class WorkflowsClient:
         a separate download step.
 
         `node_display_name` is resolved from the run's definition snapshot, so it
-        reflects the name the node had when the run executed. When multiple language
-        branches reach one output node, repeated sink steps receive locale suffixes
-        based on the language introduced by each iteration. Other retried nodes keep
-        their snapshot display name and incrementing `iteration` value.
+        reflects the name the node had when the run executed. Repeated executions of
+        the same node share that name and are distinguished by `iteration`.
 
         For a higher-level view with aggregated metrics (pass rates, audio duration
         by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
@@ -766,6 +765,60 @@ class WorkflowsClient:
         )
         return _response.data
 
+    def get_run_outputs(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseWorkflowRunOutputsOut:
+        """
+        Fetch one logical output per sink node in a workflow run.
+
+        Every sink from the run's definition snapshot is returned in graph order,
+        including incomplete sinks with empty lines. Completed iterations are
+        unioned per sink with the latest completed value winning for duplicate
+        `line_id` values. Status reflects the latest attempt, so earlier completed
+        lines remain visible when a later attempt fails. Audio playback URLs are
+        short-lived and hydrated only on copied result lines.
+
+        Each sink's union is capped server-side; `truncated: true` on an output
+        signals that its `lines` are an incomplete prefix of the logical result.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseWorkflowRunOutputsOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workflows.get_run_outputs(
+            workflow_id="workflow_id",
+            run_id="run_id",
+        )
+        """
+        _response = self._raw_client.get_run_outputs(
+            workflow_id, run_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
     def get_run_overview(
         self,
         workflow_id: str,
@@ -782,16 +835,13 @@ class WorkflowsClient:
         breakdowns and per-validator scoring summaries. Also includes a
         `workflow_snapshot` with the graph definition and per-node completion states.
 
-        Repeated states for one shared output node use the same locale suffixes as
-        `GET /runs/{run_id}/steps`, based on the language introduced by each sink
-        iteration.
-
         This endpoint is best suited for a summary/results view after a run
         completes. It differs from the other run sub-resources as follows:
 
         - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
         - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
         - `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+        - `GET /runs/{run_id}/outputs` — one logical result per snapshot sink node.
         - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
         - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
           node state map for a dashboard/overview panel.
@@ -1976,10 +2026,8 @@ class AsyncWorkflowsClient:
         a separate download step.
 
         `node_display_name` is resolved from the run's definition snapshot, so it
-        reflects the name the node had when the run executed. When multiple language
-        branches reach one output node, repeated sink steps receive locale suffixes
-        based on the language introduced by each iteration. Other retried nodes keep
-        their snapshot display name and incrementing `iteration` value.
+        reflects the name the node had when the run executed. Repeated executions of
+        the same node share that name and are distinguished by `iteration`.
 
         For a higher-level view with aggregated metrics (pass rates, audio duration
         by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
@@ -2026,6 +2074,68 @@ class AsyncWorkflowsClient:
         )
         return _response.data
 
+    async def get_run_outputs(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseWorkflowRunOutputsOut:
+        """
+        Fetch one logical output per sink node in a workflow run.
+
+        Every sink from the run's definition snapshot is returned in graph order,
+        including incomplete sinks with empty lines. Completed iterations are
+        unioned per sink with the latest completed value winning for duplicate
+        `line_id` values. Status reflects the latest attempt, so earlier completed
+        lines remain visible when a later attempt fails. Audio playback URLs are
+        short-lived and hydrated only on copied result lines.
+
+        Each sink's union is capped server-side; `truncated: true` on an output
+        signals that its `lines` are an incomplete prefix of the logical result.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseWorkflowRunOutputsOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workflows.get_run_outputs(
+                workflow_id="workflow_id",
+                run_id="run_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_run_outputs(
+            workflow_id, run_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
     async def get_run_overview(
         self,
         workflow_id: str,
@@ -2042,16 +2152,13 @@ class AsyncWorkflowsClient:
         breakdowns and per-validator scoring summaries. Also includes a
         `workflow_snapshot` with the graph definition and per-node completion states.
 
-        Repeated states for one shared output node use the same locale suffixes as
-        `GET /runs/{run_id}/steps`, based on the language introduced by each sink
-        iteration.
-
         This endpoint is best suited for a summary/results view after a run
         completes. It differs from the other run sub-resources as follows:
 
         - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
         - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
         - `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+        - `GET /runs/{run_id}/outputs` — one logical result per snapshot sink node.
         - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
         - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
           node state map for a dashboard/overview panel.
