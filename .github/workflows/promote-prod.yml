@@ -314,6 +314,10 @@ jobs:
     needs: [resolve, build]
     runs-on: ubuntu-latest
     permissions: {}
+    # Job-level env so the step `if` gate can see it — GitHub does NOT expose a
+    # step's own `env:` block to that same step's `if` conditional.
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
       - name: Notify Slack
         if: env.SLACK_WEBHOOK_URL != ''
@@ -391,6 +395,10 @@ jobs:
     needs: [resolve, build, pypi]
     if: ${{ needs.pypi.result == 'success' }}   # ONLY when pypi actually published — skipped on the no-op path
     runs-on: ubuntu-latest
+    # Job-level env so the step `if` gate below can see it (step-level env is not
+    # visible to the same step's `if`).
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
       - name: Notify Slack
         if: env.SLACK_WEBHOOK_URL != ''
@@ -413,6 +421,10 @@ jobs:
     if: failure()
     needs: [resolve, build, pypi]
     runs-on: ubuntu-latest
+    # Job-level env so the step `if` gate below can see it (step-level env is not
+    # visible to the same step's `if`).
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
       - name: Notify Slack
         if: env.SLACK_WEBHOOK_URL != ''
