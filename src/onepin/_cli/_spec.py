@@ -60,6 +60,7 @@ class Cmd:
         name: Command name within the group/subgroup.
         method: Dotted SDK method path relative to the client, e.g. ``workflows.list`` or
             ``workflows.runs.start``.
+        fallback_methods: Transitional SDK method paths tried in order when ``method`` is absent.
         help: Command help text.
         subgroup: Optional nested sub-Typer (``runs``, ``members``, ``stats``).
         args: Positional arguments, ``[(dest, help)]``; forwarded positionally in order.
@@ -85,6 +86,12 @@ class Cmd:
     success_msg: Optional[str] = None
     destructive: bool = False
     redact: bool = False
+    fallback_methods: tuple[str, ...] = ()
+
+    @property
+    def method_paths(self) -> tuple[str, ...]:
+        """SDK method paths in resolution order, canonical first."""
+        return (self.method, *self.fallback_methods)
 
     @property
     def path(self) -> tuple[str, ...]:
@@ -283,13 +290,14 @@ TABLE: list[Cmd] = [
     Cmd(
         "workflows",
         "steps",
-        "workflows.get_run_steps",
+        "workflows.runs.steps",
         "List the steps of a run.",
         subgroup="runs",
         args=[("workflow_id", "Workflow UUID."), ("run_id", "Run UUID.")],
         options=[_JSON],
         unwrap="list",
         columns=[],
+        fallback_methods=("workflows.get_run_steps",),
     ),
     Cmd(
         "workflows",

@@ -17,6 +17,7 @@ import inspect
 
 import pytest
 
+from onepin._cli._dispatch import _resolve_method
 from onepin._cli._spec import TABLE, Cmd
 from onepin.client import OnePinClient
 
@@ -25,23 +26,20 @@ _LOCAL_DESTS = {"json_output_local", "reveal", "yes"}
 _LOCAL_FLAGS = {"--json", "--reveal", "--yes"}
 
 
-def _resolve_method(dotted: str):
+def _resolve_cmd_method(cmd: Cmd):
     client = OnePinClient(token="op_live_test")
-    obj = client
-    for part in dotted.split("."):
-        obj = getattr(obj, part)
-    return obj
+    return _resolve_method(client, cmd.method_paths)
 
 
 @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))
 def test_method_resolves(cmd: Cmd) -> None:
-    method = _resolve_method(cmd.method)
+    method = _resolve_cmd_method(cmd)
     assert callable(method), f"{cmd.method} is not callable"
 
 
 @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))
 def test_declared_params_subset_of_signature(cmd: Cmd) -> None:
-    method = _resolve_method(cmd.method)
+    method = _resolve_cmd_method(cmd)
     sig = inspect.signature(method)
     params = sig.parameters
     accepts_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
@@ -62,7 +60,7 @@ def test_declared_params_subset_of_signature(cmd: Cmd) -> None:
 
 @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))
 def test_required_params_supplied(cmd: Cmd) -> None:
-    method = _resolve_method(cmd.method)
+    method = _resolve_cmd_method(cmd)
     sig = inspect.signature(method)
 
     supplied = {dest for dest, _ in cmd.args}
