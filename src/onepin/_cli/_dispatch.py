@@ -55,12 +55,26 @@ def _annotation_for(opt: Opt) -> Any:
     return Optional[str]
 
 
-def _resolve_method(client: Any, dotted: str) -> Callable[..., Any]:
-    """Resolve a dotted method path (e.g. ``workflows.runs.start``) against a built client."""
-    obj: Any = client
-    for part in dotted.split("."):
-        obj = getattr(obj, part)
-    return obj  # type: ignore[no-any-return]
+def _resolve_method(client: Any, paths: str | tuple[str, ...]) -> Callable[..., Any]:
+    """Resolve the first available dotted SDK method path against a built client."""
+    candidates = (paths,) if isinstance(paths, str) else paths
+    last_error: AttributeError | None = None
+    for dotted in candidates:
+        obj: Any = client
+        try:
+            for part in dotted.split("."):
+                obj = getattr(obj, part)
+        except AttributeError as exc:
+            try:
+                inspect.getattr_static(obj, part)
+            except AttributeError:
+                last_error = exc
+                continue
+            raise
+        return obj  # type: ignore[no-any-return]
+
+    attempted = ", ".join(repr(path) for path in candidates)
+    raise AttributeError(f"Could not resolve SDK method; attempted paths: {attempted}") from last_error
 
 
 def _coerce_value(value: Any) -> Any:
@@ -411,7 +425,7 @@ def _run(cmd: Cmd, bound: dict[str, Any]) -> None:
             _confirm_destructive(cmd, bool(bound.get("yes", False)), json_on=json_on)
 
         client = get_client()
-        method = _resolve_method(client, cmd.method)
+        method = _resolve_method(client, cmd.method_paths)
         positional, kwargs = _build_kwargs(cmd, bound)
         if _accepts_workspace_kwarg(method):
             workspace = _state.root_options.get("workspace")

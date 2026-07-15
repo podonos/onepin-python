@@ -6,12 +6,82 @@ import datetime as dt
 import enum
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from onepin._cli import _dispatch
 from onepin._cli._ctx import CliError
 from onepin._cli._spec import Cmd, Opt
+
+
+class TestMethodResolution:
+    def test_resolves_canonical_path(self) -> None:
+        canonical = object()
+        client = SimpleNamespace(workflows=SimpleNamespace(runs=SimpleNamespace(steps=canonical)))
+
+        assert _dispatch._resolve_method(client, ("workflows.runs.steps",)) is canonical
+
+    def test_falls_back_when_canonical_path_is_absent(self) -> None:
+        legacy = object()
+        client = SimpleNamespace(workflows=SimpleNamespace(get_run_steps=legacy))
+
+        resolved = _dispatch._resolve_method(
+            client,
+            ("workflows.runs.steps", "workflows.get_run_steps"),
+        )
+
+        assert resolved is legacy
+
+    def test_prefers_canonical_path_when_both_exist(self) -> None:
+        canonical = object()
+        legacy = object()
+        client = SimpleNamespace(
+            workflows=SimpleNamespace(
+                runs=SimpleNamespace(steps=canonical),
+                get_run_steps=legacy,
+            )
+        )
+
+        resolved = _dispatch._resolve_method(
+            client,
+            ("workflows.runs.steps", "workflows.get_run_steps"),
+        )
+
+        assert resolved is canonical
+
+    def test_does_not_fall_back_when_canonical_attribute_raises(self) -> None:
+        class BrokenRuns:
+            @property
+            def steps(self) -> object:
+                raise AttributeError("canonical initialization failed")
+
+        legacy = object()
+        client = SimpleNamespace(
+            workflows=SimpleNamespace(
+                runs=BrokenRuns(),
+                get_run_steps=legacy,
+            )
+        )
+
+        with pytest.raises(AttributeError, match="canonical initialization failed"):
+            _dispatch._resolve_method(
+                client,
+                ("workflows.runs.steps", "workflows.get_run_steps"),
+            )
+
+    def test_reports_all_attempted_paths_when_none_resolve(self) -> None:
+        client = SimpleNamespace(workflows=SimpleNamespace())
+
+        with pytest.raises(AttributeError) as exc_info:
+            _dispatch._resolve_method(
+                client,
+                ("workflows.runs.steps", "workflows.get_run_steps"),
+            )
+
+        message = str(exc_info.value)
+        assert "workflows.runs.steps" in message
+        assert "workflows.get_run_steps" in message
 
 
 class TestTransforms:
