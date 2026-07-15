@@ -9,17 +9,17 @@ from ..types.api_response_usage_by_language_out import ApiResponseUsageByLanguag
 from ..types.api_response_usage_summary_out import ApiResponseUsageSummaryOut
 from ..types.usage_activity_action import UsageActivityAction
 from .raw_client import AsyncRawUsageClient, RawUsageClient
-from .types.usage_activity_api_v1usage_activity_get_request_range import UsageActivityApiV1UsageActivityGetRequestRange
-from .types.usage_by_language_api_v1usage_by_language_get_request_activity_view import (
+from .types.usage_activity_api_v1_usage_activity_get_request_range import UsageActivityApiV1UsageActivityGetRequestRange
+from .types.usage_by_language_api_v1_usage_by_language_get_request_activity_view import (
     UsageByLanguageApiV1UsageByLanguageGetRequestActivityView,
 )
-from .types.usage_by_language_api_v1usage_by_language_get_request_range import (
+from .types.usage_by_language_api_v1_usage_by_language_get_request_range import (
     UsageByLanguageApiV1UsageByLanguageGetRequestRange,
 )
-from .types.usage_summary_api_v1usage_summary_get_request_activity_view import (
+from .types.usage_summary_api_v1_usage_summary_get_request_activity_view import (
     UsageSummaryApiV1UsageSummaryGetRequestActivityView,
 )
-from .types.usage_summary_api_v1usage_summary_get_request_range import UsageSummaryApiV1UsageSummaryGetRequestRange
+from .types.usage_summary_api_v1_usage_summary_get_request_range import UsageSummaryApiV1UsageSummaryGetRequestRange
 
 
 class UsageClient:

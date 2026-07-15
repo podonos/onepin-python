@@ -14,7 +14,7 @@ from ..types.voice_age import VoiceAge
 from ..types.voice_category import VoiceCategory
 from ..types.voice_gender import VoiceGender
 from .raw_client import AsyncRawVoicesClient, RawVoicesClient
-from .types.get_voice_facets_api_v1voices_facets_get_request_source_item import (
+from .types.get_voice_facets_api_v1_voices_facets_get_request_source_item import (
     GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem,
 )
 from .types.list_voices_request_language_item import ListVoicesRequestLanguageItem
