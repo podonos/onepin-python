@@ -11,7 +11,7 @@ must only ever receive a build that a real production deploy blessed.**
 | Cadence | **continuous** | **prod-gated** |
 | Trigger | push to `main` (SDK inputs) · release tag `vX.Y.Z` · `workflow_dispatch` | `repository_dispatch[api-spec-updated]` with `environment == 'prod'` · `workflow_dispatch` |
 | Version | `X.Y.Z.devN` on main · clean `X.Y.Z` on a tag (hatch-vcs) | clean `X.Y.Z` only (built from the release tag) |
-| Gate | none (internal) | App-token guard **+** prod-environment trigger **+** PyPI idempotency check |
+| Gate | none (internal) | App-token guard **+** prod-environment trigger **+** PyPI idempotency check **+** required GitHub environment approval |
 
 ## Version ownership
 
@@ -63,7 +63,10 @@ must only ever receive a build that a real production deploy blessed.**
                           │      idempotency check (resolve): 200 ⇒ skip no-op · 404 ⇒ publish · else abort │
                           │      build resolved tag (fetch-depth:0, hatch-vcs → clean X.Y.Z)                │
                           │      assert ^[0-9]+\.[0-9]+\.[0-9]+$  (NO .devN / NO +local)                    │
+                          │      Slack: @channel approval card + exact GitHub Actions run link             │
+                          │      pypi environment: WAIT for an authorized GitHub reviewer                  │
                           │                                  │                                               │
+                          │                         Approve in GitHub                                        │
                           │                                  ▼                                               │
                           │              ✦ PyPI ✦  (OIDC trusted publishing, environment: pypi,             │
                           │                         build-provenance attestation)                           │
@@ -144,21 +147,26 @@ a manual settings change in the PyPI project — the workflow cannot self-config
   it `::warning::` warn-skips (no PyPI mutation). Dispatch a simulated `repository_dispatch`
   with `environment: dev`: assert it `::notice::` skips.
 - **Idempotency (no-op)** — `workflow_dispatch` `promote-prod.yml` with `tag` = an **already-published**
-  version: assert `resolve` logs `200`, sets `already_published=true`, and **`build` + `pypi` skip**
-  (green run, no Slack) — not an abort.
+  version: assert `resolve` logs `200`, sets `already_published=true`, and
+  **`build` + `notify-approval` + `pypi` skip** (green run, no Slack) — not an abort.
 - **actionlint** — `actionlint .github/workflows/*.yml` clean (CI-enforceable).
 
 ### 3. End-to-end (real release, gated on the App existing)
 - Merge a `feat:` regen PR → release-please opens a release PR → merge it → tag `vX.Y.Z` →
   `publish.yml` fires → TestPyPI gets the clean `X.Y.Z`.
 - Real backend **prod** deploy (`deploy-prod.yml`) → `repository_dispatch{environment:prod}`
-  → `promote-prod.yml` resolves the tag (PyPI check: `404` ⇒ absent), builds clean `X.Y.Z`, **PyPI**
-  publish + provenance attestation. Verify `pip install onepin==X.Y.Z` from pypi.org and
-  `onepin --version`.
+  → `promote-prod.yml` resolves the tag (PyPI check: `404` ⇒ absent), builds clean `X.Y.Z`,
+  posts the Slack approval card, and waits on the protected `pypi` environment. Follow
+  **Approve in GitHub**, then verify the **PyPI** publish + provenance attestation,
+  `pip install onepin==X.Y.Z` from pypi.org, and `onepin --version`.
 - **Manual replay** path: `gh workflow run promote-prod.yml -f tag=vX.Y.Z` reaches PyPI
   identically (used when the App was absent at the original prod deploy).
 
 ### 4. Observability
+- **Slack approval notifier** (PyPI lane, `notify-approval`, gated on `SLACK_WEBHOOK_URL`):
+  after a publish-ready build, posts `@channel` with only public release metadata and an
+  **Approve in GitHub** button linked to the exact Actions run. It is skipped on idempotent
+  no-ops and configured best-effort so Slack cannot change the GitHub approval gate.
 - **Slack failure notifier** on both lanes (`notify-failure`, gated on `SLACK_WEBHOOK_URL`):
   fires on any build/publish failure with a direct run link. A clean warn-skip does **not**
   fire (skipped ≠ failed).
