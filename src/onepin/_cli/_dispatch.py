@@ -65,8 +65,12 @@ def _resolve_method(client: Any, paths: str | tuple[str, ...]) -> Callable[..., 
             for part in dotted.split("."):
                 obj = getattr(obj, part)
         except AttributeError as exc:
-            last_error = exc
-            continue
+            try:
+                inspect.getattr_static(obj, part)
+            except AttributeError:
+                last_error = exc
+                continue
+            raise
         return obj  # type: ignore[no-any-return]
 
     attempted = ", ".join(repr(path) for path in candidates)

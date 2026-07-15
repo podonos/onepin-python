@@ -50,6 +50,26 @@ class TestMethodResolution:
 
         assert resolved is canonical
 
+    def test_does_not_fall_back_when_canonical_attribute_raises(self) -> None:
+        class BrokenRuns:
+            @property
+            def steps(self) -> object:
+                raise AttributeError("canonical initialization failed")
+
+        legacy = object()
+        client = SimpleNamespace(
+            workflows=SimpleNamespace(
+                runs=BrokenRuns(),
+                get_run_steps=legacy,
+            )
+        )
+
+        with pytest.raises(AttributeError, match="canonical initialization failed"):
+            _dispatch._resolve_method(
+                client,
+                ("workflows.runs.steps", "workflows.get_run_steps"),
+            )
+
     def test_reports_all_attempted_paths_when_none_resolve(self) -> None:
         client = SimpleNamespace(workflows=SimpleNamespace())
 
