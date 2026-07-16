@@ -114,6 +114,17 @@ def _list_opts(*extra: Opt) -> list[Opt]:
 # Workflow run status filter / terminal states (SDK exposes run status as raw str; no enum).
 _RUN_STATUS = ("draft", "running", "completed", "failed", "paused", "cancelled", "pending")
 
+_NODE_TYPES = (
+    "source_script",
+    "operator_translator",
+    "operator_normalizer",
+    "operator_generator",
+    "sink_preview",
+    "validator_error_rate",
+    "validator_naturalness",
+    "validator_noise",
+)
+
 # Column presets keyed by output model.
 _COLS_WORKFLOW = ["id", "name", "runs_count", "last_run_status", "updated_at"]
 _COLS_VOICE = ["id", "name", "provider", "gender", "category"]
@@ -294,7 +305,12 @@ TABLE: list[Cmd] = [
         "List the steps of a run.",
         subgroup="runs",
         args=[("workflow_id", "Workflow UUID."), ("run_id", "Run UUID.")],
-        options=[_JSON],
+        options=[
+            Opt("--include-result", "bool", False, help="Include each step's full result payload."),
+            Opt("--node-type", _NODE_TYPES, None, help="Filter by node type."),
+            Opt("--node-id", "str", None, help="Filter by node ID."),
+            _JSON,
+        ],
         unwrap="list",
         columns=[],
         fallback_methods=("workflows.get_run_steps",),

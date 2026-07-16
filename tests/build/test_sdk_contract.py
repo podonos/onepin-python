@@ -14,12 +14,14 @@ This fails loudly if a Fern regen renames or drops a method/param the CLI depend
 from __future__ import annotations
 
 import inspect
+from typing import get_args
 
 import pytest
 
 from onepin._cli._dispatch import _resolve_method
 from onepin._cli._spec import TABLE, Cmd
 from onepin.client import OnePinClient
+from onepin.types import NodeType
 
 # Options whose dest is consumed by the CLI itself, not forwarded to the SDK.
 _LOCAL_DESTS = {"json_output_local", "reveal", "yes"}
@@ -29,6 +31,16 @@ _LOCAL_FLAGS = {"--json", "--reveal", "--yes"}
 def _resolve_cmd_method(cmd: Cmd):
     client = OnePinClient(token="op_live_test")
     return _resolve_method(client, cmd.method_paths)
+
+
+def test_run_steps_node_type_choices_match_public_type() -> None:
+    cmd = next(cmd for cmd in TABLE if cmd.path == ("workflows", "runs", "steps"))
+    option = next(option for option in cmd.options if option.flag == "--node-type")
+    public_values = tuple(
+        value for branch in get_args(NodeType) for value in get_args(branch) if isinstance(value, str)
+    )
+
+    assert option.type == public_values
 
 
 @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))
