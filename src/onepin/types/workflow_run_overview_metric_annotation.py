@@ -4,17 +4,15 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .workflow_run_data_partial_out import WorkflowRunDataPartialOut
-from .workflow_run_data_row_out import WorkflowRunDataRowOut
 
 
-class WorkflowRunDataOut(UniversalBaseModel):
-    workflow_id: str
-    run_id: str
-    run_status: str
-    rows: typing.Optional[typing.List[WorkflowRunDataRowOut]] = None
-    partial: WorkflowRunDataPartialOut
-    dropped_truncated: typing.Optional[bool] = None
+class WorkflowRunOverviewMetricAnnotation(UniversalBaseModel):
+    """
+    Small subtext under a metric value (e.g. `output_lines` → "2 dropped").
+    """
+
+    text: str
+    emphasis: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

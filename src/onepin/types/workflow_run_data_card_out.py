@@ -5,7 +5,10 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .workflow_run_data_audio_out import WorkflowRunDataAudioOut
+from .workflow_run_data_card_out_status import WorkflowRunDataCardOutStatus
 from .workflow_run_data_card_out_waveform_status import WorkflowRunDataCardOutWaveformStatus
+from .workflow_run_data_dropped_out import WorkflowRunDataDroppedOut
+from .workflow_run_data_rejected_out import WorkflowRunDataRejectedOut
 from .workflow_run_data_validation_out import WorkflowRunDataValidationOut
 from .workflow_run_data_voice_out import WorkflowRunDataVoiceOut
 
@@ -24,6 +27,9 @@ class WorkflowRunDataCardOut(UniversalBaseModel):
     waveform_status: typing.Optional[WorkflowRunDataCardOutWaveformStatus] = None
     waveform_reason: typing.Optional[str] = None
     retry_count: typing.Optional[int] = None
+    status: typing.Optional[WorkflowRunDataCardOutStatus] = None
+    dropped: typing.Optional[WorkflowRunDataDroppedOut] = None
+    rejected: typing.Optional[WorkflowRunDataRejectedOut] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

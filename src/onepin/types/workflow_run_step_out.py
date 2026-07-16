@@ -17,6 +17,8 @@ class WorkflowRunStepOut(UniversalBaseModel):
     started_at: typing.Optional[dt.datetime] = None
     completed_at: typing.Optional[dt.datetime] = None
     result: typing.Optional[typing.Dict[str, typing.Any]] = None
+    has_result: typing.Optional[bool] = None
+    active_ports: typing.Optional[typing.List[str]] = None
     error: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:
