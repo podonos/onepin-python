@@ -1490,6 +1490,27 @@
       "options": [
         {
           "default": false,
+          "flag": "--include-result",
+          "help": "Include each step's full result payload.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": null,
+          "flag": "--node-type",
+          "help": "Filter by node type.",
+          "required": false,
+          "type": "choice[source_script,operator_translator,operator_normalizer,operator_generator,sink_preview,validator_error_rate,validator_naturalness,validator_noise]"
+        },
+        {
+          "default": null,
+          "flag": "--node-id",
+          "help": "Filter by node ID.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
           "flag": "--json",
           "help": "Emit JSON instead of a table.",
           "required": false,

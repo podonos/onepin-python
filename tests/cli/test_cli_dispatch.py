@@ -74,10 +74,17 @@ def _meta():
 class FakeRuns:
     raise_404 = False
 
+    def __init__(self) -> None:
+        self.step_calls: list[dict[str, object]] = []
+
     def cancel(self, workflow_id, run_id, **kw):
         if self.raise_404:
             raise NotFoundError(body={"error": {"code": "NOT_FOUND", "message": "gone"}})
         return _dict_response(cancelled=True, id=run_id)
+
+    def steps(self, workflow_id, run_id, **kw):
+        self.step_calls.append({"workflow_id": workflow_id, "run_id": run_id, **kw})
+        return [{"id": "step-1", "node_id": "node-1", "status": "completed"}]
 
 
 class FakeWorkflows:
@@ -174,6 +181,71 @@ class TestNonDeleteDestructive404:
         assert result.exit_code == 1, result.output
         assert "NOT_FOUND" in result.output
         assert "cancelled" not in result.output.lower()
+
+
+class TestWorkflowRunSteps:
+    def test_omits_optional_filters_by_default(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["workflows", "runs", "steps", "wf-1", "run-1", "--json"])
+
+        assert result.exit_code == 0, result.output
+        assert fake_client.workflows.runs.step_calls == [{"workflow_id": "wf-1", "run_id": "run-1"}]
+        assert '"id": "step-1"' in result.output
+
+    @pytest.mark.parametrize(
+        ("flag", "value", "expected"),
+        [
+            ("--include-result", None, {"include_result": True}),
+            ("--node-type", "operator_generator", {"node_type": "operator_generator"}),
+            ("--node-id", "node-7", {"node_id": "node-7"}),
+        ],
+    )
+    def test_forwards_each_optional_filter(
+        self,
+        fake_client: FakeClient,
+        tmp_home,
+        flag: str,
+        value: str | None,
+        expected: dict[str, object],
+    ) -> None:
+        option = [flag] if value is None else [flag, value]
+        result = _invoke(["workflows", "runs", "steps", "wf-1", "run-1", *option, "--json"])
+
+        assert result.exit_code == 0, result.output
+        assert fake_client.workflows.runs.step_calls == [{"workflow_id": "wf-1", "run_id": "run-1", **expected}]
+
+    def test_forwards_combined_filters(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(
+            [
+                "workflows",
+                "runs",
+                "steps",
+                "wf-1",
+                "run-1",
+                "--include-result",
+                "--node-type",
+                "validator_error_rate",
+                "--node-id",
+                "node-7",
+                "--json",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert fake_client.workflows.runs.step_calls == [
+            {
+                "workflow_id": "wf-1",
+                "run_id": "run-1",
+                "include_result": True,
+                "node_type": "validator_error_rate",
+                "node_id": "node-7",
+            }
+        ]
+
+    def test_node_type_rejects_unknown_value(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["workflows", "runs", "steps", "wf-1", "run-1", "--node-type", "not-a-node", "--json"])
+
+        assert result.exit_code == 2
+        assert fake_client.workflows.runs.step_calls == []
 
 
 class TestNotAuthenticated:
