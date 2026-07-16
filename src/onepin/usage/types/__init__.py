@@ -6,23 +6,23 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .usage_activity_api_v1_usage_activity_get_request_range import UsageActivityApiV1UsageActivityGetRequestRange
-    from .usage_by_language_api_v1_usage_by_language_get_request_activity_view import (
+    from .usage_activity_api_v1usage_activity_get_request_range import UsageActivityApiV1UsageActivityGetRequestRange
+    from .usage_by_language_api_v1usage_by_language_get_request_activity_view import (
         UsageByLanguageApiV1UsageByLanguageGetRequestActivityView,
     )
-    from .usage_by_language_api_v1_usage_by_language_get_request_range import (
+    from .usage_by_language_api_v1usage_by_language_get_request_range import (
         UsageByLanguageApiV1UsageByLanguageGetRequestRange,
     )
-    from .usage_summary_api_v1_usage_summary_get_request_activity_view import (
+    from .usage_summary_api_v1usage_summary_get_request_activity_view import (
         UsageSummaryApiV1UsageSummaryGetRequestActivityView,
     )
-    from .usage_summary_api_v1_usage_summary_get_request_range import UsageSummaryApiV1UsageSummaryGetRequestRange
+    from .usage_summary_api_v1usage_summary_get_request_range import UsageSummaryApiV1UsageSummaryGetRequestRange
 _dynamic_imports: typing.Dict[str, str] = {
-    "UsageActivityApiV1UsageActivityGetRequestRange": ".usage_activity_api_v1_usage_activity_get_request_range",
-    "UsageByLanguageApiV1UsageByLanguageGetRequestActivityView": ".usage_by_language_api_v1_usage_by_language_get_request_activity_view",
-    "UsageByLanguageApiV1UsageByLanguageGetRequestRange": ".usage_by_language_api_v1_usage_by_language_get_request_range",
-    "UsageSummaryApiV1UsageSummaryGetRequestActivityView": ".usage_summary_api_v1_usage_summary_get_request_activity_view",
-    "UsageSummaryApiV1UsageSummaryGetRequestRange": ".usage_summary_api_v1_usage_summary_get_request_range",
+    "UsageActivityApiV1UsageActivityGetRequestRange": ".usage_activity_api_v1usage_activity_get_request_range",
+    "UsageByLanguageApiV1UsageByLanguageGetRequestActivityView": ".usage_by_language_api_v1usage_by_language_get_request_activity_view",
+    "UsageByLanguageApiV1UsageByLanguageGetRequestRange": ".usage_by_language_api_v1usage_by_language_get_request_range",
+    "UsageSummaryApiV1UsageSummaryGetRequestActivityView": ".usage_summary_api_v1usage_summary_get_request_activity_view",
+    "UsageSummaryApiV1UsageSummaryGetRequestRange": ".usage_summary_api_v1usage_summary_get_request_range",
 }
 
 

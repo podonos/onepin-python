@@ -12,7 +12,6 @@ from ..types.api_list_response_upload_out import ApiListResponseUploadOut
 from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_download_url_out import ApiResponseDownloadUrlOut
 from ..types.api_response_estimate_response import ApiResponseEstimateResponse
-from ..types.api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
 from ..types.api_response_runs_summary_out import ApiResponseRunsSummaryOut
 from ..types.api_response_workflow_name_availability_out import ApiResponseWorkflowNameAvailabilityOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
@@ -705,66 +704,6 @@ class WorkflowsClient:
         )
         return _response.data
 
-    def get_run_steps(
-        self,
-        workflow_id: str,
-        run_id: str,
-        *,
-        workspace_id: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ApiResponseListWorkflowRunStepOut:
-        """
-        List per-node execution steps for a workflow run.
-
-        Returns one entry per node execution attempt, ordered by execution sequence.
-        Each step includes the node type, status, iteration number (for nodes that
-        are retried), start/completion timestamps, and the node's `result` output.
-
-        For audio output nodes, `result` is hydrated with short-lived `playback_url`
-        values (valid for 15 minutes) so callers can stream audio directly without
-        a separate download step.
-
-        `node_display_name` is resolved from the run's definition snapshot, so it
-        reflects the name the node had when the run executed. Repeated executions of
-        the same node share that name and are distinguished by `iteration`.
-
-        For a higher-level view with aggregated metrics (pass rates, audio duration
-        by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
-        script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
-
-        Parameters
-        ----------
-        workflow_id : str
-
-        run_id : str
-
-        workspace_id : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseListWorkflowRunStepOut
-            Successful Response
-
-        Examples
-        --------
-        from onepin import OnePinClient
-
-        client = OnePinClient(
-            token="YOUR_TOKEN",
-        )
-        client.workflows.get_run_steps(
-            workflow_id="workflow_id",
-            run_id="run_id",
-        )
-        """
-        _response = self._raw_client.get_run_steps(
-            workflow_id, run_id, workspace_id=workspace_id, request_options=request_options
-        )
-        return _response.data
-
     def get_run_outputs(
         self,
         workflow_id: str,
@@ -840,7 +779,8 @@ class WorkflowsClient:
 
         - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
         - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
-        - `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+        - `GET /runs/{run_id}/steps` — lightweight per-node step log by default;
+          `include_result=true` includes results and audio playback URLs.
         - `GET /runs/{run_id}/outputs` — one logical result per snapshot sink node.
         - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
         - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
@@ -886,6 +826,7 @@ class WorkflowsClient:
         *,
         search: typing.Optional[str] = None,
         language: typing.Optional[str] = None,
+        include_dropped: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -905,6 +846,8 @@ class WorkflowsClient:
           locale. Rows with no matching cards are still returned (with empty `cards`),
           and `pagination.total` always reflects the search-filtered row count
           regardless of `language`.
+        - `include_dropped=true` adds rejected attempts to `cards` with
+          `status="dropped"`; the default response remains delivered/generated data only.
 
         **Pagination:** `pagination.total` is scoped to the `search` filter only.
 
@@ -924,6 +867,9 @@ class WorkflowsClient:
 
         language : typing.Optional[str]
             Exact full-locale code to filter cards within each row (e.g. `en-US`). `_` is normalized to `-`. Filtering is card-level only — rows remain visible even when all their cards are filtered out, and `pagination.total` is unaffected.
+
+        include_dropped : typing.Optional[bool]
+            Include validator-rejected audio cards reconstructed from unwired fail ports. Defaults to false so existing clients continue receiving delivered output only.
 
         offset : typing.Optional[int]
             Zero-based pagination offset.
@@ -958,6 +904,7 @@ class WorkflowsClient:
             run_id,
             search=search,
             language=language,
+            include_dropped=include_dropped,
             offset=offset,
             limit=limit,
             workspace_id=workspace_id,
@@ -1019,6 +966,61 @@ class WorkflowsClient:
         """
         _response = self._raw_client.download_run(
             workflow_id, run_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    def get_run_audio_url(
+        self,
+        workflow_id: str,
+        run_id: str,
+        audio_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseDownloadUrlOut:
+        """
+        Mint a fresh playback URL for one audio output of a run.
+
+        `audio_id` is the stable 16-hex output identifier embedded in run-data
+        card ids and carried by assistant chat `audio` parts. Presigned playback
+        URLs expire after 15 minutes; call this endpoint at play time to refresh
+        the URL by id instead of caching it or re-fetching a whole run-data page.
+
+        Returns 404 when the run has no s3-backed audio output with this id.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        audio_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseDownloadUrlOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workflows.get_run_audio_url(
+            workflow_id="workflow_id",
+            run_id="run_id",
+            audio_id="audio_id",
+        )
+        """
+        _response = self._raw_client.get_run_audio_url(
+            workflow_id, run_id, audio_id, workspace_id=workspace_id, request_options=request_options
         )
         return _response.data
 
@@ -2006,74 +2008,6 @@ class AsyncWorkflowsClient:
         )
         return _response.data
 
-    async def get_run_steps(
-        self,
-        workflow_id: str,
-        run_id: str,
-        *,
-        workspace_id: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ApiResponseListWorkflowRunStepOut:
-        """
-        List per-node execution steps for a workflow run.
-
-        Returns one entry per node execution attempt, ordered by execution sequence.
-        Each step includes the node type, status, iteration number (for nodes that
-        are retried), start/completion timestamps, and the node's `result` output.
-
-        For audio output nodes, `result` is hydrated with short-lived `playback_url`
-        values (valid for 15 minutes) so callers can stream audio directly without
-        a separate download step.
-
-        `node_display_name` is resolved from the run's definition snapshot, so it
-        reflects the name the node had when the run executed. Repeated executions of
-        the same node share that name and are distinguished by `iteration`.
-
-        For a higher-level view with aggregated metrics (pass rates, audio duration
-        by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
-        script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
-
-        Parameters
-        ----------
-        workflow_id : str
-
-        run_id : str
-
-        workspace_id : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        ApiResponseListWorkflowRunStepOut
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from onepin import AsyncOnePinClient
-
-        client = AsyncOnePinClient(
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.workflows.get_run_steps(
-                workflow_id="workflow_id",
-                run_id="run_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_run_steps(
-            workflow_id, run_id, workspace_id=workspace_id, request_options=request_options
-        )
-        return _response.data
-
     async def get_run_outputs(
         self,
         workflow_id: str,
@@ -2157,7 +2091,8 @@ class AsyncWorkflowsClient:
 
         - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
         - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
-        - `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+        - `GET /runs/{run_id}/steps` — lightweight per-node step log by default;
+          `include_result=true` includes results and audio playback URLs.
         - `GET /runs/{run_id}/outputs` — one logical result per snapshot sink node.
         - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
         - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
@@ -2211,6 +2146,7 @@ class AsyncWorkflowsClient:
         *,
         search: typing.Optional[str] = None,
         language: typing.Optional[str] = None,
+        include_dropped: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -2230,6 +2166,8 @@ class AsyncWorkflowsClient:
           locale. Rows with no matching cards are still returned (with empty `cards`),
           and `pagination.total` always reflects the search-filtered row count
           regardless of `language`.
+        - `include_dropped=true` adds rejected attempts to `cards` with
+          `status="dropped"`; the default response remains delivered/generated data only.
 
         **Pagination:** `pagination.total` is scoped to the `search` filter only.
 
@@ -2249,6 +2187,9 @@ class AsyncWorkflowsClient:
 
         language : typing.Optional[str]
             Exact full-locale code to filter cards within each row (e.g. `en-US`). `_` is normalized to `-`. Filtering is card-level only — rows remain visible even when all their cards are filtered out, and `pagination.total` is unaffected.
+
+        include_dropped : typing.Optional[bool]
+            Include validator-rejected audio cards reconstructed from unwired fail ports. Defaults to false so existing clients continue receiving delivered output only.
 
         offset : typing.Optional[int]
             Zero-based pagination offset.
@@ -2291,6 +2232,7 @@ class AsyncWorkflowsClient:
             run_id,
             search=search,
             language=language,
+            include_dropped=include_dropped,
             offset=offset,
             limit=limit,
             workspace_id=workspace_id,
@@ -2360,6 +2302,69 @@ class AsyncWorkflowsClient:
         """
         _response = await self._raw_client.download_run(
             workflow_id, run_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    async def get_run_audio_url(
+        self,
+        workflow_id: str,
+        run_id: str,
+        audio_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseDownloadUrlOut:
+        """
+        Mint a fresh playback URL for one audio output of a run.
+
+        `audio_id` is the stable 16-hex output identifier embedded in run-data
+        card ids and carried by assistant chat `audio` parts. Presigned playback
+        URLs expire after 15 minutes; call this endpoint at play time to refresh
+        the URL by id instead of caching it or re-fetching a whole run-data page.
+
+        Returns 404 when the run has no s3-backed audio output with this id.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        audio_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseDownloadUrlOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workflows.get_run_audio_url(
+                workflow_id="workflow_id",
+                run_id="run_id",
+                audio_id="audio_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_run_audio_url(
+            workflow_id, run_id, audio_id, workspace_id=workspace_id, request_options=request_options
         )
         return _response.data
 

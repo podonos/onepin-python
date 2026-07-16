@@ -17,22 +17,22 @@ from ..types.api_response_dictionary_out import ApiResponseDictionaryOut
 from ..types.api_response_list_dictionary_language_out import ApiResponseListDictionaryLanguageOut
 from ..types.api_response_pronunciation_suggestion import ApiResponsePronunciationSuggestion
 from ..types.dictionary_method import DictionaryMethod
-from .types.list_dictionary_entries_api_v1_dictionary_get_request_language import (
+from .types.list_dictionary_entries_api_v1dictionary_get_request_language import (
     ListDictionaryEntriesApiV1DictionaryGetRequestLanguage,
 )
-from .types.list_dictionary_entries_api_v1_dictionary_get_request_order import (
+from .types.list_dictionary_entries_api_v1dictionary_get_request_order import (
     ListDictionaryEntriesApiV1DictionaryGetRequestOrder,
 )
-from .types.list_dictionary_entries_api_v1_dictionary_get_request_sort import (
+from .types.list_dictionary_entries_api_v1dictionary_get_request_sort import (
     ListDictionaryEntriesApiV1DictionaryGetRequestSort,
 )
-from .types.search_dictionary_entries_api_v1_dictionary_search_get_request_language_item import (
+from .types.search_dictionary_entries_api_v1dictionary_search_get_request_language_item import (
     SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem,
 )
-from .types.search_dictionary_entries_api_v1_dictionary_search_get_request_order import (
+from .types.search_dictionary_entries_api_v1dictionary_search_get_request_order import (
     SearchDictionaryEntriesApiV1DictionarySearchGetRequestOrder,
 )
-from .types.search_dictionary_entries_api_v1_dictionary_search_get_request_sort import (
+from .types.search_dictionary_entries_api_v1dictionary_search_get_request_sort import (
     SearchDictionaryEntriesApiV1DictionarySearchGetRequestSort,
 )
 from pydantic import ValidationError

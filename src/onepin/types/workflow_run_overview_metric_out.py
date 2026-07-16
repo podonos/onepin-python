@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .workflow_run_overview_metric_annotation import WorkflowRunOverviewMetricAnnotation
 from .workflow_run_overview_metric_display import WorkflowRunOverviewMetricDisplay
 from .workflow_run_overview_metric_out_status import WorkflowRunOverviewMetricOutStatus
 from .workflow_run_overview_metric_out_value import WorkflowRunOverviewMetricOutValue
@@ -18,6 +19,7 @@ class WorkflowRunOverviewMetricOut(UniversalBaseModel):
     status: WorkflowRunOverviewMetricOutStatus
     reason: typing.Optional[str] = None
     display: WorkflowRunOverviewMetricDisplay
+    annotation: typing.Optional[WorkflowRunOverviewMetricAnnotation] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

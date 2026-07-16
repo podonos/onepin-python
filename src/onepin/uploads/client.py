@@ -133,7 +133,7 @@ class UploadsClient:
         upload_id : str
 
         context_type : UploadConfirmRequestContextType
-            Type of resource this upload is being attached to: `workflow` or `playground`.
+            Type of resource this upload is being attached to: `workflow`, `playground`, or `assistant_session`.
 
         context_id : str
             ID of the resource to attach this upload to. Must be an existing resource of the given `context_type` that the caller has access to.
@@ -349,7 +349,7 @@ class AsyncUploadsClient:
         upload_id : str
 
         context_type : UploadConfirmRequestContextType
-            Type of resource this upload is being attached to: `workflow` or `playground`.
+            Type of resource this upload is being attached to: `workflow`, `playground`, or `assistant_session`.
 
         context_id : str
             ID of the resource to attach this upload to. Must be an existing resource of the given `context_type` that the caller has access to.

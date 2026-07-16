@@ -13,9 +13,11 @@ from ...core.request_options import RequestOptions
 from ...core.serialization import convert_and_respect_annotation_metadata
 from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.api_counted_list_response_workflow_run_list_item import ApiCountedListResponseWorkflowRunListItem
+from ...types.api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
 from ...types.api_response_workflow_run_detail_out import ApiResponseWorkflowRunDetailOut
 from ...types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ...types.api_response_workflow_run_status_out import ApiResponseWorkflowRunStatusOut
+from ...types.node_type import NodeType
 from ...types.workflow_run_start_in import WorkflowRunStartIn
 from .types.list_runs_request_order import ListRunsRequestOrder
 from .types.list_runs_request_sort import ListRunsRequestSort
@@ -246,7 +248,8 @@ class RawRunsClient:
         This is the heaviest run endpoint. For progress polling, use the lighter
         `GET /runs/{run_id}/status` which omits the snapshot. For aggregated
         visual metrics, use `GET /runs/{run_id}/overview`. For the per-node step
-        log with audio playback URLs, use `GET /runs/{run_id}/steps`.
+        log, use `GET /runs/{run_id}/steps`; opt into full results and audio
+        playback URLs with `include_result=true`.
 
         Parameters
         ----------
@@ -383,6 +386,105 @@ class RawRunsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def steps(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        include_result: typing.Optional[bool] = None,
+        node_type: typing.Optional[NodeType] = None,
+        node_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseListWorkflowRunStepOut]:
+        """
+        List per-node execution steps for a workflow run.
+
+        Returns one entry per node execution attempt, ordered by execution sequence.
+        By default, the response is lightweight: `result` is null, `has_result`
+        reports whether a stored result exists, and `active_ports` is projected from
+        the result without loading the full JSON payload.
+
+        Set `include_result=true` to restore the full result payload. Audio results
+        are then hydrated with short-lived `playback_url` values (valid for 15
+        minutes). `node_type` and `node_id` filters combine with AND semantics.
+
+        `node_display_name` is resolved from the run's definition snapshot, so it
+        reflects the name the node had when the run executed. Repeated executions of
+        the same node share that name and are distinguished by `iteration`.
+
+        For a higher-level view with aggregated metrics (pass rates, audio duration
+        by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
+        script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        include_result : typing.Optional[bool]
+            Include the full step result payload and hydrate audio playback URLs.
+
+        node_type : typing.Optional[NodeType]
+            Filter steps by node type.
+
+        node_id : typing.Optional[str]
+            Filter steps by node ID.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseListWorkflowRunStepOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/steps",
+            method="GET",
+            params={
+                "include_result": include_result,
+                "node_type": node_type,
+                "node_id": node_id,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseListWorkflowRunStepOut,
+                    parse_obj_as(
+                        type_=ApiResponseListWorkflowRunStepOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def cancel(
         self,
         workflow_id: str,
@@ -399,9 +501,9 @@ class RawRunsClient:
         operation is idempotent: cancelling an already-cancelled run returns the
         run unchanged without error.
 
-        Only runs in `pending`, `running`, or `paused` status can be cancelled.
-        Runs that have already reached a terminal state (`completed`, `failed`,
-        `cancelled`) return 409.
+        Runs already in a terminal state (`completed`, `failed`, or `cancelled`)
+        are returned unchanged. Concurrent terminalization is also treated as an
+        idempotent success; a still-active compare-and-swap loser returns 409.
 
         Unlike `pause`, cancel is permanent — a cancelled run cannot be resumed.
         Use `pause` if you intend to continue the run later.
@@ -682,7 +784,8 @@ class AsyncRawRunsClient:
         This is the heaviest run endpoint. For progress polling, use the lighter
         `GET /runs/{run_id}/status` which omits the snapshot. For aggregated
         visual metrics, use `GET /runs/{run_id}/overview`. For the per-node step
-        log with audio playback URLs, use `GET /runs/{run_id}/steps`.
+        log, use `GET /runs/{run_id}/steps`; opt into full results and audio
+        playback URLs with `include_result=true`.
 
         Parameters
         ----------
@@ -819,6 +922,105 @@ class AsyncRawRunsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def steps(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        include_result: typing.Optional[bool] = None,
+        node_type: typing.Optional[NodeType] = None,
+        node_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseListWorkflowRunStepOut]:
+        """
+        List per-node execution steps for a workflow run.
+
+        Returns one entry per node execution attempt, ordered by execution sequence.
+        By default, the response is lightweight: `result` is null, `has_result`
+        reports whether a stored result exists, and `active_ports` is projected from
+        the result without loading the full JSON payload.
+
+        Set `include_result=true` to restore the full result payload. Audio results
+        are then hydrated with short-lived `playback_url` values (valid for 15
+        minutes). `node_type` and `node_id` filters combine with AND semantics.
+
+        `node_display_name` is resolved from the run's definition snapshot, so it
+        reflects the name the node had when the run executed. Repeated executions of
+        the same node share that name and are distinguished by `iteration`.
+
+        For a higher-level view with aggregated metrics (pass rates, audio duration
+        by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
+        script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        include_result : typing.Optional[bool]
+            Include the full step result payload and hydrate audio playback URLs.
+
+        node_type : typing.Optional[NodeType]
+            Filter steps by node type.
+
+        node_id : typing.Optional[str]
+            Filter steps by node ID.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseListWorkflowRunStepOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/steps",
+            method="GET",
+            params={
+                "include_result": include_result,
+                "node_type": node_type,
+                "node_id": node_id,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseListWorkflowRunStepOut,
+                    parse_obj_as(
+                        type_=ApiResponseListWorkflowRunStepOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def cancel(
         self,
         workflow_id: str,
@@ -835,9 +1037,9 @@ class AsyncRawRunsClient:
         operation is idempotent: cancelling an already-cancelled run returns the
         run unchanged without error.
 
-        Only runs in `pending`, `running`, or `paused` status can be cancelled.
-        Runs that have already reached a terminal state (`completed`, `failed`,
-        `cancelled`) return 409.
+        Runs already in a terminal state (`completed`, `failed`, or `cancelled`)
+        are returned unchanged. Concurrent terminalization is also treated as an
+        idempotent success; a still-active compare-and-swap loser returns 409.
 
         Unlike `pause`, cancel is permanent — a cancelled run cannot be resumed.
         Use `pause` if you intend to continue the run later.

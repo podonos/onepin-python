@@ -6,11 +6,11 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .list_my_templates_api_v1_users_me_templates_get_request_sort import (
+    from .list_my_templates_api_v1users_me_templates_get_request_sort import (
         ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort,
     )
 _dynamic_imports: typing.Dict[str, str] = {
-    "ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort": ".list_my_templates_api_v1_users_me_templates_get_request_sort"
+    "ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort": ".list_my_templates_api_v1users_me_templates_get_request_sort"
 }
 
 

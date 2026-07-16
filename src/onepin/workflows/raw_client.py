@@ -21,7 +21,6 @@ from ..types.api_list_response_upload_out import ApiListResponseUploadOut
 from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_download_url_out import ApiResponseDownloadUrlOut
 from ..types.api_response_estimate_response import ApiResponseEstimateResponse
-from ..types.api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
 from ..types.api_response_runs_summary_out import ApiResponseRunsSummaryOut
 from ..types.api_response_workflow_name_availability_out import ApiResponseWorkflowNameAvailabilityOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
@@ -969,87 +968,6 @@ class RawWorkflowsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def get_run_steps(
-        self,
-        workflow_id: str,
-        run_id: str,
-        *,
-        workspace_id: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ApiResponseListWorkflowRunStepOut]:
-        """
-        List per-node execution steps for a workflow run.
-
-        Returns one entry per node execution attempt, ordered by execution sequence.
-        Each step includes the node type, status, iteration number (for nodes that
-        are retried), start/completion timestamps, and the node's `result` output.
-
-        For audio output nodes, `result` is hydrated with short-lived `playback_url`
-        values (valid for 15 minutes) so callers can stream audio directly without
-        a separate download step.
-
-        `node_display_name` is resolved from the run's definition snapshot, so it
-        reflects the name the node had when the run executed. Repeated executions of
-        the same node share that name and are distinguished by `iteration`.
-
-        For a higher-level view with aggregated metrics (pass rates, audio duration
-        by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
-        script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
-
-        Parameters
-        ----------
-        workflow_id : str
-
-        run_id : str
-
-        workspace_id : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiResponseListWorkflowRunStepOut]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/steps",
-            method="GET",
-            headers={
-                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseListWorkflowRunStepOut,
-                    parse_obj_as(
-                        type_=ApiResponseListWorkflowRunStepOut,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     def get_run_outputs(
         self,
         workflow_id: str,
@@ -1146,7 +1064,8 @@ class RawWorkflowsClient:
 
         - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
         - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
-        - `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+        - `GET /runs/{run_id}/steps` — lightweight per-node step log by default;
+          `include_result=true` includes results and audio playback URLs.
         - `GET /runs/{run_id}/outputs` — one logical result per snapshot sink node.
         - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
         - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
@@ -1213,6 +1132,7 @@ class RawWorkflowsClient:
         *,
         search: typing.Optional[str] = None,
         language: typing.Optional[str] = None,
+        include_dropped: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -1232,6 +1152,8 @@ class RawWorkflowsClient:
           locale. Rows with no matching cards are still returned (with empty `cards`),
           and `pagination.total` always reflects the search-filtered row count
           regardless of `language`.
+        - `include_dropped=true` adds rejected attempts to `cards` with
+          `status="dropped"`; the default response remains delivered/generated data only.
 
         **Pagination:** `pagination.total` is scoped to the `search` filter only.
 
@@ -1251,6 +1173,9 @@ class RawWorkflowsClient:
 
         language : typing.Optional[str]
             Exact full-locale code to filter cards within each row (e.g. `en-US`). `_` is normalized to `-`. Filtering is card-level only — rows remain visible even when all their cards are filtered out, and `pagination.total` is unaffected.
+
+        include_dropped : typing.Optional[bool]
+            Include validator-rejected audio cards reconstructed from unwired fail ports. Defaults to false so existing clients continue receiving delivered output only.
 
         offset : typing.Optional[int]
             Zero-based pagination offset.
@@ -1274,6 +1199,7 @@ class RawWorkflowsClient:
             params={
                 "search": search,
                 "language": language,
+                "include_dropped": include_dropped,
                 "offset": offset,
                 "limit": limit,
             },
@@ -1383,6 +1309,92 @@ class RawWorkflowsClient:
                 )
             if _response.status_code == 409:
                 raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_run_audio_url(
+        self,
+        workflow_id: str,
+        run_id: str,
+        audio_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseDownloadUrlOut]:
+        """
+        Mint a fresh playback URL for one audio output of a run.
+
+        `audio_id` is the stable 16-hex output identifier embedded in run-data
+        card ids and carried by assistant chat `audio` parts. Presigned playback
+        URLs expire after 15 minutes; call this endpoint at play time to refresh
+        the URL by id instead of caching it or re-fetching a whole run-data page.
+
+        Returns 404 when the run has no s3-backed audio output with this id.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        audio_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseDownloadUrlOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/audio/{encode_path_param(audio_id)}/url",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseDownloadUrlOut,
+                    parse_obj_as(
+                        type_=ApiResponseDownloadUrlOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -2663,87 +2675,6 @@ class AsyncRawWorkflowsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def get_run_steps(
-        self,
-        workflow_id: str,
-        run_id: str,
-        *,
-        workspace_id: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ApiResponseListWorkflowRunStepOut]:
-        """
-        List per-node execution steps for a workflow run.
-
-        Returns one entry per node execution attempt, ordered by execution sequence.
-        Each step includes the node type, status, iteration number (for nodes that
-        are retried), start/completion timestamps, and the node's `result` output.
-
-        For audio output nodes, `result` is hydrated with short-lived `playback_url`
-        values (valid for 15 minutes) so callers can stream audio directly without
-        a separate download step.
-
-        `node_display_name` is resolved from the run's definition snapshot, so it
-        reflects the name the node had when the run executed. Repeated executions of
-        the same node share that name and are distinguished by `iteration`.
-
-        For a higher-level view with aggregated metrics (pass rates, audio duration
-        by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
-        script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
-
-        Parameters
-        ----------
-        workflow_id : str
-
-        run_id : str
-
-        workspace_id : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiResponseListWorkflowRunStepOut]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/steps",
-            method="GET",
-            headers={
-                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ApiResponseListWorkflowRunStepOut,
-                    parse_obj_as(
-                        type_=ApiResponseListWorkflowRunStepOut,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     async def get_run_outputs(
         self,
         workflow_id: str,
@@ -2840,7 +2771,8 @@ class AsyncRawWorkflowsClient:
 
         - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
         - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
-        - `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+        - `GET /runs/{run_id}/steps` — lightweight per-node step log by default;
+          `include_result=true` includes results and audio playback URLs.
         - `GET /runs/{run_id}/outputs` — one logical result per snapshot sink node.
         - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
         - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
@@ -2907,6 +2839,7 @@ class AsyncRawWorkflowsClient:
         *,
         search: typing.Optional[str] = None,
         language: typing.Optional[str] = None,
+        include_dropped: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -2926,6 +2859,8 @@ class AsyncRawWorkflowsClient:
           locale. Rows with no matching cards are still returned (with empty `cards`),
           and `pagination.total` always reflects the search-filtered row count
           regardless of `language`.
+        - `include_dropped=true` adds rejected attempts to `cards` with
+          `status="dropped"`; the default response remains delivered/generated data only.
 
         **Pagination:** `pagination.total` is scoped to the `search` filter only.
 
@@ -2945,6 +2880,9 @@ class AsyncRawWorkflowsClient:
 
         language : typing.Optional[str]
             Exact full-locale code to filter cards within each row (e.g. `en-US`). `_` is normalized to `-`. Filtering is card-level only — rows remain visible even when all their cards are filtered out, and `pagination.total` is unaffected.
+
+        include_dropped : typing.Optional[bool]
+            Include validator-rejected audio cards reconstructed from unwired fail ports. Defaults to false so existing clients continue receiving delivered output only.
 
         offset : typing.Optional[int]
             Zero-based pagination offset.
@@ -2968,6 +2906,7 @@ class AsyncRawWorkflowsClient:
             params={
                 "search": search,
                 "language": language,
+                "include_dropped": include_dropped,
                 "offset": offset,
                 "limit": limit,
             },
@@ -3077,6 +3016,92 @@ class AsyncRawWorkflowsClient:
                 )
             if _response.status_code == 409:
                 raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_run_audio_url(
+        self,
+        workflow_id: str,
+        run_id: str,
+        audio_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseDownloadUrlOut]:
+        """
+        Mint a fresh playback URL for one audio output of a run.
+
+        `audio_id` is the stable 16-hex output identifier embedded in run-data
+        card ids and carried by assistant chat `audio` parts. Presigned playback
+        URLs expire after 15 minutes; call this endpoint at play time to refresh
+        the URL by id instead of caching it or re-fetching a whole run-data page.
+
+        Returns 404 when the run has no s3-backed audio output with this id.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        audio_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseDownloadUrlOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/audio/{encode_path_param(audio_id)}/url",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseDownloadUrlOut,
+                    parse_obj_as(
+                        type_=ApiResponseDownloadUrlOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,

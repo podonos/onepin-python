@@ -5,9 +5,11 @@ import typing
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from ...types.api_counted_list_response_workflow_run_list_item import ApiCountedListResponseWorkflowRunListItem
+from ...types.api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
 from ...types.api_response_workflow_run_detail_out import ApiResponseWorkflowRunDetailOut
 from ...types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ...types.api_response_workflow_run_status_out import ApiResponseWorkflowRunStatusOut
+from ...types.node_type import NodeType
 from ...types.workflow_run_start_in import WorkflowRunStartIn
 from .raw_client import AsyncRawRunsClient, RawRunsClient
 from .types.list_runs_request_order import ListRunsRequestOrder
@@ -201,7 +203,8 @@ class RunsClient:
         This is the heaviest run endpoint. For progress polling, use the lighter
         `GET /runs/{run_id}/status` which omits the snapshot. For aggregated
         visual metrics, use `GET /runs/{run_id}/overview`. For the per-node step
-        log with audio playback URLs, use `GET /runs/{run_id}/steps`.
+        log, use `GET /runs/{run_id}/steps`; opt into full results and audio
+        playback URLs with `include_result=true`.
 
         Parameters
         ----------
@@ -296,6 +299,85 @@ class RunsClient:
         )
         return _response.data
 
+    def steps(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        include_result: typing.Optional[bool] = None,
+        node_type: typing.Optional[NodeType] = None,
+        node_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseListWorkflowRunStepOut:
+        """
+        List per-node execution steps for a workflow run.
+
+        Returns one entry per node execution attempt, ordered by execution sequence.
+        By default, the response is lightweight: `result` is null, `has_result`
+        reports whether a stored result exists, and `active_ports` is projected from
+        the result without loading the full JSON payload.
+
+        Set `include_result=true` to restore the full result payload. Audio results
+        are then hydrated with short-lived `playback_url` values (valid for 15
+        minutes). `node_type` and `node_id` filters combine with AND semantics.
+
+        `node_display_name` is resolved from the run's definition snapshot, so it
+        reflects the name the node had when the run executed. Repeated executions of
+        the same node share that name and are distinguished by `iteration`.
+
+        For a higher-level view with aggregated metrics (pass rates, audio duration
+        by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
+        script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        include_result : typing.Optional[bool]
+            Include the full step result payload and hydrate audio playback URLs.
+
+        node_type : typing.Optional[NodeType]
+            Filter steps by node type.
+
+        node_id : typing.Optional[str]
+            Filter steps by node ID.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseListWorkflowRunStepOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workflows.runs.steps(
+            workflow_id="workflow_id",
+            run_id="run_id",
+        )
+        """
+        _response = self._raw_client.steps(
+            workflow_id,
+            run_id,
+            include_result=include_result,
+            node_type=node_type,
+            node_id=node_id,
+            workspace_id=workspace_id,
+            request_options=request_options,
+        )
+        return _response.data
+
     def cancel(
         self,
         workflow_id: str,
@@ -312,9 +394,9 @@ class RunsClient:
         operation is idempotent: cancelling an already-cancelled run returns the
         run unchanged without error.
 
-        Only runs in `pending`, `running`, or `paused` status can be cancelled.
-        Runs that have already reached a terminal state (`completed`, `failed`,
-        `cancelled`) return 409.
+        Runs already in a terminal state (`completed`, `failed`, or `cancelled`)
+        are returned unchanged. Concurrent terminalization is also treated as an
+        idempotent success; a still-active compare-and-swap loser returns 409.
 
         Unlike `pause`, cancel is permanent — a cancelled run cannot be resumed.
         Use `pause` if you intend to continue the run later.
@@ -553,7 +635,8 @@ class AsyncRunsClient:
         This is the heaviest run endpoint. For progress polling, use the lighter
         `GET /runs/{run_id}/status` which omits the snapshot. For aggregated
         visual metrics, use `GET /runs/{run_id}/overview`. For the per-node step
-        log with audio playback URLs, use `GET /runs/{run_id}/steps`.
+        log, use `GET /runs/{run_id}/steps`; opt into full results and audio
+        playback URLs with `include_result=true`.
 
         Parameters
         ----------
@@ -664,6 +747,93 @@ class AsyncRunsClient:
         )
         return _response.data
 
+    async def steps(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        include_result: typing.Optional[bool] = None,
+        node_type: typing.Optional[NodeType] = None,
+        node_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseListWorkflowRunStepOut:
+        """
+        List per-node execution steps for a workflow run.
+
+        Returns one entry per node execution attempt, ordered by execution sequence.
+        By default, the response is lightweight: `result` is null, `has_result`
+        reports whether a stored result exists, and `active_ports` is projected from
+        the result without loading the full JSON payload.
+
+        Set `include_result=true` to restore the full result payload. Audio results
+        are then hydrated with short-lived `playback_url` values (valid for 15
+        minutes). `node_type` and `node_id` filters combine with AND semantics.
+
+        `node_display_name` is resolved from the run's definition snapshot, so it
+        reflects the name the node had when the run executed. Repeated executions of
+        the same node share that name and are distinguished by `iteration`.
+
+        For a higher-level view with aggregated metrics (pass rates, audio duration
+        by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
+        script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        include_result : typing.Optional[bool]
+            Include the full step result payload and hydrate audio playback URLs.
+
+        node_type : typing.Optional[NodeType]
+            Filter steps by node type.
+
+        node_id : typing.Optional[str]
+            Filter steps by node ID.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseListWorkflowRunStepOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workflows.runs.steps(
+                workflow_id="workflow_id",
+                run_id="run_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.steps(
+            workflow_id,
+            run_id,
+            include_result=include_result,
+            node_type=node_type,
+            node_id=node_id,
+            workspace_id=workspace_id,
+            request_options=request_options,
+        )
+        return _response.data
+
     async def cancel(
         self,
         workflow_id: str,
@@ -680,9 +850,9 @@ class AsyncRunsClient:
         operation is idempotent: cancelling an already-cancelled run returns the
         run unchanged without error.
 
-        Only runs in `pending`, `running`, or `paused` status can be cancelled.
-        Runs that have already reached a terminal state (`completed`, `failed`,
-        `cancelled`) return 409.
+        Runs already in a terminal state (`completed`, `failed`, or `cancelled`)
+        are returned unchanged. Concurrent terminalization is also treated as an
+        idempotent success; a still-active compare-and-swap loser returns 409.
 
         Unlike `pause`, cancel is permanent — a cancelled run cannot be resumed.
         Use `pause` if you intend to continue the run later.

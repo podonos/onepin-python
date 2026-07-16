@@ -4797,7 +4797,7 @@ client.uploads.confirm(
 <dl>
 <dd>
 
-**context_type:** `UploadConfirmRequestContextType` — Type of resource this upload is being attached to: `workflow` or `playground`.
+**context_type:** `UploadConfirmRequestContextType` — Type of resource this upload is being attached to: `workflow`, `playground`, or `assistant_session`.
     
 </dd>
 </dl>
@@ -6871,112 +6871,6 @@ client.workflows.runs_summary(
 </dl>
 </details>
 
-<details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">get_run_steps</a>(...) -> ApiResponseListWorkflowRunStepOut</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-List per-node execution steps for a workflow run.
-
-Returns one entry per node execution attempt, ordered by execution sequence.
-Each step includes the node type, status, iteration number (for nodes that
-are retried), start/completion timestamps, and the node's `result` output.
-
-For audio output nodes, `result` is hydrated with short-lived `playback_url`
-values (valid for 15 minutes) so callers can stream audio directly without
-a separate download step.
-
-`node_display_name` is resolved from the run's definition snapshot, so it
-reflects the name the node had when the run executed. Repeated executions of
-the same node share that name and are distinguished by `iteration`.
-
-For a higher-level view with aggregated metrics (pass rates, audio duration
-by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
-script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
-
-client = OnePinClient(
-    token="<token>",
-    environment=OnePinClientEnvironment.PROD,
-)
-
-client.workflows.get_run_steps(
-    workflow_id="workflow_id",
-    run_id="run_id",
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**workflow_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**run_id:** `str` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**workspace_id:** `typing.Optional[str]` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 <details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">get_run_outputs</a>(...) -> ApiResponseWorkflowRunOutputsOut</code></summary>
 <dl>
 <dd>
@@ -7101,7 +6995,8 @@ completes. It differs from the other run sub-resources as follows:
 
 - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
 - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
-- `GET /runs/{run_id}/steps` — flat per-node step log with audio playback URLs.
+- `GET /runs/{run_id}/steps` — lightweight per-node step log by default;
+  `include_result=true` includes results and audio playback URLs.
 - `GET /runs/{run_id}/outputs` — one logical result per snapshot sink node.
 - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
 - `GET /runs/{run_id}/overview` (this endpoint) — pre-aggregated metrics and
@@ -7208,6 +7103,8 @@ validation scores (word accuracy, naturalness), and short-lived audio
   locale. Rows with no matching cards are still returned (with empty `cards`),
   and `pagination.total` always reflects the search-filtered row count
   regardless of `language`.
+- `include_dropped=true` adds rejected attempts to `cards` with
+  `status="dropped"`; the default response remains delivered/generated data only.
 
 **Pagination:** `pagination.total` is scoped to the `search` filter only.
 
@@ -7281,6 +7178,14 @@ client.workflows.get_run_data(
 <dd>
 
 **language:** `typing.Optional[str]` — Exact full-locale code to filter cards within each row (e.g. `en-US`). `_` is normalized to `-`. Filtering is card-level only — rows remain visible even when all their cards are filtered out, and `pagination.total` is unaffected.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**include_dropped:** `typing.Optional[bool]` — Include validator-rejected audio cards reconstructed from unwired fail ports. Defaults to false so existing clients continue receiving delivered output only.
     
 </dd>
 </dl>
@@ -7400,6 +7305,112 @@ client.workflows.download_run(
 <dd>
 
 **run_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">get_run_audio_url</a>(...) -> ApiResponseDownloadUrlOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Mint a fresh playback URL for one audio output of a run.
+
+`audio_id` is the stable 16-hex output identifier embedded in run-data
+card ids and carried by assistant chat `audio` parts. Presigned playback
+URLs expire after 15 minutes; call this endpoint at play time to refresh
+the URL by id instead of caching it or re-fetching a whole run-data page.
+
+Returns 404 when the run has no s3-backed audio output with this id.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workflows.get_run_audio_url(
+    workflow_id="workflow_id",
+    run_id="run_id",
+    audio_id="audio_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workflow_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**run_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**audio_id:** `str` 
     
 </dd>
 </dl>
@@ -8101,7 +8112,8 @@ workflow definition has since been edited.
 This is the heaviest run endpoint. For progress polling, use the lighter
 `GET /runs/{run_id}/status` which omits the snapshot. For aggregated
 visual metrics, use `GET /runs/{run_id}/overview`. For the per-node step
-log with audio playback URLs, use `GET /runs/{run_id}/steps`.
+log, use `GET /runs/{run_id}/steps`; opt into full results and audio
+playback URLs with `include_result=true`.
 </dd>
 </dl>
 </dd>
@@ -8285,6 +8297,137 @@ client.workflows.runs.status(
 </dl>
 </details>
 
+<details><summary><code>client.workflows.runs.<a href="src/onepin/workflows/runs/client.py">steps</a>(...) -> ApiResponseListWorkflowRunStepOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List per-node execution steps for a workflow run.
+
+Returns one entry per node execution attempt, ordered by execution sequence.
+By default, the response is lightweight: `result` is null, `has_result`
+reports whether a stored result exists, and `active_ports` is projected from
+the result without loading the full JSON payload.
+
+Set `include_result=true` to restore the full result payload. Audio results
+are then hydrated with short-lived `playback_url` values (valid for 15
+minutes). `node_type` and `node_id` filters combine with AND semantics.
+
+`node_display_name` is resolved from the run's definition snapshot, so it
+reflects the name the node had when the run executed. Repeated executions of
+the same node share that name and are distinguished by `iteration`.
+
+For a higher-level view with aggregated metrics (pass rates, audio duration
+by language), use `GET /runs/{run_id}/overview`. For paginated, grouped
+script+audio rows suitable for a data table, use `GET /runs/{run_id}/data`.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workflows.runs.steps(
+    workflow_id="workflow_id",
+    run_id="run_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workflow_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**run_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**include_result:** `typing.Optional[bool]` — Include the full step result payload and hydrate audio playback URLs.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**node_type:** `typing.Optional[NodeType]` — Filter steps by node type.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**node_id:** `typing.Optional[str]` — Filter steps by node ID.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.workflows.runs.<a href="src/onepin/workflows/runs/client.py">cancel</a>(...) -> ApiResponseWorkflowRunOut</code></summary>
 <dl>
 <dd>
@@ -8304,9 +8447,9 @@ In-flight work at the current node may be abandoned mid-execution. The
 operation is idempotent: cancelling an already-cancelled run returns the
 run unchanged without error.
 
-Only runs in `pending`, `running`, or `paused` status can be cancelled.
-Runs that have already reached a terminal state (`completed`, `failed`,
-`cancelled`) return 409.
+Runs already in a terminal state (`completed`, `failed`, or `cancelled`)
+are returned unchanged. Concurrent terminalization is also treated as an
+idempotent success; a still-active compare-and-swap loser returns 409.
 
 Unlike `pause`, cancel is permanent — a cancelled run cannot be resumed.
 Use `pause` if you intend to continue the run later.
