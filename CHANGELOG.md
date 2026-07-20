@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0](https://github.com/podonos/onepin-python/compare/v0.11.0...v0.12.0) (2026-07-16)
+
+
+### Features
+
+* add lightweight workflow run steps ([#88](https://github.com/podonos/onepin-python/issues/88)) ([69b22e4](https://github.com/podonos/onepin-python/commit/69b22e475fc375d4696fa3a86d7f170a632d2b62))
+* sync SDK to OnePin API v0.41.82 ([#85](https://github.com/podonos/onepin-python/issues/85)) ([c967181](https://github.com/podonos/onepin-python/commit/c9671812ec1907bf9e11c1ee48324bced1db1cd5))
+* sync SDK to OnePin API v0.41.83 ([#89](https://github.com/podonos/onepin-python/issues/89)) ([9603910](https://github.com/podonos/onepin-python/commit/9603910c671c9ae777c5677c5f14c92a759f5b8e))
+
+
+### Bug Fixes
+
+* **cli:** support run-steps SDK method migration ([#87](https://github.com/podonos/onepin-python/issues/87)) ([968747c](https://github.com/podonos/onepin-python/commit/968747c21f0b427963288a82817fbe21a736230b))
+
 ## [0.11.0](https://github.com/podonos/onepin-python/compare/v0.10.0...v0.11.0) (2026-07-14)
 
 
