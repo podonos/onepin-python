@@ -19,7 +19,7 @@ jobs:
           # diff-cover needs origin/main; hatch-vcs needs full history + tags for the version
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with: { python-version: '${{ matrix.python }}' }
       - run: pip install uv
       - run: uv sync --all-extras
@@ -43,7 +43,7 @@ jobs:
           # checkout would build a bogus low version (e.g. 0.1.dev1).
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - run: pip install build
       - run: python -m build
