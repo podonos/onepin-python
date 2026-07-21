@@ -22,7 +22,7 @@ class TemplateOut(UniversalBaseModel):
 
     id: str = pydantic.Field()
     """
-    Unique template identifier.
+    Case-sensitive 8-character base62 template identifier.
     """
 
     name: str = pydantic.Field()

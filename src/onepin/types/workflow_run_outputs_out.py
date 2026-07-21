@@ -10,6 +10,7 @@ from .workflow_run_sink_output_out import WorkflowRunSinkOutputOut
 class WorkflowRunOutputsOut(UniversalBaseModel):
     run_id: str
     run_status: str
+    credits: typing.Optional[int] = None
     outputs: typing.List[WorkflowRunSinkOutputOut]
 
     if IS_PYDANTIC_V2:

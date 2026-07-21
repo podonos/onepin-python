@@ -105,7 +105,7 @@ class VoiceOut(UniversalBaseModel):
 
     supported_languages: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    BCP-47 language codes this voice supports. Null for platform voices means the voice is treated as general-use across all locales.
+    BCP-47 language codes this voice supports. Null means the voice declares no locales; it is not matched by any `language` filter — a voice must positively declare a locale to surface under that filter.
     """
 
     supported_models: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
