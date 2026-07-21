@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0](https://github.com/podonos/onepin-python/compare/v0.12.0...v0.13.0) (2026-07-21)
+
+
+### Features
+
+* sync SDK to OnePin API v0.41.84 ([#93](https://github.com/podonos/onepin-python/issues/93)) ([51be041](https://github.com/podonos/onepin-python/commit/51be041eec00f6feb5d21719c88c89fc6c842f99))
+
 ## [0.12.0](https://github.com/podonos/onepin-python/compare/v0.11.0...v0.12.0) (2026-07-16)
 
 
