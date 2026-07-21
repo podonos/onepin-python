@@ -1934,7 +1934,7 @@ client.templates.get(
 <dl>
 <dd>
 
-**template_id:** `str` 
+**template_id:** `str` — Case-sensitive 8-character base62 template identifier.
     
 </dd>
 </dl>
@@ -2026,7 +2026,7 @@ client.templates.delete_template(
 <dl>
 <dd>
 
-**template_id:** `str` 
+**template_id:** `str` — Case-sensitive 8-character base62 template identifier.
     
 </dd>
 </dl>
@@ -2120,7 +2120,7 @@ client.templates.update_template(
 <dl>
 <dd>
 
-**template_id:** `str` 
+**template_id:** `str` — Case-sensitive 8-character base62 template identifier.
     
 </dd>
 </dl>
@@ -2254,7 +2254,7 @@ client.templates.estimate_template(
 <dl>
 <dd>
 
-**template_id:** `str` 
+**template_id:** `str` — Case-sensitive 8-character base62 template identifier.
     
 </dd>
 </dl>
@@ -2352,7 +2352,7 @@ client.templates.clone(
 <dl>
 <dd>
 
-**template_id:** `str` 
+**template_id:** `str` — Case-sensitive 8-character base62 template identifier.
     
 </dd>
 </dl>
@@ -2451,7 +2451,7 @@ client.templates.favorite_template(
 <dl>
 <dd>
 
-**template_id:** `str` 
+**template_id:** `str` — Case-sensitive 8-character base62 template identifier.
     
 </dd>
 </dl>
@@ -2527,7 +2527,7 @@ client.templates.unfavorite_template(
 <dl>
 <dd>
 
-**template_id:** `str` 
+**template_id:** `str` — Case-sensitive 8-character base62 template identifier.
     
 </dd>
 </dl>
@@ -2567,10 +2567,11 @@ Every filter accepts repeat-key OR semantics:
 Filters combine across fields with AND; within a field, values OR.
 
 `language` matches a voice when any of its declared locales matches any
-requested value. Platform voices with no declared locales (catalog gaps)
-are treated as general-use and match every language filter. User-uploaded
-/ cloned voices with no declared locales are excluded — that state means
-"language unknown" pending the clone flow's language detection.
+requested value. A voice with no declared locales matches NO `language`
+filter — it must positively declare a locale to surface under it. This holds
+for platform and user-uploaded voices alike: an unclassified platform voice
+(catalog gap) is not treated as general-use, and a user-uploaded/cloned voice
+with no locale stays "language unknown" pending clone-flow detection.
 
 Multi-sort: `sort` and `order` are parallel lists. `?sort=uses_count&sort=name&order=desc&order=asc`
 orders primarily by uses_count DESC, secondarily by name ASC. When `order`
@@ -2770,10 +2771,18 @@ instead of hardcoding option lists (mirrors `GET /dictionary/languages`). Each
 item is `{value, label, count}`: `value` is passed straight back to
 `GET /voices`; `label` is the display name for providers/models and `null`
 elsewhere (the FE owns language + enum labels); `count` is the number of
-matching voices. For `languages`/`models`, `count` counts only voices that
-explicitly declare the value — "general-use" platform voices (no declared
-locales/models) that `GET /voices` matches against every language/model filter
-are not counted, so a chip's count can be lower than the `GET /voices` result.
+matching voices. A language surfaces as one chip keyed by its canonical
+allowlist locale: every declared locale is folded onto the locale the
+`GET /voices` filter would match it against (bare `ko` and regioned `ko-kr`
+both count under `ko-kr`), so variants never split into duplicate chips for
+the identical filter. Model counts include only voices that explicitly declare
+the model. Language counts include voices that declare the exact regional locale
+plus voices that declare its bare family (`en` contributes to every supported
+`en-*` locale). A voice with no declared `supported_models` is "general use" —
+`GET /voices` matches it against every model filter but no `models` chip counts
+it, so a model chip's count can be lower than the `GET /voices?model=` result.
+Languages have no such gap: no-locale voices are excluded from both the language
+chips and `GET /voices?language=`, so language chip counts match the row counts.
 
 Accepts the SAME filters as `GET /voices` (tab scope `source`/`favorites_only`,
 plus `provider`/`model`/`language`/`gender`/`age`/`category`/`accent`/`search`).
@@ -6501,8 +6510,11 @@ client.workflows.patch_workflow(
 List confirmed uploads attached to a workflow.
 
 Returns only uploads that have been confirmed (fully transferred and
-committed to the workflow). In-progress or abandoned uploads are excluded.
-Each item includes a short-lived download URL for the uploaded file.
+committed to the workflow), plus confirmed uploads the workflow definition's
+Script Input nodes reference by id (e.g. a file attached in the assistant
+chat, which stays bound to its assistant session). In-progress or abandoned
+uploads are excluded. Each item includes a short-lived download URL for the
+uploaded file.
 </dd>
 </dl>
 </dd>

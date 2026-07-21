@@ -18,13 +18,18 @@ class VoiceFacetItem(UniversalBaseModel):
     number of voices matching ``value`` under the current request context
     (tab/workspace scope + every OTHER active filter — see ``VoiceFacetsOut``).
 
-    For the ``languages`` and ``models`` dimensions ``count`` reflects only voices
-    that *explicitly declare* ``value`` in their ``supported_languages`` /
-    ``supported_models`` array. It does NOT include "general-use" platform voices
-    (a catalog gap — platform voices with no declared locales/models) which
-    ``GET /voices`` matches against *every* ``language`` / ``model`` filter. So a
-    chip's ``count`` can be lower than the row count
-    ``GET /voices?language=<value>`` / ``?model=<value>`` actually returns.
+    For ``models``, ``count`` includes only voices that explicitly declare ``value``
+    in ``supported_models``. For ``languages``, it includes voices that declare the
+    exact regional locale plus voices that declare its bare family (for example,
+    ``en`` contributes to every supported ``en-*`` locale).
+
+    A voice with no declared ``supported_models`` is "general use" — ``GET /voices``
+    matches it against every ``model`` filter, yet it is counted in no ``models``
+    chip, so a ``models`` chip's ``count`` can be lower than the row count
+    ``GET /voices?model=<value>`` actually returns. ``languages`` has no such gap:
+    a voice with no declared locales is excluded from both the language chips AND
+    ``GET /voices?language=<value>``, so language chip counts match the filtered
+    row counts.
     """
 
     value: str

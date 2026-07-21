@@ -13,12 +13,13 @@ class VoiceFacetsOut(UniversalBaseModel):
 
     Two families of dimension:
 
-    * **Data-driven** — ``providers``, ``models``, ``languages``: only values
-      actually present in the scoped voices are returned (count is always ≥ 1;
-      count-0 values are omitted). Every value is guaranteed to be a valid
-      ``GET /voices`` filter (provider/model restricted to the enabled catalog,
-      language to the supported-locale allowlist), so selecting one never yields
-      a 422 or empty page. Sorted count DESC, then value ASC.
+    * **Data-driven** — ``providers``, ``models``, ``languages``: only values with
+      a scoped voice count are returned (count is always ≥ 1; count-0 values are
+      omitted). A language value may be derived from a bare family tag on a scoped
+      voice. Every value is guaranteed to be a valid ``GET /voices`` filter
+      (provider/model restricted to the enabled catalog, language to the
+      supported-locale allowlist), so selecting one never yields a 422 or empty
+      page. Sorted count DESC, then value ASC.
     * **Enum** — ``genders``, ``ages``, ``categories``, ``accents``: the FULL
       fixed enum is always returned in natural enum order, including count-0
       values (the FE greys those out). ``label`` is ``None`` (the FE owns enum
@@ -32,7 +33,11 @@ class VoiceFacetsOut(UniversalBaseModel):
 
     providers: typing.List[VoiceFacetItem]
     models: typing.List[VoiceFacetItem]
-    languages: typing.List[VoiceFacetItem]
+    languages: typing.List[VoiceFacetItem] = pydantic.Field()
+    """
+    Region-qualified lowercase BCP-47 language filter options. Bare language values are never emitted; a bare family tag on a voice contributes to every supported regional sibling's count.
+    """
+
     genders: typing.List[VoiceFacetItem]
     ages: typing.List[VoiceFacetItem]
     categories: typing.List[VoiceFacetItem]

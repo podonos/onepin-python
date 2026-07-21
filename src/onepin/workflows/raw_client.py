@@ -680,8 +680,11 @@ class RawWorkflowsClient:
         List confirmed uploads attached to a workflow.
 
         Returns only uploads that have been confirmed (fully transferred and
-        committed to the workflow). In-progress or abandoned uploads are excluded.
-        Each item includes a short-lived download URL for the uploaded file.
+        committed to the workflow), plus confirmed uploads the workflow definition's
+        Script Input nodes reference by id (e.g. a file attached in the assistant
+        chat, which stays bound to its assistant session). In-progress or abandoned
+        uploads are excluded. Each item includes a short-lived download URL for the
+        uploaded file.
 
         Parameters
         ----------
@@ -2387,8 +2390,11 @@ class AsyncRawWorkflowsClient:
         List confirmed uploads attached to a workflow.
 
         Returns only uploads that have been confirmed (fully transferred and
-        committed to the workflow). In-progress or abandoned uploads are excluded.
-        Each item includes a short-lived download URL for the uploaded file.
+        committed to the workflow), plus confirmed uploads the workflow definition's
+        Script Input nodes reference by id (e.g. a file attached in the assistant
+        chat, which stays bound to its assistant session). In-progress or abandoned
+        uploads are excluded. Each item includes a short-lived download URL for the
+        uploaded file.
 
         Parameters
         ----------

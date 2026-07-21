@@ -244,6 +244,7 @@ class RawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         workspace_id : typing.Optional[str]
 
@@ -317,6 +318,7 @@ class RawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         workspace_id : typing.Optional[str]
 
@@ -396,6 +398,7 @@ class RawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         workspace_id : typing.Optional[str]
 
@@ -498,6 +501,7 @@ class RawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         workspace_id : typing.Optional[str]
 
@@ -578,6 +582,7 @@ class RawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         workspace_id : typing.Optional[str]
 
@@ -653,6 +658,7 @@ class RawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -709,6 +715,7 @@ class RawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -972,6 +979,7 @@ class AsyncRawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         workspace_id : typing.Optional[str]
 
@@ -1045,6 +1053,7 @@ class AsyncRawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         workspace_id : typing.Optional[str]
 
@@ -1124,6 +1133,7 @@ class AsyncRawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         workspace_id : typing.Optional[str]
 
@@ -1226,6 +1236,7 @@ class AsyncRawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         workspace_id : typing.Optional[str]
 
@@ -1306,6 +1317,7 @@ class AsyncRawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         workspace_id : typing.Optional[str]
 
@@ -1381,6 +1393,7 @@ class AsyncRawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1437,6 +1450,7 @@ class AsyncRawTemplatesClient:
         Parameters
         ----------
         template_id : str
+            Case-sensitive 8-character base62 template identifier.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
