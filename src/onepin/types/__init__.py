@@ -99,6 +99,7 @@ if typing.TYPE_CHECKING:
     from .numeric_option import NumericOption
     from .pagination_meta import PaginationMeta
     from .plan_limits import PlanLimits
+    from .plan_limits_credits_renewal import PlanLimitsCreditsRenewal
     from .plan_tier import PlanTier
     from .port_out import PortOut
     from .pronunciation_suggestion import PronunciationSuggestion
@@ -295,6 +296,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "NumericOption": ".numeric_option",
     "PaginationMeta": ".pagination_meta",
     "PlanLimits": ".plan_limits",
+    "PlanLimitsCreditsRenewal": ".plan_limits_credits_renewal",
     "PlanTier": ".plan_tier",
     "PortOut": ".port_out",
     "PronunciationSuggestion": ".pronunciation_suggestion",
@@ -515,6 +517,7 @@ __all__ = [
     "NumericOption",
     "PaginationMeta",
     "PlanLimits",
+    "PlanLimitsCreditsRenewal",
     "PlanTier",
     "PortOut",
     "PronunciationSuggestion",

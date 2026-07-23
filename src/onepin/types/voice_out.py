@@ -73,11 +73,6 @@ class VoiceOut(UniversalBaseModel):
     Freeform keyword tags for filtering and search.
     """
 
-    descriptor: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Short one-line voice personality descriptor.
-    """
-
     uses_count: typing.Optional[int] = pydantic.Field(default=None)
     """
     Number of times this voice has been used in workflow runs across the platform.
