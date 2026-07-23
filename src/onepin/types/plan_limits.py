@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .plan_limits_credits_renewal import PlanLimitsCreditsRenewal
 
 
 class PlanLimits(UniversalBaseModel):
@@ -18,6 +19,9 @@ class PlanLimits(UniversalBaseModel):
     retention_days: typing.Optional[int] = None
     byok_enabled: typing.Optional[bool] = None
     auto_fix_enabled: typing.Optional[bool] = None
+    credits_renewal: typing.Optional[PlanLimitsCreditsRenewal] = None
+    downloads_enabled: typing.Optional[bool] = None
+    overage_rate_cents_per_credit: typing.Optional[float] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
