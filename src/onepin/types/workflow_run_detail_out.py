@@ -36,6 +36,11 @@ class WorkflowRunDetailOut(UniversalBaseModel):
     has_export: typing.Optional[bool] = None
     triggered_by: typing.Optional[TriggeredByOut] = None
     credits: typing.Optional[int] = None
+    credits_absorbed: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Credits discounted by floor-rounding for this run. This is the sub-credit remainder above the charged (floored) credits; charged credits plus this value reconstructs true cost only for fully covered, uncapped runs. Returns 0 for unsettled or legacy runs.
+    """
+
     definition_snapshot: typing.Optional[typing.Dict[str, typing.Any]] = None
 
     if IS_PYDANTIC_V2:

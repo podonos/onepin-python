@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .workflow_run_sink_output_line import WorkflowRunSinkOutputLine
 
 
 class WorkflowRunSinkOutputOut(UniversalBaseModel):
@@ -11,7 +12,7 @@ class WorkflowRunSinkOutputOut(UniversalBaseModel):
     node_type: str
     display_name: str
     status: str
-    lines: typing.List[typing.Dict[str, typing.Any]]
+    lines: typing.List[WorkflowRunSinkOutputLine]
     line_count: int
     truncated: bool
 

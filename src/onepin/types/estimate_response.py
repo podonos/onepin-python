@@ -22,6 +22,9 @@ class EstimateResponse(UniversalBaseModel):
     current_balance: int
     deficit_at_max: int
     can_run: bool
+    overage_rate_cents_per_credit: typing.Optional[float] = None
+    will_incur_overage: typing.Optional[bool] = None
+    estimated_overage_cents: typing.Optional[int] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
