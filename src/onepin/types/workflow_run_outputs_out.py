@@ -11,6 +11,11 @@ class WorkflowRunOutputsOut(UniversalBaseModel):
     run_id: str
     run_status: str
     credits: typing.Optional[int] = None
+    credits_absorbed: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Credits discounted by floor-rounding for this run. This is the sub-credit remainder above the charged (floored) credits; charged credits plus this value reconstructs true cost only for fully covered, uncapped runs. Returns 0 for unsettled or legacy runs.
+    """
+
     outputs: typing.List[WorkflowRunSinkOutputOut]
 
     if IS_PYDANTIC_V2:

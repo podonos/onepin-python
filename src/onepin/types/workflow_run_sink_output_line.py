@@ -4,13 +4,13 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .workflow_run_sink_output_delivery import WorkflowRunSinkOutputDelivery
 
 
-class ApiErrorDetail(UniversalBaseModel):
-    field: str
-    message: str
-    line_numbers: typing.Optional[typing.List[int]] = None
-    min_chars: typing.Optional[int] = None
+class WorkflowRunSinkOutputLine(UniversalBaseModel):
+    audio_files: typing.Optional[typing.List[typing.Dict[str, typing.Any]]] = None
+    recommended_audio_file_index: typing.Optional[int] = None
+    delivery: typing.Optional[WorkflowRunSinkOutputDelivery] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

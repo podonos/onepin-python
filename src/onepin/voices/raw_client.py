@@ -103,7 +103,7 @@ class RawVoicesClient:
             Repeat for OR
 
         search : typing.Optional[str]
-            Full-text search against voice name, description, and tags.
+            Searches name, tags, and the voice's summary-derived descriptor text (closely tracks the served description; summary beyond 200 chars is not searched).
 
         sort : typing.Optional[typing.Sequence[ListVoicesRequestSortItem]]
             Repeat for multi-sort. Pairs with `order` index-wise.
@@ -685,7 +685,7 @@ class AsyncRawVoicesClient:
             Repeat for OR
 
         search : typing.Optional[str]
-            Full-text search against voice name, description, and tags.
+            Searches name, tags, and the voice's summary-derived descriptor text (closely tracks the served description; summary beyond 200 chars is not searched).
 
         sort : typing.Optional[typing.Sequence[ListVoicesRequestSortItem]]
             Repeat for multi-sort. Pairs with `order` index-wise.
