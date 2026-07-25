@@ -3,5 +3,6 @@
 import typing
 
 SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem = typing.Union[
-    typing.Literal["de-de", "en-gb", "en-us", "es-es", "fr-fr", "it-it", "ja-jp", "ko-kr", "pt-br", "zh-cn"], typing.Any
+    typing.Literal["de-de", "en-gb", "en-us", "es-es", "es-mx", "fr-fr", "ja-jp", "ko-kr", "pt-br", "pt-pt", "zh-cn"],
+    typing.Any,
 ]

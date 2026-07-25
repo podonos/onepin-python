@@ -6,11 +6,11 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
-class ApiErrorDetail(UniversalBaseModel):
-    field: str
-    message: str
-    line_numbers: typing.Optional[typing.List[int]] = None
-    min_chars: typing.Optional[int] = None
+class WorkflowRunSinkOutputDeliveryCheck(UniversalBaseModel):
+    kind: str
+    label: str
+    score: typing.Optional[float] = None
+    threshold: typing.Optional[float] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

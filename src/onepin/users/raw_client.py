@@ -39,9 +39,14 @@ class RawUsersClient:
         settled ledger entries and may temporarily exceed `balance` while a workflow
         run holds an open reserve. `used` reflects credits consumed in the current
         billing period. `plan_grant` is the total monthly credit allowance for the
-        caller's plan, enabling a "X / Y used" display. `period_start` and
-        `period_end` mark the boundaries of the current billing window; free-tier
-        callers use a calendar-month boundary.
+        caller's plan, enabling a "X / Y used" display. `period_start` is the current
+        credit anchor and `period_end` is the next EXPECTED credit-reset boundary
+        (`period_start` + 1 month), or null when no reset is promised — Free/one-time,
+        unanchored, a canceling/ended entitlement, or a monthly renewal whose boundary
+        passed without confirmed payment. `period_end` is the expected boundary, not a
+        guaranteed grant time: monthly credits stay gated on successful Stripe payment.
+        For an annual subscriber this GET may perform idempotent maintenance, granting
+        any due intermediate monthly credits before returning; retries remain safe.
 
         Parameters
         ----------
@@ -385,9 +390,14 @@ class AsyncRawUsersClient:
         settled ledger entries and may temporarily exceed `balance` while a workflow
         run holds an open reserve. `used` reflects credits consumed in the current
         billing period. `plan_grant` is the total monthly credit allowance for the
-        caller's plan, enabling a "X / Y used" display. `period_start` and
-        `period_end` mark the boundaries of the current billing window; free-tier
-        callers use a calendar-month boundary.
+        caller's plan, enabling a "X / Y used" display. `period_start` is the current
+        credit anchor and `period_end` is the next EXPECTED credit-reset boundary
+        (`period_start` + 1 month), or null when no reset is promised — Free/one-time,
+        unanchored, a canceling/ended entitlement, or a monthly renewal whose boundary
+        passed without confirmed payment. `period_end` is the expected boundary, not a
+        guaranteed grant time: monthly credits stay gated on successful Stripe payment.
+        For an annual subscriber this GET may perform idempotent maintenance, granting
+        any due intermediate monthly credits before returning; retries remain safe.
 
         Parameters
         ----------
