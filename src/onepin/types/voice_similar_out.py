@@ -9,6 +9,7 @@ from .voice_accent import VoiceAccent
 from .voice_age import VoiceAge
 from .voice_category import VoiceCategory
 from .voice_gender import VoiceGender
+from .voice_model_capability_out import VoiceModelCapabilityOut
 from .voice_source import VoiceSource
 
 
@@ -73,11 +74,6 @@ class VoiceSimilarOut(UniversalBaseModel):
     Freeform keyword tags for filtering and search.
     """
 
-    descriptor: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Short one-line voice personality descriptor.
-    """
-
     uses_count: typing.Optional[int] = pydantic.Field(default=None)
     """
     Number of times this voice has been used in workflow runs across the platform.
@@ -110,7 +106,12 @@ class VoiceSimilarOut(UniversalBaseModel):
 
     supported_models: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    Model identifiers this voice is compatible with. Null means compatible with all available models for the provider.
+    Deprecated compatibility union of model identifiers this voice is compatible with. Null means compatible with all available models for the provider.
+    """
+
+    model_capabilities: typing.Optional[typing.List[VoiceModelCapabilityOut]] = pydantic.Field(default=None)
+    """
+    Authoritative model-to-language observations after a successful full provider sync. Empty means no authoritative pair observation is available yet.
     """
 
     is_favorite: typing.Optional[bool] = pydantic.Field(default=None)
