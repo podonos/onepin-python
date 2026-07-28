@@ -4,13 +4,13 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .meta import Meta
+from .voice_preview_out import VoicePreviewOut
 
 
-class ApiErrorDetail(UniversalBaseModel):
-    field: str
-    message: str
-    line_numbers: typing.Optional[typing.List[int]] = None
-    min_chars: typing.Optional[int] = None
+class ApiResponseVoicePreviewOut(UniversalBaseModel):
+    data: VoicePreviewOut
+    meta: Meta
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

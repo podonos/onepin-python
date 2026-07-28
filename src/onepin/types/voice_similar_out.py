@@ -9,6 +9,7 @@ from .voice_accent import VoiceAccent
 from .voice_age import VoiceAge
 from .voice_category import VoiceCategory
 from .voice_gender import VoiceGender
+from .voice_model_capability_out import VoiceModelCapabilityOut
 from .voice_source import VoiceSource
 
 
@@ -73,11 +74,6 @@ class VoiceSimilarOut(UniversalBaseModel):
     Freeform keyword tags for filtering and search.
     """
 
-    descriptor: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Short one-line voice personality descriptor.
-    """
-
     uses_count: typing.Optional[int] = pydantic.Field(default=None)
     """
     Number of times this voice has been used in workflow runs across the platform.
@@ -108,9 +104,19 @@ class VoiceSimilarOut(UniversalBaseModel):
     BCP-47 language codes this voice supports. Null means the voice declares no locales; it is not matched by any `language` filter — a voice must positively declare a locale to surface under that filter.
     """
 
+    preview_locales: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Locales this voice has ready-to-play preview audio for. Fetch it with GET /voices/{voice_id}/preview?language=<locale>. This is what the voice can be HEARD in, not what it can SPEAK — see supported_languages for that. Empty means no locale preview exists yet.
+    """
+
     supported_models: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    Model identifiers this voice is compatible with. Null means compatible with all available models for the provider.
+    Deprecated compatibility union of model identifiers this voice is compatible with. Null means compatible with all available models for the provider.
+    """
+
+    model_capabilities: typing.Optional[typing.List[VoiceModelCapabilityOut]] = pydantic.Field(default=None)
+    """
+    Authoritative model-to-language observations after a successful full provider sync. Empty means no authoritative pair observation is available yet.
     """
 
     is_favorite: typing.Optional[bool] = pydantic.Field(default=None)

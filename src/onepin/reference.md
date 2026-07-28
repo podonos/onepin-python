@@ -2682,7 +2682,7 @@ client.voices.list()
 <dl>
 <dd>
 
-**search:** `typing.Optional[str]` — Full-text search against voice name, description, and tags.
+**search:** `typing.Optional[str]` — Searches name, tags, and the voice's summary-derived descriptor text (closely tracks the served description; summary beyond 200 chars is not searched).
     
 </dd>
 </dl>
@@ -3100,6 +3100,122 @@ client.voices.similar(
 <dd>
 
 **language:** `typing.Optional[typing.List[str]]` — Repeat for OR, e.g. ?language=en-us&language=ko-kr
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.voices.<a href="src/onepin/voices/client.py">preview</a>(...) -> ApiResponseVoicePreviewOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Fetch ready-to-play preview audio for one voice in one language.
+
+Returns the preview's `locale`, the `model` it was synthesized with, its
+stored `content_type`, and a `sample_url` — a time-limited presigned URL
+valid for 1 hour; regenerate it by calling this endpoint again rather than
+caching it long-term. Pass `model` to prefer a specific TTS model; a
+preview from another model is still returned when that model has none.
+
+`language` accepts a bare family (`ko`, `en`) as well as an exact locale
+(`ko-kr`, `en-gb`). A bare family expands to every supported locale in it,
+and which region wins is deterministic but arbitrary — so the response
+echoes the `locale` actually served. Read `locale`, never the request
+parameter, when labelling what the caller is hearing.
+
+404 means no preview audio has been generated for this voice in that
+locale — NOT that the voice cannot speak it. `supported_languages` on the
+voice is the claim about what it can speak; `preview_locales` is the list
+of locales this endpoint will succeed for. 404 is also returned when the
+voice does not exist or is not accessible to the caller's workspace.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.voices.preview(
+    voice_id="voice_id",
+    language="de",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**voice_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**language:** `PreviewVoicesRequestLanguage` — BCP-47 language code, e.g. en-us, ko-kr
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**model:** `typing.Optional[str]` — TTS model id, e.g. sonic-2
     
 </dd>
 </dl>
@@ -5316,9 +5432,14 @@ attempt a workflow run. `remaining` is a display convenience derived from
 settled ledger entries and may temporarily exceed `balance` while a workflow
 run holds an open reserve. `used` reflects credits consumed in the current
 billing period. `plan_grant` is the total monthly credit allowance for the
-caller's plan, enabling a "X / Y used" display. `period_start` and
-`period_end` mark the boundaries of the current billing window; free-tier
-callers use a calendar-month boundary.
+caller's plan, enabling a "X / Y used" display. `period_start` is the current
+credit anchor and `period_end` is the next EXPECTED credit-reset boundary
+(`period_start` + 1 month), or null when no reset is promised — Free/one-time,
+unanchored, a canceling/ended entitlement, or a monthly renewal whose boundary
+passed without confirmed payment. `period_end` is the expected boundary, not a
+guaranteed grant time: monthly credits stay gated on successful Stripe payment.
+For an annual subscriber this GET may perform idempotent maintenance, granting
+any due intermediate monthly credits before returning; retries remain safe.
 </dd>
 </dl>
 </dd>

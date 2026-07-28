@@ -16,6 +16,7 @@ from ..types.api_list_response_voice_similar_out import ApiListResponseVoiceSimi
 from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_voice_facets_out import ApiResponseVoiceFacetsOut
 from ..types.api_response_voice_out import ApiResponseVoiceOut
+from ..types.api_response_voice_preview_out import ApiResponseVoicePreviewOut
 from ..types.voice_accent import VoiceAccent
 from ..types.voice_age import VoiceAge
 from ..types.voice_category import VoiceCategory
@@ -27,6 +28,7 @@ from .types.list_voices_request_language_item import ListVoicesRequestLanguageIt
 from .types.list_voices_request_order_item import ListVoicesRequestOrderItem
 from .types.list_voices_request_sort_item import ListVoicesRequestSortItem
 from .types.list_voices_request_source_item import ListVoicesRequestSourceItem
+from .types.preview_voices_request_language import PreviewVoicesRequestLanguage
 from pydantic import ValidationError
 
 
@@ -103,7 +105,7 @@ class RawVoicesClient:
             Repeat for OR
 
         search : typing.Optional[str]
-            Full-text search against voice name, description, and tags.
+            Searches name, tags, and the voice's summary-derived descriptor text (closely tracks the served description; summary beyond 200 chars is not searched).
 
         sort : typing.Optional[typing.Sequence[ListVoicesRequestSortItem]]
             Repeat for multi-sort. Pairs with `order` index-wise.
@@ -478,6 +480,98 @@ class RawVoicesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def preview(
+        self,
+        voice_id: str,
+        *,
+        language: PreviewVoicesRequestLanguage,
+        model: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseVoicePreviewOut]:
+        """
+        Fetch ready-to-play preview audio for one voice in one language.
+
+        Returns the preview's `locale`, the `model` it was synthesized with, its
+        stored `content_type`, and a `sample_url` — a time-limited presigned URL
+        valid for 1 hour; regenerate it by calling this endpoint again rather than
+        caching it long-term. Pass `model` to prefer a specific TTS model; a
+        preview from another model is still returned when that model has none.
+
+        `language` accepts a bare family (`ko`, `en`) as well as an exact locale
+        (`ko-kr`, `en-gb`). A bare family expands to every supported locale in it,
+        and which region wins is deterministic but arbitrary — so the response
+        echoes the `locale` actually served. Read `locale`, never the request
+        parameter, when labelling what the caller is hearing.
+
+        404 means no preview audio has been generated for this voice in that
+        locale — NOT that the voice cannot speak it. `supported_languages` on the
+        voice is the claim about what it can speak; `preview_locales` is the list
+        of locales this endpoint will succeed for. 404 is also returned when the
+        voice does not exist or is not accessible to the caller's workspace.
+
+        Parameters
+        ----------
+        voice_id : str
+
+        language : PreviewVoicesRequestLanguage
+            BCP-47 language code, e.g. en-us, ko-kr
+
+        model : typing.Optional[str]
+            TTS model id, e.g. sonic-2
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseVoicePreviewOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/voices/{encode_path_param(voice_id)}/preview",
+            method="GET",
+            params={
+                "language": language,
+                "model": model,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseVoicePreviewOut,
+                    parse_obj_as(
+                        type_=ApiResponseVoicePreviewOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def favorite_voice(
         self,
         voice_id: str,
@@ -685,7 +779,7 @@ class AsyncRawVoicesClient:
             Repeat for OR
 
         search : typing.Optional[str]
-            Full-text search against voice name, description, and tags.
+            Searches name, tags, and the voice's summary-derived descriptor text (closely tracks the served description; summary beyond 200 chars is not searched).
 
         sort : typing.Optional[typing.Sequence[ListVoicesRequestSortItem]]
             Repeat for multi-sort. Pairs with `order` index-wise.
@@ -1036,6 +1130,98 @@ class AsyncRawVoicesClient:
                     ApiListResponseVoiceSimilarOut,
                     parse_obj_as(
                         type_=ApiListResponseVoiceSimilarOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def preview(
+        self,
+        voice_id: str,
+        *,
+        language: PreviewVoicesRequestLanguage,
+        model: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseVoicePreviewOut]:
+        """
+        Fetch ready-to-play preview audio for one voice in one language.
+
+        Returns the preview's `locale`, the `model` it was synthesized with, its
+        stored `content_type`, and a `sample_url` — a time-limited presigned URL
+        valid for 1 hour; regenerate it by calling this endpoint again rather than
+        caching it long-term. Pass `model` to prefer a specific TTS model; a
+        preview from another model is still returned when that model has none.
+
+        `language` accepts a bare family (`ko`, `en`) as well as an exact locale
+        (`ko-kr`, `en-gb`). A bare family expands to every supported locale in it,
+        and which region wins is deterministic but arbitrary — so the response
+        echoes the `locale` actually served. Read `locale`, never the request
+        parameter, when labelling what the caller is hearing.
+
+        404 means no preview audio has been generated for this voice in that
+        locale — NOT that the voice cannot speak it. `supported_languages` on the
+        voice is the claim about what it can speak; `preview_locales` is the list
+        of locales this endpoint will succeed for. 404 is also returned when the
+        voice does not exist or is not accessible to the caller's workspace.
+
+        Parameters
+        ----------
+        voice_id : str
+
+        language : PreviewVoicesRequestLanguage
+            BCP-47 language code, e.g. en-us, ko-kr
+
+        model : typing.Optional[str]
+            TTS model id, e.g. sonic-2
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseVoicePreviewOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/voices/{encode_path_param(voice_id)}/preview",
+            method="GET",
+            params={
+                "language": language,
+                "model": model,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseVoicePreviewOut,
+                    parse_obj_as(
+                        type_=ApiResponseVoicePreviewOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

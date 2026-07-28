@@ -6,11 +6,18 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
-class ApiErrorDetail(UniversalBaseModel):
-    field: str
-    message: str
-    line_numbers: typing.Optional[typing.List[int]] = None
-    min_chars: typing.Optional[int] = None
+class VoiceModelCapabilityOut(UniversalBaseModel):
+    model: str = pydantic.Field()
+    """
+    Model identifier for this exact voice capability.
+    """
+
+    languages_known: bool = pydantic.Field()
+    """
+    Whether the provider authoritatively supplied locale metadata. False means unknown; true with an empty supported_languages array means known-empty.
+    """
+
+    supported_languages: typing.Optional[typing.List[str]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
