@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.0](https://github.com/podonos/onepin-python/compare/v0.13.0...v0.14.0) (2026-09-15)
+
+
+### Features
+
+* regenerate SDK [@9f837b2](https://github.com/9f837b2) ([#104](https://github.com/podonos/onepin-python/issues/104)) ([8c3e5e9](https://github.com/podonos/onepin-python/commit/8c3e5e9dae8a08931d9dfd020c760e9c869e5ccf))
+
+
+### Bug Fixes
+
+* **cli:** derive --node-type choices from generated NodeType ([#103](https://github.com/podonos/onepin-python/issues/103)) ([0b0fcda](https://github.com/podonos/onepin-python/commit/0b0fcda212ae20fb45e0e16a3fa47a15b988e59d))
+* **security:** resolve open Dependabot alert ([#101](https://github.com/podonos/onepin-python/issues/101)) ([2bd2966](https://github.com/podonos/onepin-python/commit/2bd2966e769c6c22ce3dc80be6936e794ec4c11c))
+
 ## [0.13.0](https://github.com/podonos/onepin-python/compare/v0.12.0...v0.13.0) (2026-07-21)
 
 
