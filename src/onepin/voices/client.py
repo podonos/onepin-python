@@ -9,6 +9,7 @@ from ..types.api_list_response_voice_similar_out import ApiListResponseVoiceSimi
 from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_voice_facets_out import ApiResponseVoiceFacetsOut
 from ..types.api_response_voice_out import ApiResponseVoiceOut
+from ..types.api_response_voice_preview_out import ApiResponseVoicePreviewOut
 from ..types.voice_accent import VoiceAccent
 from ..types.voice_age import VoiceAge
 from ..types.voice_category import VoiceCategory
@@ -21,6 +22,7 @@ from .types.list_voices_request_language_item import ListVoicesRequestLanguageIt
 from .types.list_voices_request_order_item import ListVoicesRequestOrderItem
 from .types.list_voices_request_sort_item import ListVoicesRequestSortItem
 from .types.list_voices_request_source_item import ListVoicesRequestSourceItem
+from .types.preview_voices_request_language import PreviewVoicesRequestLanguage
 
 
 class VoicesClient:
@@ -65,12 +67,42 @@ class VoicesClient:
         `?gender=female&gender=neutral&category=narration&source=platform&source=workspace`.
         Filters combine across fields with AND; within a field, values OR.
 
+        Hybrid search: when `search` is a non-empty string, semantic search is enabled
+        for the deployment (`VOICE_SEMANTIC_SEARCH_ENABLED`), and the text embedder is
+        available, `search` runs a hybrid of SEMANTIC relevance — meaning, not keywords, so
+        "cheerful" also surfaces "bright/upbeat" voices, over the platform voices that carry a
+        profile embedding — AND a keyword arm that matches the voice NAME (plus descriptor/tags),
+        which also surfaces voices with no embedding and workspace-owned voices in scope, so a
+        voice literally named by the query is found. Both arms honor the same filters and are
+        fused into one ranking. In that mode `sort`/`order` are IGNORED (relevance order wins).
+        If semantic search is disabled, the embedder is
+        unavailable, or the embed call fails, `search` transparently falls back to the
+        lexical name/tag/descriptor match described below — the response shape
+        (`ApiCountedListResponse[VoiceOut]`) is identical either way.
+
         `language` matches a voice when any of its declared locales matches any
         requested value. A voice with no declared locales matches NO `language`
         filter — it must positively declare a locale to surface under it. This holds
         for platform and user-uploaded voices alike: an unclassified platform voice
         (catalog gap) is not treated as general-use, and a user-uploaded/cloned voice
         with no locale stays "language unknown" pending clone-flow detection.
+
+        Passing `language` also fills `language_sample_url` on every row that has a clip
+        in it — the same audio `GET /voices/{voice_id}/preview?language=` serves, so a
+        caller auditioning a shortlist can play the locale-correct take straight from the
+        list instead of a request per voice. `language_sample_locale` reports the region
+        actually served. Both are null without the filter; `sample_url` is unaffected and
+        still does not follow it.
+
+        Platform voices are restricted to the officially supported locales: a platform
+        voice that declares no official locale is not returned, and the locale arrays on
+        the voices that are returned (`supported_languages`,
+        `model_capabilities[].supported_languages`, `preview_locales`) list only official
+        locales. A bare family code counts as official when the family is supported
+        (`ko` qualifies because `ko-kr` is), matching the `language` filter above. Voices
+        your workspace owns — imported, recorded, or uploaded — are exempt from both the
+        exclusion and the narrowing: they routinely carry no declared locale at all, and
+        hiding them would remove a customer's own voices from their own list.
 
         Multi-sort: `sort` and `order` are parallel lists. `?sort=uses_count&sort=name&order=desc&order=asc`
         orders primarily by uses_count DESC, secondarily by name ASC. When `order`
@@ -107,7 +139,7 @@ class VoicesClient:
             Repeat for OR
 
         search : typing.Optional[str]
-            Full-text search against voice name, description, and tags.
+            Searches name, tags, and the voice's summary-derived descriptor text (closely tracks the served description; summary beyond 200 chars is not searched).
 
         sort : typing.Optional[typing.Sequence[ListVoicesRequestSortItem]]
             Repeat for multi-sort. Pairs with `order` index-wise.
@@ -209,6 +241,29 @@ class VoicesClient:
         `provider=elevenlabs` the language counts are scoped to ElevenLabs, while the
         provider chips still show every provider so the caller can switch.
 
+        `search` follows the SAME two modes as `GET /voices` (see `_semantic_search_active`).
+        In SEMANTIC mode (flag on, embedder available, platform in scope) the chips are
+        counted over the population the semantic list can return — every active filter, plus
+        "carries a description embedding OR is in the current ranked set" (the ANN only ranks
+        embedded voices; the keyword arm contributes the rest) — so the chips describe the
+        voices the list actually shows and never collapse to "No matches" on a query that has
+        no literal name/tag hit. Per-dimension self-exclusion applies in full, exactly as in
+        lexical mode. Counts are clamped to `VOICE_SEARCH_MAX_RANKED`, because the semantic
+        list's `pagination.total` is that same capped ranked-set size — so a chip's `count` is
+        the number of rows `GET /voices` returns once that value is selected. Two bounded
+        exceptions: a voice reachable only through the keyword arm is counted only under the
+        value already selected (the ranked set is computed under the current filters), and
+        ANN recall can return fewer rows than the chip promises. In the LEXICAL
+        fallback (flag off / no embedder / non-platform source / embed fault) `search` is the
+        `name`/`descriptor`/`tags` ILIKE and counts are exact (no cap), exactly as before.
+
+        Chips are drawn from the same population `GET /voices` returns, so the
+        official-locale restriction applies here too and no chip can open an empty page.
+        For the `model` dimension the restriction is evaluated per capability row rather
+        than per voice — a voice whose only official locale sits on a sibling model does
+        not count toward this model's chip, because `GET /voices?model=` would not return
+        it either.
+
         Count-0 policy: data-driven dimensions omit count-0 values (only present ones,
         each a valid `GET /voices` filter — providers/models restricted to the enabled
         catalog, languages to the supported-locale allowlist, so a chip never 422s).
@@ -292,10 +347,14 @@ class VoicesClient:
         Fetch a single voice by its ID.
 
         Returns both platform (system-wide) voices and voices that belong to the
-        caller's workspace. Returns 404 when the voice does not exist or is not
-        accessible to the caller's workspace. The `sample_url` field is a
+        caller's workspace. Returns 404 when the voice does not exist, is not
+        accessible to the caller's workspace, or is a platform voice from a provider
+        that is not available to your account. Voices your workspace owns stay
+        readable regardless of provider availability. The `sample_url` field is a
         time-limited presigned URL valid for 1 hour; regenerate it by calling this
-        endpoint again rather than caching it long-term.
+        endpoint again rather than caching it long-term. This endpoint sets
+        `Cache-Control: no-store` because the response bakes in that short-lived
+        presigned URL — server-side (Redis) caching still applies underneath.
 
         Parameters
         ----------
@@ -341,10 +400,19 @@ class VoicesClient:
         reference voice's workspace voices and all platform voices. Each result
         includes a `similarity_score` between 0 and 1. Optionally filter by one or
         more `language` BCP-47 codes (repeat the parameter for OR semantics); up to
-        16 language values are accepted. Returns 503 when the reference voice has no
-        embedding yet — retry after the indicated `Retry-After` interval. Prefer this
+        16 language values are accepted. Results are restricted to officially supported
+        locales on the same terms as `GET /voices`; the reference voice itself is not,
+        so you can ask for neighbours of a voice that no longer appears in the list.
+        Returns 503 when the reference voice has no embedding yet — retry after the
+        indicated `Retry-After` interval. Prefer this
         endpoint over `GET /voices` with manual filtering when building a
         "voices like this" recommendation UI.
+
+        Platform voices from providers that are not available to your account are
+        rejected as a reference (404) and omitted from the results; voices your
+        workspace owns are unaffected. This endpoint sets `Cache-Control: no-store`
+        because the response bakes in short-lived presigned sample URLs — server-side
+        (Redis) caching still applies underneath for the default `limit`/`language` shape.
 
         Parameters
         ----------
@@ -382,6 +450,75 @@ class VoicesClient:
         )
         return _response.data
 
+    def preview(
+        self,
+        voice_id: str,
+        *,
+        language: PreviewVoicesRequestLanguage,
+        model: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseVoicePreviewOut:
+        """
+        Fetch ready-to-play preview audio for one voice in one language.
+
+        Returns the voice's `name`, the preview's `locale`, the `model` it was
+        synthesized with, its stored `content_type`, and a `sample_url` — a
+        time-limited presigned URL valid for 1 hour; regenerate it by calling this
+        endpoint again rather than caching it long-term. Pass `model` to prefer a
+        specific TTS model; a preview from another model is still returned when
+        that model has none.
+
+        `language` accepts a bare family (`ko`, `en`) as well as an exact locale
+        (`ko-kr`, `en-gb`). A bare family expands to every supported locale in it,
+        and which region wins is deterministic but arbitrary — so the response
+        echoes the `locale` actually served. Read `locale`, never the request
+        parameter, when labelling what the caller is hearing.
+
+        404 means no preview audio has been generated for this voice in that
+        locale — NOT that the voice cannot speak it. `supported_languages` on the
+        voice is the claim about what it can speak; `preview_locales` is the list
+        of locales this endpoint will succeed for. 404 is also returned when the
+        voice does not exist, is not accessible to the caller's workspace, or is a
+        platform voice from a provider that is not available to your account.
+
+        Parameters
+        ----------
+        voice_id : str
+
+        language : PreviewVoicesRequestLanguage
+            BCP-47 language code, e.g. en-us, ko-kr
+
+        model : typing.Optional[str]
+            TTS model id, e.g. sonic-2
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseVoicePreviewOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.voices.preview(
+            voice_id="voice_id",
+            language="de",
+        )
+        """
+        _response = self._raw_client.preview(
+            voice_id, language=language, model=model, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
     def favorite_voice(
         self,
         voice_id: str,
@@ -392,10 +529,17 @@ class VoicesClient:
         """
         Add a voice to the current workspace's favorites.
 
+        The response is a full `VoiceOut` and is narrowed exactly as `GET /voices/{voice_id}`
+        is, so favoriting a voice never reveals locales the read endpoints hide. Note that
+        favoriting a platform voice with no official locale succeeds but that voice will
+        not appear under `?favorites_only=true`, which applies the same list restriction.
+
         Favorites are workspace-scoped, not per-user: all members of the workspace
         see the same favorited set. Idempotent — favoriting a voice that is already
         favorited succeeds without error. Returns the voice with `is_favorite=true`.
-        Requires the caller to have at least editor role in the workspace.
+        Requires the caller to have at least editor role in the workspace. Returns
+        404 for a platform voice from a provider that is not available to your
+        account; voices your workspace owns can always be favorited.
 
         Parameters
         ----------
@@ -514,12 +658,42 @@ class AsyncVoicesClient:
         `?gender=female&gender=neutral&category=narration&source=platform&source=workspace`.
         Filters combine across fields with AND; within a field, values OR.
 
+        Hybrid search: when `search` is a non-empty string, semantic search is enabled
+        for the deployment (`VOICE_SEMANTIC_SEARCH_ENABLED`), and the text embedder is
+        available, `search` runs a hybrid of SEMANTIC relevance — meaning, not keywords, so
+        "cheerful" also surfaces "bright/upbeat" voices, over the platform voices that carry a
+        profile embedding — AND a keyword arm that matches the voice NAME (plus descriptor/tags),
+        which also surfaces voices with no embedding and workspace-owned voices in scope, so a
+        voice literally named by the query is found. Both arms honor the same filters and are
+        fused into one ranking. In that mode `sort`/`order` are IGNORED (relevance order wins).
+        If semantic search is disabled, the embedder is
+        unavailable, or the embed call fails, `search` transparently falls back to the
+        lexical name/tag/descriptor match described below — the response shape
+        (`ApiCountedListResponse[VoiceOut]`) is identical either way.
+
         `language` matches a voice when any of its declared locales matches any
         requested value. A voice with no declared locales matches NO `language`
         filter — it must positively declare a locale to surface under it. This holds
         for platform and user-uploaded voices alike: an unclassified platform voice
         (catalog gap) is not treated as general-use, and a user-uploaded/cloned voice
         with no locale stays "language unknown" pending clone-flow detection.
+
+        Passing `language` also fills `language_sample_url` on every row that has a clip
+        in it — the same audio `GET /voices/{voice_id}/preview?language=` serves, so a
+        caller auditioning a shortlist can play the locale-correct take straight from the
+        list instead of a request per voice. `language_sample_locale` reports the region
+        actually served. Both are null without the filter; `sample_url` is unaffected and
+        still does not follow it.
+
+        Platform voices are restricted to the officially supported locales: a platform
+        voice that declares no official locale is not returned, and the locale arrays on
+        the voices that are returned (`supported_languages`,
+        `model_capabilities[].supported_languages`, `preview_locales`) list only official
+        locales. A bare family code counts as official when the family is supported
+        (`ko` qualifies because `ko-kr` is), matching the `language` filter above. Voices
+        your workspace owns — imported, recorded, or uploaded — are exempt from both the
+        exclusion and the narrowing: they routinely carry no declared locale at all, and
+        hiding them would remove a customer's own voices from their own list.
 
         Multi-sort: `sort` and `order` are parallel lists. `?sort=uses_count&sort=name&order=desc&order=asc`
         orders primarily by uses_count DESC, secondarily by name ASC. When `order`
@@ -556,7 +730,7 @@ class AsyncVoicesClient:
             Repeat for OR
 
         search : typing.Optional[str]
-            Full-text search against voice name, description, and tags.
+            Searches name, tags, and the voice's summary-derived descriptor text (closely tracks the served description; summary beyond 200 chars is not searched).
 
         sort : typing.Optional[typing.Sequence[ListVoicesRequestSortItem]]
             Repeat for multi-sort. Pairs with `order` index-wise.
@@ -666,6 +840,29 @@ class AsyncVoicesClient:
         `provider=elevenlabs` the language counts are scoped to ElevenLabs, while the
         provider chips still show every provider so the caller can switch.
 
+        `search` follows the SAME two modes as `GET /voices` (see `_semantic_search_active`).
+        In SEMANTIC mode (flag on, embedder available, platform in scope) the chips are
+        counted over the population the semantic list can return — every active filter, plus
+        "carries a description embedding OR is in the current ranked set" (the ANN only ranks
+        embedded voices; the keyword arm contributes the rest) — so the chips describe the
+        voices the list actually shows and never collapse to "No matches" on a query that has
+        no literal name/tag hit. Per-dimension self-exclusion applies in full, exactly as in
+        lexical mode. Counts are clamped to `VOICE_SEARCH_MAX_RANKED`, because the semantic
+        list's `pagination.total` is that same capped ranked-set size — so a chip's `count` is
+        the number of rows `GET /voices` returns once that value is selected. Two bounded
+        exceptions: a voice reachable only through the keyword arm is counted only under the
+        value already selected (the ranked set is computed under the current filters), and
+        ANN recall can return fewer rows than the chip promises. In the LEXICAL
+        fallback (flag off / no embedder / non-platform source / embed fault) `search` is the
+        `name`/`descriptor`/`tags` ILIKE and counts are exact (no cap), exactly as before.
+
+        Chips are drawn from the same population `GET /voices` returns, so the
+        official-locale restriction applies here too and no chip can open an empty page.
+        For the `model` dimension the restriction is evaluated per capability row rather
+        than per voice — a voice whose only official locale sits on a sibling model does
+        not count toward this model's chip, because `GET /voices?model=` would not return
+        it either.
+
         Count-0 policy: data-driven dimensions omit count-0 values (only present ones,
         each a valid `GET /voices` filter — providers/models restricted to the enabled
         catalog, languages to the supported-locale allowlist, so a chip never 422s).
@@ -757,10 +954,14 @@ class AsyncVoicesClient:
         Fetch a single voice by its ID.
 
         Returns both platform (system-wide) voices and voices that belong to the
-        caller's workspace. Returns 404 when the voice does not exist or is not
-        accessible to the caller's workspace. The `sample_url` field is a
+        caller's workspace. Returns 404 when the voice does not exist, is not
+        accessible to the caller's workspace, or is a platform voice from a provider
+        that is not available to your account. Voices your workspace owns stay
+        readable regardless of provider availability. The `sample_url` field is a
         time-limited presigned URL valid for 1 hour; regenerate it by calling this
-        endpoint again rather than caching it long-term.
+        endpoint again rather than caching it long-term. This endpoint sets
+        `Cache-Control: no-store` because the response bakes in that short-lived
+        presigned URL — server-side (Redis) caching still applies underneath.
 
         Parameters
         ----------
@@ -814,10 +1015,19 @@ class AsyncVoicesClient:
         reference voice's workspace voices and all platform voices. Each result
         includes a `similarity_score` between 0 and 1. Optionally filter by one or
         more `language` BCP-47 codes (repeat the parameter for OR semantics); up to
-        16 language values are accepted. Returns 503 when the reference voice has no
-        embedding yet — retry after the indicated `Retry-After` interval. Prefer this
+        16 language values are accepted. Results are restricted to officially supported
+        locales on the same terms as `GET /voices`; the reference voice itself is not,
+        so you can ask for neighbours of a voice that no longer appears in the list.
+        Returns 503 when the reference voice has no embedding yet — retry after the
+        indicated `Retry-After` interval. Prefer this
         endpoint over `GET /voices` with manual filtering when building a
         "voices like this" recommendation UI.
+
+        Platform voices from providers that are not available to your account are
+        rejected as a reference (404) and omitted from the results; voices your
+        workspace owns are unaffected. This endpoint sets `Cache-Control: no-store`
+        because the response bakes in short-lived presigned sample URLs — server-side
+        (Redis) caching still applies underneath for the default `limit`/`language` shape.
 
         Parameters
         ----------
@@ -863,6 +1073,83 @@ class AsyncVoicesClient:
         )
         return _response.data
 
+    async def preview(
+        self,
+        voice_id: str,
+        *,
+        language: PreviewVoicesRequestLanguage,
+        model: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseVoicePreviewOut:
+        """
+        Fetch ready-to-play preview audio for one voice in one language.
+
+        Returns the voice's `name`, the preview's `locale`, the `model` it was
+        synthesized with, its stored `content_type`, and a `sample_url` — a
+        time-limited presigned URL valid for 1 hour; regenerate it by calling this
+        endpoint again rather than caching it long-term. Pass `model` to prefer a
+        specific TTS model; a preview from another model is still returned when
+        that model has none.
+
+        `language` accepts a bare family (`ko`, `en`) as well as an exact locale
+        (`ko-kr`, `en-gb`). A bare family expands to every supported locale in it,
+        and which region wins is deterministic but arbitrary — so the response
+        echoes the `locale` actually served. Read `locale`, never the request
+        parameter, when labelling what the caller is hearing.
+
+        404 means no preview audio has been generated for this voice in that
+        locale — NOT that the voice cannot speak it. `supported_languages` on the
+        voice is the claim about what it can speak; `preview_locales` is the list
+        of locales this endpoint will succeed for. 404 is also returned when the
+        voice does not exist, is not accessible to the caller's workspace, or is a
+        platform voice from a provider that is not available to your account.
+
+        Parameters
+        ----------
+        voice_id : str
+
+        language : PreviewVoicesRequestLanguage
+            BCP-47 language code, e.g. en-us, ko-kr
+
+        model : typing.Optional[str]
+            TTS model id, e.g. sonic-2
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseVoicePreviewOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.voices.preview(
+                voice_id="voice_id",
+                language="de",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.preview(
+            voice_id, language=language, model=model, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
     async def favorite_voice(
         self,
         voice_id: str,
@@ -873,10 +1160,17 @@ class AsyncVoicesClient:
         """
         Add a voice to the current workspace's favorites.
 
+        The response is a full `VoiceOut` and is narrowed exactly as `GET /voices/{voice_id}`
+        is, so favoriting a voice never reveals locales the read endpoints hide. Note that
+        favoriting a platform voice with no official locale succeeds but that voice will
+        not appear under `?favorites_only=true`, which applies the same list restriction.
+
         Favorites are workspace-scoped, not per-user: all members of the workspace
         see the same favorited set. Idempotent — favoriting a voice that is already
         favorited succeeds without error. Returns the voice with `is_favorite=true`.
-        Requires the caller to have at least editor role in the workspace.
+        Requires the caller to have at least editor role in the workspace. Returns
+        404 for a platform voice from a provider that is not available to your
+        account; voices your workspace owns can always be favorited.
 
         Parameters
         ----------

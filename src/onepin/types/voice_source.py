@@ -2,4 +2,4 @@
 
 import typing
 
-VoiceSource = typing.Union[typing.Literal["platform", "recorded", "uploaded"], typing.Any]
+VoiceSource = typing.Union[typing.Literal["platform", "recorded", "uploaded", "provider_imported"], typing.Any]

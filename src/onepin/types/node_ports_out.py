@@ -12,6 +12,11 @@ class NodePortsOut(UniversalBaseModel):
     display_name: str
     description: str
     version: int
+    beta: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether this node carries a "beta" badge. Read from the live catalog per request, so staff can graduate a node without a release. Display only — it never affects availability. The static examples in this spec do not carry it and always show `false`; use the actual response.
+    """
+
     inputs: typing.List[PortOut]
     outputs: typing.List[PortOut]
     input_schema: typing.Optional[typing.Dict[str, typing.Any]] = None

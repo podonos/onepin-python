@@ -13,7 +13,26 @@ class BalanceResponse(UniversalBaseModel):
     Per-user credit balance + period anchor (consumed by GET /users/me/credits).
     """
 
-    balance: int
+    balance: int = pydantic.Field()
+    """
+    Total spendable credits = monthly_balance + free_balance.
+    """
+
+    monthly_balance: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Expiring bucket: the current paid cycle's allowance, replaced each renewal. 0 on Free.
+    """
+
+    free_balance: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Lifetime bucket: the one-time Free grant. Never expires; spent last (after monthly).
+    """
+
+    free_grant: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    All-time ceiling of the lifetime free bucket.
+    """
+
     used: typing.Optional[int] = pydantic.Field(default=None)
     """
     Ledger-derived credits used in the current billing period.
@@ -21,13 +40,45 @@ class BalanceResponse(UniversalBaseModel):
 
     remaining: typing.Optional[int] = pydantic.Field(default=None)
     """
-    Ledger-derived settled credits remaining for display only. Excludes in-flight open reserves, so this may exceed `balance` while a workflow is executing. Use `balance` for gate decisions.
+    Combined spendable credits remaining across the monthly and lifetime free buckets. This is a display alias of `balance`; use `balance` for gate decisions.
     """
 
-    period_start: typing.Optional[dt.datetime] = None
-    period_end: typing.Optional[dt.datetime] = None
-    plan_grant: int
+    quota: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Reconciled credit capacity for this billing period. Includes capacity actually available from both credit buckets and stays stable while credits are held by an open workflow.
+    """
+
+    percent: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Settled billing-period usage as a percentage of `quota`, clamped to 100; null for zero quota.
+    """
+
+    period_start: typing.Optional[dt.datetime] = pydantic.Field(default=None)
+    """
+    Start of the current credit period (the stored credit anchor). Null on Free/unanchored accounts.
+    """
+
+    period_end: typing.Optional[dt.datetime] = pydantic.Field(default=None)
+    """
+    Next EXPECTED credit-reset boundary (`period_start` + 1 calendar month), or null when no reset is currently promised: Free/one-time or unanchored accounts, a canceling/ended entitlement with no future grant, or a monthly renewal whose boundary has already passed without confirmed payment. This is the expected boundary, not a guaranteed grant time — monthly credits (including an annual subscription's renewal) stay gated on successful Stripe payment and may become available shortly after this time. An annual subscription's intermediate monthly boundaries are deterministic and are granted on access. Distinct from `CustomerSubscriptionResponse.current_period_end`, which remains the Stripe billing/entitlement boundary and must not be used as the credit-refresh time.
+    """
+
+    plan_grant: int = pydantic.Field()
+    """
+    Catalog allowance from the current plan; not a reconciled live quota.
+    """
+
     plan_tier: PlanTier
+    overage_rate_cents_per_credit: typing.Optional[float] = None
+    overage_cents: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Overage billed so far this billing cycle, in cents.
+    """
+
+    credits_absorbed: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Total credits discounted by floor-rounding this billing period. Excludes any minimum charge adjustment.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

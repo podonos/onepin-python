@@ -5,8 +5,13 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.api_list_response_workspace_out import ApiListResponseWorkspaceOut
+from ..types.api_response_checkout_response import ApiResponseCheckoutResponse
 from ..types.api_response_dict import ApiResponseDict
+from ..types.api_response_plan_limits import ApiResponsePlanLimits
 from ..types.api_response_slug_availability_out import ApiResponseSlugAvailabilityOut
+from ..types.api_response_union_customer_subscription_response_none_type import (
+    ApiResponseUnionCustomerSubscriptionResponseNoneType,
+)
 from ..types.api_response_workspace_out import ApiResponseWorkspaceOut
 from .raw_client import AsyncRawWorkspacesClient, RawWorkspacesClient
 
@@ -334,6 +339,144 @@ class WorkspacesClient:
             color_idx=color_idx,
             routing_price_sensitivity=routing_price_sensitivity,
             routing_llm_fit=routing_llm_fit,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def get_workspace_plan_limits(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponsePlanLimits:
+        """
+        The plan limits that govern THIS workspace's tier — the workspace-scoped counterpart of
+        ``/users/me/limits``.
+
+        For a personal workspace this resolves to the owning user's plan; for an **org** workspace it
+        resolves to the **organization's** plan (from the org principal), or free-tier limits when the
+        org has no plan assigned yet. Use this instead of ``/users/me/limits`` when rendering a
+        workspace's plan/entitlements, so an org workspace shows the ORGANIZATION's plan rather than the
+        acting member's personal one. Open to any member (read); membership is existence-hidden (404).
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponsePlanLimits
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workspaces.get_workspace_plan_limits(
+            workspace_id="workspace_id",
+        )
+        """
+        _response = self._raw_client.get_workspace_plan_limits(workspace_id, request_options=request_options)
+        return _response.data
+
+    def get_workspace_subscription(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponseUnionCustomerSubscriptionResponseNoneType:
+        """
+        The active subscription governing THIS workspace — the workspace-scoped counterpart of
+        ``/users/me/subscription``.
+
+        Personal workspace → the owning user's subscription, readable **only by the owner**; **org**
+        workspace → the **organization's** subscription (or ``null`` on free tier), readable by any
+        member or an org admin. Use this instead of ``/users/me/subscription`` when rendering a
+        workspace's plan, so an org workspace shows the ORGANIZATION's plan. Membership is
+        existence-hidden (404); the org-admin fallback applies (an org admin with no materialized
+        member row can still read).
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseUnionCustomerSubscriptionResponseNoneType
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workspaces.get_workspace_subscription(
+            workspace_id="workspace_id",
+        )
+        """
+        _response = self._raw_client.get_workspace_subscription(workspace_id, request_options=request_options)
+        return _response.data
+
+    def create_workspace_org_checkout(
+        self,
+        workspace_id: str,
+        *,
+        plan_price_id: str,
+        return_url: str,
+        coupon_code: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseCheckoutResponse:
+        """
+        Create a self-serve Stripe Checkout session to put THIS ORGANIZATION on a paid plan (card).
+
+        Workspace-**admin** only (403 otherwise), and only for an **org** workspace (400 for a personal
+        one — personal billing uses ``/billing/checkout``). The org's own Stripe Customer + subscription
+        are used; returns 409 if the org already has an active subscription OR a staff-assigned plan.
+        Enterprise (CUSTOM) plans are staff-assigned/invoice-billed, not self-serve — the two paths coexist.
+        ``coupon_code`` is not supported for org checkout and is **rejected with 422** if supplied (never
+        silently dropped). Membership is existence-hidden: a non-member gets 404, not 403.
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        plan_price_id : str
+
+        return_url : str
+
+        coupon_code : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseCheckoutResponse
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workspaces.create_workspace_org_checkout(
+            workspace_id="workspace_id",
+            plan_price_id="plan_price_id",
+            return_url="return_url",
+        )
+        """
+        _response = self._raw_client.create_workspace_org_checkout(
+            workspace_id,
+            plan_price_id=plan_price_id,
+            return_url=return_url,
+            coupon_code=coupon_code,
             request_options=request_options,
         )
         return _response.data
@@ -707,6 +850,168 @@ class AsyncWorkspacesClient:
             color_idx=color_idx,
             routing_price_sensitivity=routing_price_sensitivity,
             routing_llm_fit=routing_llm_fit,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def get_workspace_plan_limits(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponsePlanLimits:
+        """
+        The plan limits that govern THIS workspace's tier — the workspace-scoped counterpart of
+        ``/users/me/limits``.
+
+        For a personal workspace this resolves to the owning user's plan; for an **org** workspace it
+        resolves to the **organization's** plan (from the org principal), or free-tier limits when the
+        org has no plan assigned yet. Use this instead of ``/users/me/limits`` when rendering a
+        workspace's plan/entitlements, so an org workspace shows the ORGANIZATION's plan rather than the
+        acting member's personal one. Open to any member (read); membership is existence-hidden (404).
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponsePlanLimits
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workspaces.get_workspace_plan_limits(
+                workspace_id="workspace_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_workspace_plan_limits(workspace_id, request_options=request_options)
+        return _response.data
+
+    async def get_workspace_subscription(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponseUnionCustomerSubscriptionResponseNoneType:
+        """
+        The active subscription governing THIS workspace — the workspace-scoped counterpart of
+        ``/users/me/subscription``.
+
+        Personal workspace → the owning user's subscription, readable **only by the owner**; **org**
+        workspace → the **organization's** subscription (or ``null`` on free tier), readable by any
+        member or an org admin. Use this instead of ``/users/me/subscription`` when rendering a
+        workspace's plan, so an org workspace shows the ORGANIZATION's plan. Membership is
+        existence-hidden (404); the org-admin fallback applies (an org admin with no materialized
+        member row can still read).
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseUnionCustomerSubscriptionResponseNoneType
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workspaces.get_workspace_subscription(
+                workspace_id="workspace_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_workspace_subscription(workspace_id, request_options=request_options)
+        return _response.data
+
+    async def create_workspace_org_checkout(
+        self,
+        workspace_id: str,
+        *,
+        plan_price_id: str,
+        return_url: str,
+        coupon_code: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseCheckoutResponse:
+        """
+        Create a self-serve Stripe Checkout session to put THIS ORGANIZATION on a paid plan (card).
+
+        Workspace-**admin** only (403 otherwise), and only for an **org** workspace (400 for a personal
+        one — personal billing uses ``/billing/checkout``). The org's own Stripe Customer + subscription
+        are used; returns 409 if the org already has an active subscription OR a staff-assigned plan.
+        Enterprise (CUSTOM) plans are staff-assigned/invoice-billed, not self-serve — the two paths coexist.
+        ``coupon_code`` is not supported for org checkout and is **rejected with 422** if supplied (never
+        silently dropped). Membership is existence-hidden: a non-member gets 404, not 403.
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        plan_price_id : str
+
+        return_url : str
+
+        coupon_code : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseCheckoutResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workspaces.create_workspace_org_checkout(
+                workspace_id="workspace_id",
+                plan_price_id="plan_price_id",
+                return_url="return_url",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_workspace_org_checkout(
+            workspace_id,
+            plan_price_id=plan_price_id,
+            return_url=return_url,
+            coupon_code=coupon_code,
             request_options=request_options,
         )
         return _response.data

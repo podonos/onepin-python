@@ -19,6 +19,7 @@ class CatalogProviderOut(UniversalBaseModel):
     display_name: str
     kind: str
     model_count: int
+    beta: typing.Optional[bool] = None
     links: typing.Optional[typing.Dict[str, CatalogLink]] = None
 
     if IS_PYDANTIC_V2:

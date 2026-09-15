@@ -5,6 +5,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .pause_reason import PauseReason
 from .triggered_by_out import TriggeredByOut
 
 
@@ -15,14 +16,32 @@ class WorkflowRunListItem(UniversalBaseModel):
     total_nodes: typing.Optional[int] = None
     total_steps: typing.Optional[int] = None
     finished_steps: typing.Optional[int] = None
-    credits: typing.Optional[int] = None
+    finished_nodes: typing.Optional[int] = None
+    credits: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Credits debited from the user's spendable balance for this run; excludes invoiced overage.
+    """
+
     usage_summary: typing.Optional[typing.Dict[str, typing.Any]] = None
     started_at: typing.Optional[dt.datetime] = None
     completed_at: typing.Optional[dt.datetime] = None
     pause_requested_at: typing.Optional[dt.datetime] = None
     paused_at: typing.Optional[dt.datetime] = None
+    paused_ms: typing.Optional[int] = None
+    pause_reason: typing.Optional[PauseReason] = pydantic.Field(default=None)
+    """
+    Why the run is paused or draining toward an automatic pause. Manual pauses use user; null when no pause is active.
+    """
+
+    pause_error: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Aggregate customer-facing explanation for an automatic pause. Null for manual pauses and separate from terminal error.
+    """
+
     created_at: dt.datetime
     triggered_by: typing.Optional[TriggeredByOut] = None
+    output_line_count: typing.Optional[int] = None
+    delivered_audio_ms: typing.Optional[int] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -169,6 +169,8 @@ class RawRunsClient:
         Returns 409 if the workspace is at its concurrent-run limit or another
         run for this workflow is already active.
 
+        Requires at least `editor` role in the workspace; viewers cannot run workflows.
+
         Parameters
         ----------
         workflow_id : str
@@ -508,6 +510,8 @@ class RawRunsClient:
         Unlike `pause`, cancel is permanent — a cancelled run cannot be resumed.
         Use `pause` if you intend to continue the run later.
 
+        Requires at least `editor` role in the workspace; viewers cannot cancel runs.
+
         Parameters
         ----------
         workflow_id : str
@@ -704,6 +708,8 @@ class AsyncRawRunsClient:
 
         Returns 409 if the workspace is at its concurrent-run limit or another
         run for this workflow is already active.
+
+        Requires at least `editor` role in the workspace; viewers cannot run workflows.
 
         Parameters
         ----------
@@ -1043,6 +1049,8 @@ class AsyncRawRunsClient:
 
         Unlike `pause`, cancel is permanent — a cancelled run cannot be resumed.
         Use `pause` if you intend to continue the run later.
+
+        Requires at least `editor` role in the workspace; viewers cannot cancel runs.
 
         Parameters
         ----------

@@ -24,6 +24,7 @@ class CatalogModelOut(UniversalBaseModel):
     config_schema: typing.Optional[typing.Dict[str, typing.Any]] = None
     controls: typing.Optional[typing.Dict[str, typing.Any]] = None
     voice_count: int
+    beta: typing.Optional[bool] = None
     links: typing.Optional[typing.Dict[str, CatalogLink]] = None
 
     if IS_PYDANTIC_V2:

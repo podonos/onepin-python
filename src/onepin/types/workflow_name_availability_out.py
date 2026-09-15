@@ -18,7 +18,7 @@ class WorkflowNameAvailabilityOut(UniversalBaseModel):
 
     available: bool = pydantic.Field()
     """
-    True when no live workflow in the workspace already uses this name.
+    Always true: per-workspace name uniqueness was removed and this endpoint is a deprecated shim kept for older web clients.
     """
 
     if IS_PYDANTIC_V2:

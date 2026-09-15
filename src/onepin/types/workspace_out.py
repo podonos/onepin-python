@@ -28,9 +28,14 @@ class WorkspaceOut(UniversalBaseModel):
     Index into the workspace color palette.
     """
 
-    created_by: str = pydantic.Field()
+    created_by: typing.Optional[str] = pydantic.Field(default=None)
     """
-    User ID of the workspace owner.
+    User ID of the workspace owner. Null for an enterprise org workspace, which is owned by its organization (see organization_id) rather than a user.
+    """
+
+    organization_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Owning organization when this is an enterprise org workspace, else null.
     """
 
     created_at: dt.datetime = pydantic.Field()

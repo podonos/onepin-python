@@ -22,14 +22,18 @@ from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_download_url_out import ApiResponseDownloadUrlOut
 from ..types.api_response_estimate_response import ApiResponseEstimateResponse
 from ..types.api_response_runs_summary_out import ApiResponseRunsSummaryOut
+from ..types.api_response_workflow_markdown_out import ApiResponseWorkflowMarkdownOut
 from ..types.api_response_workflow_name_availability_out import ApiResponseWorkflowNameAvailabilityOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
+from ..types.api_response_workflow_run_analysis_out import ApiResponseWorkflowRunAnalysisOut
 from ..types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ..types.api_response_workflow_run_outputs_out import ApiResponseWorkflowRunOutputsOut
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
+from ..types.api_response_workflow_validate_out import ApiResponseWorkflowValidateOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
+from ..types.workflow_run_start_in import WorkflowRunStartIn
 from .types.list_workflows_request_order_item import ListWorkflowsRequestOrderItem
 from .types.list_workflows_request_sort_item import ListWorkflowsRequestSortItem
 from pydantic import ValidationError
@@ -52,6 +56,7 @@ class RawWorkflowsClient:
         last_run_after: typing.Optional[dt.datetime] = None,
         last_run_before: typing.Optional[dt.datetime] = None,
         has_failed_run: typing.Optional[bool] = None,
+        include_definition: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -118,6 +123,9 @@ class RawWorkflowsClient:
         has_failed_run : typing.Optional[bool]
             Filter by failure history — ORTHOGONAL to `status` (which is latest-run based). `true` returns only workflows with at least one run that ended in `failed` state anywhere in their history; a workflow whose latest run succeeded still matches if an earlier run failed. `false` returns only workflows that have never had a failed run. Composes (ANDs) with `status`/`search`/date filters. `cancelled` runs are not treated as failures.
 
+        include_definition : typing.Optional[bool]
+            Include each workflow's full `definition` graph in the response. Off by default because the graphs dominate the payload and a list view does not render them; turn it on to compare what the listed workflows do without a per-workflow GET.
+
         offset : typing.Optional[int]
             Zero-based pagination offset.
 
@@ -145,6 +153,7 @@ class RawWorkflowsClient:
                 "last_run_after": serialize_datetime(last_run_after) if last_run_after is not None else None,
                 "last_run_before": serialize_datetime(last_run_before) if last_run_before is not None else None,
                 "has_failed_run": has_failed_run,
+                "include_definition": include_definition,
                 "offset": offset,
                 "limit": limit,
             },
@@ -186,8 +195,8 @@ class RawWorkflowsClient:
     def create_workflow(
         self,
         *,
-        name: str,
         workspace_id: typing.Optional[str] = None,
+        name: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
         definition: typing.Optional[WorkflowDefinitionInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -204,12 +213,17 @@ class RawWorkflowsClient:
         block (ordered step list and execution params). Omitting `definition`
         creates a workflow with an empty graph that can be edited later.
 
+        `name` is optional. Omit it to get the server-side placeholder
+        `"Untitled workflow"` (`name_source: "placeholder"`), which the assistant
+        auto-names from the first message via `POST /workflows/{id}/name/generate`.
+        An explicit `name` is stored as-is with `name_source: "user"`.
+
         Parameters
         ----------
-        name : str
-            Human-readable workflow name (1–200 characters, non-blank).
-
         workspace_id : typing.Optional[str]
+
+        name : typing.Optional[str]
+            Human-readable workflow name (1–200 characters, non-blank). Omit to create an unnamed workflow that gets a server-side placeholder and is auto-named from the first assistant message.
 
         description : typing.Optional[str]
             Optional description shown in the workflow list (max 5000 characters).
@@ -281,14 +295,13 @@ class RawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowNameAvailabilityOut]:
         """
-        Check whether a workflow name is free within the current workspace.
+        Deprecated shim kept for the pre-auto-name web client, which gates its
+        create button on this call.
 
-        Workflow names are unique per workspace among live (non-deleted) workflows,
-        so this lets a client validate a name before create or rename. The `name` is
-        trimmed and validated with the same policy as create — an invalid name
-        returns 422. The check is case-sensitive and ignores soft-deleted workflows,
-        mirroring the underlying uniqueness constraint. Pass `exclude_id` when
-        renaming so the workflow's current name is not reported as taken by itself.
+        Workflow names are no longer unique per workspace, so this always reports
+        `available: true` for a name that passes the shared name policy. An invalid
+        name still returns 422. `exclude_id` is accepted and ignored. Removed once no
+        deployed client calls it.
 
         Parameters
         ----------
@@ -367,7 +380,8 @@ class RawWorkflowsClient:
         workflow was saved with an older version.
 
         Use `GET /workflows` to list multiple workflows without fetching their
-        full definitions.
+        full definitions, or `GET /workflows?include_definition=true` to list them
+        with the same migrated `definition` this route returns.
 
         Parameters
         ----------
@@ -667,6 +681,84 @@ class RawWorkflowsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def get_workflow_markdown(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseWorkflowMarkdownOut]:
+        """
+        Render this workflow as a markdown document.
+
+        For showing a person what a workflow is: the pipeline in execution order with
+        parallel steps as branches, retry loops called out on their own line, a node
+        table with each node's configuration, the voices, and the quality gates with
+        what each one does on failure.
+
+        Text only, and printable as-is on any surface including a terminal: there is
+        no diagram, because the pipeline section already states the graph, retry loops
+        included.
+
+        The rendering is server-side so every client describes a graph the same way. A
+        renderer in each CLI and each UI would diverge the first time a node type
+        shipped, and nothing would report the divergence.
+
+        `definition` is config-migrated first, exactly as `GET /workflows/{id}` returns
+        it, so the document never describes a node config the API no longer serves.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseWorkflowMarkdownOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/markdown",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowMarkdownOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowMarkdownOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def list_workflow_uploads(
         self,
         workflow_id: str,
@@ -753,6 +845,7 @@ class RawWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
+        request: typing.Optional[WorkflowRunStartIn] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseEstimateResponse]:
         """
@@ -760,14 +853,20 @@ class RawWorkflowsClient:
 
         Computes a breakdown of expected credits per node type based on the
         workflow's current definition. No run is created, no credits are charged,
-        and no side effects occur. Equivalent to `POST /runs/preview`; prefer that
-        path in new integrations as it is co-located with the run lifecycle.
+        and no side effects occur. The optional request body accepts the same
+        run-scoped `script_text`/`source_language` overrides as `POST /runs`, so
+        an estimate that will be followed by a run with those overrides prices
+        the text that run will actually speak. Equivalent to `POST /runs/preview`;
+        prefer that path in new integrations as it is co-located with the run
+        lifecycle.
 
         Parameters
         ----------
         workflow_id : str
 
         workspace_id : typing.Optional[str]
+
+        request : typing.Optional[WorkflowRunStartIn]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -780,10 +879,15 @@ class RawWorkflowsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/estimate",
             method="POST",
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
+            ),
             headers={
+                "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -820,6 +924,7 @@ class RawWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
+        request: typing.Optional[WorkflowRunStartIn] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseEstimateResponse]:
         """
@@ -827,14 +932,20 @@ class RawWorkflowsClient:
 
         Returns a per-node-type credit breakdown based on the workflow's current
         definition. No run is enqueued, no credits are charged, and the workflow
-        state is not modified. Use this before calling `POST /runs` to confirm
-        the expected cost. Equivalent to `POST /estimate`.
+        state is not modified. The optional request body accepts the same
+        run-scoped `script_text`/`source_language` overrides as `POST /runs`
+        (applied to this preview only, same as a run's snapshot) — so estimating
+        with a script and then running with that script prices the operation
+        that will actually be charged. Use this before calling `POST /runs` to
+        confirm the expected cost. Equivalent to `POST /estimate`.
 
         Parameters
         ----------
         workflow_id : str
 
         workspace_id : typing.Optional[str]
+
+        request : typing.Optional[WorkflowRunStartIn]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -847,10 +958,15 @@ class RawWorkflowsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/preview",
             method="POST",
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
+            ),
             headers={
+                "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -895,12 +1011,16 @@ class RawWorkflowsClient:
         Aggregate run statistics for a workflow over an optional date window.
 
         Returns per-status counts (`completed`, `failed`, `cancelled`, `pending`,
-        `running`, `paused`) plus two derived metrics:
+        `running`, `paused`) plus three derived metrics:
 
-        - `pass_rate`: `completed / (completed + failed + cancelled)`. `null` when
-          there are no terminal runs in the window.
-        - `average_duration_seconds`: mean of `completed_at - started_at` over
-          successfully completed runs only. `null` when no runs have completed.
+        - `pass_rate`: `completed / (completed + failed)`. Cancelled runs are
+          user-aborted, not quality failures, so they are excluded. `null` when
+          there are no non-cancelled terminal runs in the window.
+        - `delivered_audio_ms`: total delivered-take audio in milliseconds, summed
+          over completed runs.
+        - `average_duration_seconds`: mean *active* duration — `completed_at -
+          started_at` minus paused time — over successfully completed runs only.
+          `null` when no runs have completed.
 
         **Date range:** `from` / `to` filter by `created_at`. Both must be ISO 8601
         with a UTC offset; a naive datetime returns 422. An inverted range
@@ -1104,6 +1224,102 @@ class RawWorkflowsClient:
                     ApiResponseWorkflowRunOverviewOut,
                     parse_obj_as(
                         type_=ApiResponseWorkflowRunOverviewOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_run_analysis(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseWorkflowRunAnalysisOut]:
+        """
+        Fetch delivery, quality and cost analysis for a workflow run.
+
+        Three independent blocks, each carrying its own `status` so one unavailable
+        block never blanks the others:
+
+        - `audio` — delivered vs replaced audio duration per locale. "Replaced"
+          counts persisted non-delivered takes only; discarded takes and split-line
+          concat entries are excluded so nothing is double counted.
+        - `validators` — one entry per validator NODE (not per kind: two validators
+          of the same kind on different generators are legal and may carry different
+          thresholds), with per-locale scores read from each line's DELIVERED take.
+        - `credits` — per-node breakdown of the run's charge, mirroring the ledger.
+          Amounts are unrounded decimal STRINGS; the run-level floor and minimum are
+          applied once at settlement and reported separately as `charged`, which is
+          the balance debit PLUS `overage_credits` — the remainder billed against the
+          next invoice when a paid plan's balance ran out mid-run.
+
+        The `run` block's `duration_ms` is ACTIVE duration — wall-clock
+        (`completed_at - started_at`) minus time the run spent paused — and
+        `paused_ms` reports that excluded paused total (POD-417).
+
+        Scores here can differ from `GET /runs/{run_id}/overview`: that endpoint
+        reads each line's last take and is frozen on those semantics, while this one
+        reads the take actually delivered. When a retry produced a worse clip and an
+        earlier one won, the two legitimately disagree.
+
+        Related sub-resources:
+
+        - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
+        - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
+        - `GET /runs/{run_id}/overview` — pre-aggregated metrics and node state map.
+        - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseWorkflowRunAnalysisOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/analysis",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowRunAnalysisOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowRunAnalysisOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1551,6 +1767,8 @@ class RawWorkflowsClient:
         unchanged. A paused run can be resumed via `POST /runs/{run_id}/resume`
         or permanently stopped via `POST /runs/{run_id}/cancel`.
 
+        Requires at least `editor` role in the workspace; viewers cannot pause runs.
+
         Parameters
         ----------
         workflow_id : str
@@ -1626,6 +1844,8 @@ class RawWorkflowsClient:
         `paused` status can be resumed; attempting to resume a `running`,
         `completed`, `failed`, or `cancelled` run returns 409.
 
+        Requires at least `editor` role in the workspace; viewers cannot resume runs.
+
         Parameters
         ----------
         workflow_id : str
@@ -1656,6 +1876,97 @@ class RawWorkflowsClient:
                     ApiResponseWorkflowRunOut,
                     parse_obj_as(
                         type_=ApiResponseWorkflowRunOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def validate_workflow(
+        self,
+        *,
+        definition: WorkflowDefinitionInput,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseWorkflowValidateOut]:
+        """
+        Validate a workflow `definition` against the FULL run-start bundle, without saving it.
+
+        Runs every gate a run start would apply — `validate_definition` (structural /
+        port-contract validation) plus every `preflight_definition` gate (source/output
+        completeness, locale routing, translator coverage) — not the narrower save-time
+        subset `POST /workflows` and `PUT /workflows/{id}` use. A definition that saves
+        cleanly can still fail every one of these; that gap is exactly what this endpoint
+        exists to close before a definition is ever persisted.
+
+        Always returns 200. `valid: false` with a populated `errors` list is itself a
+        successful answer to "is this valid?" — 422 stays reserved for a malformed request
+        body. A true entitlement refusal (a plan-gated node/provider the caller's plan
+        cannot use, `ErrorCode.FORBIDDEN`) is reported separately in `blocked`: not fixable
+        by editing the graph. A voice-ownership violation (unauthorized/unknown/unsupported
+        voice reference) is `ErrorCode.VALIDATION_ERROR` instead — an LLM fixes it the same
+        way it fixes any other rule, by picking a different voice/model — so it is folded
+        into `errors` like every other rule violation, not `blocked`.
+
+        No side effects — nothing is read from or written to the `workflows` table.
+        Requires at least `editor` role. Scope is `workflows:write` deliberately: a caller
+        who cannot create a workflow should not receive a validation result that exists
+        only to gate creation.
+
+        Parameters
+        ----------
+        definition : WorkflowDefinitionInput
+            Graph and execution config to validate. Nothing is persisted.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseWorkflowValidateOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v1/workflows/validate",
+            method="POST",
+            json={
+                "definition": convert_and_respect_annotation_metadata(
+                    object_=definition, annotation=WorkflowDefinitionInput, direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowValidateOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowValidateOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1762,6 +2073,7 @@ class AsyncRawWorkflowsClient:
         last_run_after: typing.Optional[dt.datetime] = None,
         last_run_before: typing.Optional[dt.datetime] = None,
         has_failed_run: typing.Optional[bool] = None,
+        include_definition: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -1828,6 +2140,9 @@ class AsyncRawWorkflowsClient:
         has_failed_run : typing.Optional[bool]
             Filter by failure history — ORTHOGONAL to `status` (which is latest-run based). `true` returns only workflows with at least one run that ended in `failed` state anywhere in their history; a workflow whose latest run succeeded still matches if an earlier run failed. `false` returns only workflows that have never had a failed run. Composes (ANDs) with `status`/`search`/date filters. `cancelled` runs are not treated as failures.
 
+        include_definition : typing.Optional[bool]
+            Include each workflow's full `definition` graph in the response. Off by default because the graphs dominate the payload and a list view does not render them; turn it on to compare what the listed workflows do without a per-workflow GET.
+
         offset : typing.Optional[int]
             Zero-based pagination offset.
 
@@ -1855,6 +2170,7 @@ class AsyncRawWorkflowsClient:
                 "last_run_after": serialize_datetime(last_run_after) if last_run_after is not None else None,
                 "last_run_before": serialize_datetime(last_run_before) if last_run_before is not None else None,
                 "has_failed_run": has_failed_run,
+                "include_definition": include_definition,
                 "offset": offset,
                 "limit": limit,
             },
@@ -1896,8 +2212,8 @@ class AsyncRawWorkflowsClient:
     async def create_workflow(
         self,
         *,
-        name: str,
         workspace_id: typing.Optional[str] = None,
+        name: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
         definition: typing.Optional[WorkflowDefinitionInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1914,12 +2230,17 @@ class AsyncRawWorkflowsClient:
         block (ordered step list and execution params). Omitting `definition`
         creates a workflow with an empty graph that can be edited later.
 
+        `name` is optional. Omit it to get the server-side placeholder
+        `"Untitled workflow"` (`name_source: "placeholder"`), which the assistant
+        auto-names from the first message via `POST /workflows/{id}/name/generate`.
+        An explicit `name` is stored as-is with `name_source: "user"`.
+
         Parameters
         ----------
-        name : str
-            Human-readable workflow name (1–200 characters, non-blank).
-
         workspace_id : typing.Optional[str]
+
+        name : typing.Optional[str]
+            Human-readable workflow name (1–200 characters, non-blank). Omit to create an unnamed workflow that gets a server-side placeholder and is auto-named from the first assistant message.
 
         description : typing.Optional[str]
             Optional description shown in the workflow list (max 5000 characters).
@@ -1991,14 +2312,13 @@ class AsyncRawWorkflowsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowNameAvailabilityOut]:
         """
-        Check whether a workflow name is free within the current workspace.
+        Deprecated shim kept for the pre-auto-name web client, which gates its
+        create button on this call.
 
-        Workflow names are unique per workspace among live (non-deleted) workflows,
-        so this lets a client validate a name before create or rename. The `name` is
-        trimmed and validated with the same policy as create — an invalid name
-        returns 422. The check is case-sensitive and ignores soft-deleted workflows,
-        mirroring the underlying uniqueness constraint. Pass `exclude_id` when
-        renaming so the workflow's current name is not reported as taken by itself.
+        Workflow names are no longer unique per workspace, so this always reports
+        `available: true` for a name that passes the shared name policy. An invalid
+        name still returns 422. `exclude_id` is accepted and ignored. Removed once no
+        deployed client calls it.
 
         Parameters
         ----------
@@ -2077,7 +2397,8 @@ class AsyncRawWorkflowsClient:
         workflow was saved with an older version.
 
         Use `GET /workflows` to list multiple workflows without fetching their
-        full definitions.
+        full definitions, or `GET /workflows?include_definition=true` to list them
+        with the same migrated `definition` this route returns.
 
         Parameters
         ----------
@@ -2377,6 +2698,84 @@ class AsyncRawWorkflowsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def get_workflow_markdown(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseWorkflowMarkdownOut]:
+        """
+        Render this workflow as a markdown document.
+
+        For showing a person what a workflow is: the pipeline in execution order with
+        parallel steps as branches, retry loops called out on their own line, a node
+        table with each node's configuration, the voices, and the quality gates with
+        what each one does on failure.
+
+        Text only, and printable as-is on any surface including a terminal: there is
+        no diagram, because the pipeline section already states the graph, retry loops
+        included.
+
+        The rendering is server-side so every client describes a graph the same way. A
+        renderer in each CLI and each UI would diverge the first time a node type
+        shipped, and nothing would report the divergence.
+
+        `definition` is config-migrated first, exactly as `GET /workflows/{id}` returns
+        it, so the document never describes a node config the API no longer serves.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseWorkflowMarkdownOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/markdown",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowMarkdownOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowMarkdownOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def list_workflow_uploads(
         self,
         workflow_id: str,
@@ -2463,6 +2862,7 @@ class AsyncRawWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
+        request: typing.Optional[WorkflowRunStartIn] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseEstimateResponse]:
         """
@@ -2470,14 +2870,20 @@ class AsyncRawWorkflowsClient:
 
         Computes a breakdown of expected credits per node type based on the
         workflow's current definition. No run is created, no credits are charged,
-        and no side effects occur. Equivalent to `POST /runs/preview`; prefer that
-        path in new integrations as it is co-located with the run lifecycle.
+        and no side effects occur. The optional request body accepts the same
+        run-scoped `script_text`/`source_language` overrides as `POST /runs`, so
+        an estimate that will be followed by a run with those overrides prices
+        the text that run will actually speak. Equivalent to `POST /runs/preview`;
+        prefer that path in new integrations as it is co-located with the run
+        lifecycle.
 
         Parameters
         ----------
         workflow_id : str
 
         workspace_id : typing.Optional[str]
+
+        request : typing.Optional[WorkflowRunStartIn]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2490,10 +2896,15 @@ class AsyncRawWorkflowsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/estimate",
             method="POST",
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
+            ),
             headers={
+                "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -2530,6 +2941,7 @@ class AsyncRawWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
+        request: typing.Optional[WorkflowRunStartIn] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseEstimateResponse]:
         """
@@ -2537,14 +2949,20 @@ class AsyncRawWorkflowsClient:
 
         Returns a per-node-type credit breakdown based on the workflow's current
         definition. No run is enqueued, no credits are charged, and the workflow
-        state is not modified. Use this before calling `POST /runs` to confirm
-        the expected cost. Equivalent to `POST /estimate`.
+        state is not modified. The optional request body accepts the same
+        run-scoped `script_text`/`source_language` overrides as `POST /runs`
+        (applied to this preview only, same as a run's snapshot) — so estimating
+        with a script and then running with that script prices the operation
+        that will actually be charged. Use this before calling `POST /runs` to
+        confirm the expected cost. Equivalent to `POST /estimate`.
 
         Parameters
         ----------
         workflow_id : str
 
         workspace_id : typing.Optional[str]
+
+        request : typing.Optional[WorkflowRunStartIn]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2557,10 +2975,15 @@ class AsyncRawWorkflowsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/preview",
             method="POST",
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
+            ),
             headers={
+                "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
@@ -2605,12 +3028,16 @@ class AsyncRawWorkflowsClient:
         Aggregate run statistics for a workflow over an optional date window.
 
         Returns per-status counts (`completed`, `failed`, `cancelled`, `pending`,
-        `running`, `paused`) plus two derived metrics:
+        `running`, `paused`) plus three derived metrics:
 
-        - `pass_rate`: `completed / (completed + failed + cancelled)`. `null` when
-          there are no terminal runs in the window.
-        - `average_duration_seconds`: mean of `completed_at - started_at` over
-          successfully completed runs only. `null` when no runs have completed.
+        - `pass_rate`: `completed / (completed + failed)`. Cancelled runs are
+          user-aborted, not quality failures, so they are excluded. `null` when
+          there are no non-cancelled terminal runs in the window.
+        - `delivered_audio_ms`: total delivered-take audio in milliseconds, summed
+          over completed runs.
+        - `average_duration_seconds`: mean *active* duration — `completed_at -
+          started_at` minus paused time — over successfully completed runs only.
+          `null` when no runs have completed.
 
         **Date range:** `from` / `to` filter by `created_at`. Both must be ISO 8601
         with a UTC offset; a naive datetime returns 422. An inverted range
@@ -2814,6 +3241,102 @@ class AsyncRawWorkflowsClient:
                     ApiResponseWorkflowRunOverviewOut,
                     parse_obj_as(
                         type_=ApiResponseWorkflowRunOverviewOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_run_analysis(
+        self,
+        workflow_id: str,
+        run_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseWorkflowRunAnalysisOut]:
+        """
+        Fetch delivery, quality and cost analysis for a workflow run.
+
+        Three independent blocks, each carrying its own `status` so one unavailable
+        block never blanks the others:
+
+        - `audio` — delivered vs replaced audio duration per locale. "Replaced"
+          counts persisted non-delivered takes only; discarded takes and split-line
+          concat entries are excluded so nothing is double counted.
+        - `validators` — one entry per validator NODE (not per kind: two validators
+          of the same kind on different generators are legal and may carry different
+          thresholds), with per-locale scores read from each line's DELIVERED take.
+        - `credits` — per-node breakdown of the run's charge, mirroring the ledger.
+          Amounts are unrounded decimal STRINGS; the run-level floor and minimum are
+          applied once at settlement and reported separately as `charged`, which is
+          the balance debit PLUS `overage_credits` — the remainder billed against the
+          next invoice when a paid plan's balance ran out mid-run.
+
+        The `run` block's `duration_ms` is ACTIVE duration — wall-clock
+        (`completed_at - started_at`) minus time the run spent paused — and
+        `paused_ms` reports that excluded paused total (POD-417).
+
+        Scores here can differ from `GET /runs/{run_id}/overview`: that endpoint
+        reads each line's last take and is frozen on those semantics, while this one
+        reads the take actually delivered. When a retry produced a worse clip and an
+        earlier one won, the two legitimately disagree.
+
+        Related sub-resources:
+
+        - `GET /runs/{run_id}` — full run record including the raw definition snapshot.
+        - `GET /runs/{run_id}/status` — volatile status fields only; for polling.
+        - `GET /runs/{run_id}/overview` — pre-aggregated metrics and node state map.
+        - `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        run_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseWorkflowRunAnalysisOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/analysis",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowRunAnalysisOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowRunAnalysisOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -3261,6 +3784,8 @@ class AsyncRawWorkflowsClient:
         unchanged. A paused run can be resumed via `POST /runs/{run_id}/resume`
         or permanently stopped via `POST /runs/{run_id}/cancel`.
 
+        Requires at least `editor` role in the workspace; viewers cannot pause runs.
+
         Parameters
         ----------
         workflow_id : str
@@ -3336,6 +3861,8 @@ class AsyncRawWorkflowsClient:
         `paused` status can be resumed; attempting to resume a `running`,
         `completed`, `failed`, or `cancelled` run returns 409.
 
+        Requires at least `editor` role in the workspace; viewers cannot resume runs.
+
         Parameters
         ----------
         workflow_id : str
@@ -3366,6 +3893,97 @@ class AsyncRawWorkflowsClient:
                     ApiResponseWorkflowRunOut,
                     parse_obj_as(
                         type_=ApiResponseWorkflowRunOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def validate_workflow(
+        self,
+        *,
+        definition: WorkflowDefinitionInput,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseWorkflowValidateOut]:
+        """
+        Validate a workflow `definition` against the FULL run-start bundle, without saving it.
+
+        Runs every gate a run start would apply — `validate_definition` (structural /
+        port-contract validation) plus every `preflight_definition` gate (source/output
+        completeness, locale routing, translator coverage) — not the narrower save-time
+        subset `POST /workflows` and `PUT /workflows/{id}` use. A definition that saves
+        cleanly can still fail every one of these; that gap is exactly what this endpoint
+        exists to close before a definition is ever persisted.
+
+        Always returns 200. `valid: false` with a populated `errors` list is itself a
+        successful answer to "is this valid?" — 422 stays reserved for a malformed request
+        body. A true entitlement refusal (a plan-gated node/provider the caller's plan
+        cannot use, `ErrorCode.FORBIDDEN`) is reported separately in `blocked`: not fixable
+        by editing the graph. A voice-ownership violation (unauthorized/unknown/unsupported
+        voice reference) is `ErrorCode.VALIDATION_ERROR` instead — an LLM fixes it the same
+        way it fixes any other rule, by picking a different voice/model — so it is folded
+        into `errors` like every other rule violation, not `blocked`.
+
+        No side effects — nothing is read from or written to the `workflows` table.
+        Requires at least `editor` role. Scope is `workflows:write` deliberately: a caller
+        who cannot create a workflow should not receive a validation result that exists
+        only to gate creation.
+
+        Parameters
+        ----------
+        definition : WorkflowDefinitionInput
+            Graph and execution config to validate. Nothing is persisted.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseWorkflowValidateOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v1/workflows/validate",
+            method="POST",
+            json={
+                "definition": convert_and_respect_annotation_metadata(
+                    object_=definition, annotation=WorkflowDefinitionInput, direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowValidateOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowValidateOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

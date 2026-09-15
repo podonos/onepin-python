@@ -17,8 +17,13 @@ from ..errors.not_found_error import NotFoundError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_error_response import ApiErrorResponse
 from ..types.api_list_response_workspace_out import ApiListResponseWorkspaceOut
+from ..types.api_response_checkout_response import ApiResponseCheckoutResponse
 from ..types.api_response_dict import ApiResponseDict
+from ..types.api_response_plan_limits import ApiResponsePlanLimits
 from ..types.api_response_slug_availability_out import ApiResponseSlugAvailabilityOut
+from ..types.api_response_union_customer_subscription_response_none_type import (
+    ApiResponseUnionCustomerSubscriptionResponseNoneType,
+)
 from ..types.api_response_workspace_out import ApiResponseWorkspaceOut
 from pydantic import ValidationError
 
@@ -540,6 +545,252 @@ class RawWorkspacesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def get_workspace_plan_limits(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ApiResponsePlanLimits]:
+        """
+        The plan limits that govern THIS workspace's tier — the workspace-scoped counterpart of
+        ``/users/me/limits``.
+
+        For a personal workspace this resolves to the owning user's plan; for an **org** workspace it
+        resolves to the **organization's** plan (from the org principal), or free-tier limits when the
+        org has no plan assigned yet. Use this instead of ``/users/me/limits`` when rendering a
+        workspace's plan/entitlements, so an org workspace shows the ORGANIZATION's plan rather than the
+        acting member's personal one. Open to any member (read); membership is existence-hidden (404).
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponsePlanLimits]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workspaces/{encode_path_param(workspace_id)}/plan",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponsePlanLimits,
+                    parse_obj_as(
+                        type_=ApiResponsePlanLimits,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_workspace_subscription(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]:
+        """
+        The active subscription governing THIS workspace — the workspace-scoped counterpart of
+        ``/users/me/subscription``.
+
+        Personal workspace → the owning user's subscription, readable **only by the owner**; **org**
+        workspace → the **organization's** subscription (or ``null`` on free tier), readable by any
+        member or an org admin. Use this instead of ``/users/me/subscription`` when rendering a
+        workspace's plan, so an org workspace shows the ORGANIZATION's plan. Membership is
+        existence-hidden (404); the org-admin fallback applies (an org admin with no materialized
+        member row can still read).
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workspaces/{encode_path_param(workspace_id)}/subscription",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseUnionCustomerSubscriptionResponseNoneType,
+                    parse_obj_as(
+                        type_=ApiResponseUnionCustomerSubscriptionResponseNoneType,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def create_workspace_org_checkout(
+        self,
+        workspace_id: str,
+        *,
+        plan_price_id: str,
+        return_url: str,
+        coupon_code: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseCheckoutResponse]:
+        """
+        Create a self-serve Stripe Checkout session to put THIS ORGANIZATION on a paid plan (card).
+
+        Workspace-**admin** only (403 otherwise), and only for an **org** workspace (400 for a personal
+        one — personal billing uses ``/billing/checkout``). The org's own Stripe Customer + subscription
+        are used; returns 409 if the org already has an active subscription OR a staff-assigned plan.
+        Enterprise (CUSTOM) plans are staff-assigned/invoice-billed, not self-serve — the two paths coexist.
+        ``coupon_code`` is not supported for org checkout and is **rejected with 422** if supplied (never
+        silently dropped). Membership is existence-hidden: a non-member gets 404, not 403.
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        plan_price_id : str
+
+        return_url : str
+
+        coupon_code : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseCheckoutResponse]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workspaces/{encode_path_param(workspace_id)}/billing/checkout",
+            method="POST",
+            json={
+                "plan_price_id": plan_price_id,
+                "return_url": return_url,
+                "coupon_code": coupon_code,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseCheckoutResponse,
+                    parse_obj_as(
+                        type_=ApiResponseCheckoutResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ApiErrorResponse,
+                        parse_obj_as(
+                            type_=ApiErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ApiErrorResponse,
+                        parse_obj_as(
+                            type_=ApiErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
 
 class AsyncRawWorkspacesClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -1024,6 +1275,252 @@ class AsyncRawWorkspacesClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_workspace_plan_limits(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ApiResponsePlanLimits]:
+        """
+        The plan limits that govern THIS workspace's tier — the workspace-scoped counterpart of
+        ``/users/me/limits``.
+
+        For a personal workspace this resolves to the owning user's plan; for an **org** workspace it
+        resolves to the **organization's** plan (from the org principal), or free-tier limits when the
+        org has no plan assigned yet. Use this instead of ``/users/me/limits`` when rendering a
+        workspace's plan/entitlements, so an org workspace shows the ORGANIZATION's plan rather than the
+        acting member's personal one. Open to any member (read); membership is existence-hidden (404).
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponsePlanLimits]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workspaces/{encode_path_param(workspace_id)}/plan",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponsePlanLimits,
+                    parse_obj_as(
+                        type_=ApiResponsePlanLimits,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_workspace_subscription(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]:
+        """
+        The active subscription governing THIS workspace — the workspace-scoped counterpart of
+        ``/users/me/subscription``.
+
+        Personal workspace → the owning user's subscription, readable **only by the owner**; **org**
+        workspace → the **organization's** subscription (or ``null`` on free tier), readable by any
+        member or an org admin. Use this instead of ``/users/me/subscription`` when rendering a
+        workspace's plan, so an org workspace shows the ORGANIZATION's plan. Membership is
+        existence-hidden (404); the org-admin fallback applies (an org admin with no materialized
+        member row can still read).
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseUnionCustomerSubscriptionResponseNoneType]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workspaces/{encode_path_param(workspace_id)}/subscription",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseUnionCustomerSubscriptionResponseNoneType,
+                    parse_obj_as(
+                        type_=ApiResponseUnionCustomerSubscriptionResponseNoneType,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def create_workspace_org_checkout(
+        self,
+        workspace_id: str,
+        *,
+        plan_price_id: str,
+        return_url: str,
+        coupon_code: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseCheckoutResponse]:
+        """
+        Create a self-serve Stripe Checkout session to put THIS ORGANIZATION on a paid plan (card).
+
+        Workspace-**admin** only (403 otherwise), and only for an **org** workspace (400 for a personal
+        one — personal billing uses ``/billing/checkout``). The org's own Stripe Customer + subscription
+        are used; returns 409 if the org already has an active subscription OR a staff-assigned plan.
+        Enterprise (CUSTOM) plans are staff-assigned/invoice-billed, not self-serve — the two paths coexist.
+        ``coupon_code`` is not supported for org checkout and is **rejected with 422** if supplied (never
+        silently dropped). Membership is existence-hidden: a non-member gets 404, not 403.
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        plan_price_id : str
+
+        return_url : str
+
+        coupon_code : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseCheckoutResponse]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workspaces/{encode_path_param(workspace_id)}/billing/checkout",
+            method="POST",
+            json={
+                "plan_price_id": plan_price_id,
+                "return_url": return_url,
+                "coupon_code": coupon_code,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseCheckoutResponse,
+                    parse_obj_as(
+                        type_=ApiResponseCheckoutResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ApiErrorResponse,
+                        parse_obj_as(
+                            type_=ApiErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ApiErrorResponse,
+                        parse_obj_as(
+                            type_=ApiErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),

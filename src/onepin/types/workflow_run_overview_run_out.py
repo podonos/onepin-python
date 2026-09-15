@@ -10,9 +10,11 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 class WorkflowRunOverviewRunOut(UniversalBaseModel):
     id: str
     status: str
+    run_number: int
     created_at: dt.datetime
     started_at: typing.Optional[dt.datetime] = None
     completed_at: typing.Optional[dt.datetime] = None
+    paused_ms: typing.Optional[int] = None
     has_export: typing.Optional[bool] = None
     error: typing.Optional[str] = None
 

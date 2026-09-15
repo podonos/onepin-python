@@ -5,7 +5,9 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .usage_activity_summary_out import UsageActivitySummaryOut
+from .usage_audio_out import UsageAudioOut
 from .usage_characters_out import UsageCharactersOut
+from .usage_corrected_out import UsageCorrectedOut
 from .usage_credits_out import UsageCreditsOut
 from .usage_daily_out import UsageDailyOut
 from .usage_lines_out import UsageLinesOut
@@ -46,9 +48,19 @@ class UsageSummaryOut(UniversalBaseModel):
     Total characters processed across the workspace in the rolling window.
     """
 
+    corrected: typing.Optional[UsageCorrectedOut] = pydantic.Field(default=None)
+    """
+    Words respliced by the Pronunciation Corrector across the workspace in the rolling window. Counted in WORDS, not characters, and never summed with `characters`.
+    """
+
     lines: UsageLinesOut = pydantic.Field()
     """
     Total script lines generated across the workspace in the rolling window.
+    """
+
+    audio: UsageAudioOut = pydantic.Field()
+    """
+    Delivered audio length across the workspace in the rolling window, retries excluded. A different population from `characters` — see `UsageAudioOut`.
     """
 
     runs: UsageRunsOut = pydantic.Field()

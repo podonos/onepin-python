@@ -13,12 +13,14 @@ if typing.TYPE_CHECKING:
     from .list_voices_request_order_item import ListVoicesRequestOrderItem
     from .list_voices_request_sort_item import ListVoicesRequestSortItem
     from .list_voices_request_source_item import ListVoicesRequestSourceItem
+    from .preview_voices_request_language import PreviewVoicesRequestLanguage
 _dynamic_imports: typing.Dict[str, str] = {
     "GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem": ".get_voice_facets_api_v1voices_facets_get_request_source_item",
     "ListVoicesRequestLanguageItem": ".list_voices_request_language_item",
     "ListVoicesRequestOrderItem": ".list_voices_request_order_item",
     "ListVoicesRequestSortItem": ".list_voices_request_sort_item",
     "ListVoicesRequestSourceItem": ".list_voices_request_source_item",
+    "PreviewVoicesRequestLanguage": ".preview_voices_request_language",
 }
 
 
@@ -49,4 +51,5 @@ __all__ = [
     "ListVoicesRequestOrderItem",
     "ListVoicesRequestSortItem",
     "ListVoicesRequestSourceItem",
+    "PreviewVoicesRequestLanguage",
 ]

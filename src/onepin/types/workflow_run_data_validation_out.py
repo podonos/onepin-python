@@ -4,6 +4,8 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .workflow_run_data_error_counts_out import WorkflowRunDataErrorCountsOut
+from .workflow_run_data_segment_out import WorkflowRunDataSegmentOut
 from .workflow_run_data_validation_out_status import WorkflowRunDataValidationOutStatus
 
 
@@ -19,6 +21,65 @@ class WorkflowRunDataValidationOut(UniversalBaseModel):
     word-accuracy (WER) kind: ``"wer"`` for space-delimited scripts, ``"cer"``
     for space-less scripts (ja/zh/th/…) where word-level WER degenerates. It is
     ``None`` for kinds that don't score on an error rate (e.g. naturalness).
+
+    ``segments`` is populated on the two highlight-capable kinds
+    (``status == "available"``): the per-unit spans over the card's ``script`` used
+    to highlight it word-by-word.
+
+    - word-accuracy (``kind == "wer"``): ``word_error`` spans over the delivered
+      take's substituted/deleted units, each carrying which of the two it was in
+      ``error_type``. An empty list means the take WAS scored and
+      no reference unit was counted wrong (a perfect pass, or a rate driven only by
+      insertions with no reference word behind them) — a client renders plain script
+      and must NOT re-align (the empty list is the authoritative "no errors" signal
+      that prevents inventing errors that contradict the score).
+    - pronunciation (``kind == "pronunciation"``): ``pronunciation_error`` +
+      ``corrected`` spans.
+
+    Pronunciation spans are published on EVERY take the detector scored — each retry
+    card carries the words its own attempt got wrong, so a take history can be read
+    attempt by attempt rather than only at the winner. Word-accuracy spans remain
+    delivered-take-only on purpose: word accuracy is a score-only signal and clients do
+    not paint ``word_error``.
+
+    A corrector take's card describes the PED→PEC event of that regeneration: the verdict
+    its splice ANSWERED (the newest one recorded before it), with the words its
+    ``correction_metadata`` repaired painted ``corrected`` and the rest of that verdict's
+    flags left ``pronunciation_error``. This holds whether or not a downstream PED
+    re-graded the splice — the re-run's verdict is deliberately NOT painted on the take it
+    measured; it prompts the next splice and renders as the NEXT card's errors, so a
+    repair that did not land shows ``corrected`` here and flagged again one card later.
+    The final take's re-check, which prompted nothing, is unrendered. The card's ``score``
+    stays the take's own measurement. ``corrected`` is scoped to the take that actually
+    carries the repair: a later regeneration delivers audio that was never spliced and
+    does not inherit it.
+
+    A split (over-cap) line's merged clip aggregates its pieces' scores and drops their
+    subline-local ``mispronounced``, so it is resolved from the per-piece takes that clip
+    spliced. All of this applies per take, so a retry history reads correctly attempt by
+    attempt and not only at the winner.
+
+    ``None`` vs ``[]`` is load-bearing and a client must not collapse them. ``[]`` means
+    the take WAS scored and nothing was flagged. ``None`` means no per-word detail is
+    available, which happens when: the take was not scored by that validator; its script
+    is unavailable; a multi-generator fan-in row delivers more than one card and the
+    line-level verdict can't be attributed to a single one (those scored delivered cards
+    carry a ``score`` with ``segments == None``); the verdict named words that none of
+    the published script's tokens matched (a repair whose recorded position holds a
+    different word is withheld the same way); a merged split-line clip had any piece it could
+    not resolve or that was never scored (``[]`` vouches for the WHOLE parent script, so it
+    requires every piece); or the spans failed the ``script[start:end] == text`` self-check
+    against the script the card actually publishes (``display_script`` can stand in for the
+    line script).
+    Never re-derive spans client-side from ``None`` — that reintroduces the false errors
+    the field exists to prevent. Additive/optional otherwise.
+
+    ``error_counts`` breaks the word-accuracy rate into its substitution / insertion /
+    deletion parts (see :class:`WorkflowRunDataErrorCountsOut`) — the "what kind of
+    error" that ``wer``/``cer`` alone cannot answer. Present on ``kind == "wer"``
+    entries whose stored envelope carries it; ``None`` for every other kind, and for an
+    envelope that predates the field (older runs, and split lines whose sublines were
+    scored before it). Also additive/optional.
     """
 
     kind: str
@@ -30,6 +91,12 @@ class WorkflowRunDataValidationOut(UniversalBaseModel):
     cer: typing.Optional[float] = None
     transcript: typing.Optional[str] = None
     scored_on: typing.Optional[str] = None
+    segments: typing.Optional[typing.List[WorkflowRunDataSegmentOut]] = None
+    error_counts: typing.Optional[WorkflowRunDataErrorCountsOut] = None
+    inherited_from_take: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    1-based attempt number (retry_count + 1, generator-local — the same basis as the take chips) of the take this entry was actually measured on, set only when it differs from the card's own take. The winner is picked with validator verdicts carried forward onto corrector splices, so the delivered card can carry a score no validator re-measured on its audio — this names where the measurement came from instead of letting it read as a fresh one. None everywhere else, including when the source take's own attempt number is unknowable.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

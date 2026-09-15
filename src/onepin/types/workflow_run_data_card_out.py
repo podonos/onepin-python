@@ -22,6 +22,7 @@ class WorkflowRunDataCardOut(UniversalBaseModel):
     script: typing.Optional[str] = None
     audio: WorkflowRunDataAudioOut
     validations: typing.Optional[typing.List[WorkflowRunDataValidationOut]] = None
+    normalized: typing.Optional[bool] = None
     voice: WorkflowRunDataVoiceOut
     waveform_url: typing.Optional[str] = None
     waveform_status: typing.Optional[WorkflowRunDataCardOutWaveformStatus] = None
