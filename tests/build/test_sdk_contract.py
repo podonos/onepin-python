@@ -33,14 +33,39 @@ def _resolve_cmd_method(cmd: Cmd):
     return _resolve_method(client, cmd.method_paths)
 
 
-def test_run_steps_node_type_choices_match_public_type() -> None:
+def _node_type_option():
     cmd = next(cmd for cmd in TABLE if cmd.path == ("workflows", "runs", "steps"))
-    option = next(option for option in cmd.options if option.flag == "--node-type")
+    return next(option for option in cmd.options if option.flag == "--node-type")
+
+
+def test_run_steps_node_type_choices_match_public_type() -> None:
+    """The --node-type choices must stay equal to the generated NodeType.
+
+    This passes by construction while `_spec._NODE_TYPES` derives from `NodeType`; it exists to
+    fail if someone re-hardcodes the tuple, which is what previously made every regen that added
+    a node type break the build.
+    """
     public_values = tuple(
         value for branch in get_args(NodeType) for value in get_args(branch) if isinstance(value, str)
     )
 
-    assert option.type == public_values
+    assert _node_type_option().type == public_values
+
+
+def test_node_type_choices_are_not_empty() -> None:
+    """Guard the derivation itself.
+
+    Deriving from `NodeType` is only safe while `get_args` actually yields the literals. If a
+    future Fern release emits `NodeType` in another shape, the comprehension would quietly
+    produce `()` and `--node-type` would accept nothing — equal to the (also empty) expectation
+    above, so the test there could not catch it. Anchor on literals the API is not going to drop.
+    """
+    choices = _node_type_option().type
+
+    assert isinstance(choices, tuple)
+    assert {"source_script", "operator_generator"} <= set(choices), (
+        f"NodeType derivation yielded {choices!r} — the generated NodeType shape likely changed"
+    )
 
 
 @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))
