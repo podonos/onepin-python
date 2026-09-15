@@ -322,7 +322,7 @@ jobs:
       - name: Notify Slack
         if: env.SLACK_WEBHOOK_URL != ''
         continue-on-error: true
-        uses: slackapi/slack-github-action@v3
+        uses: slackapi/slack-github-action@v4
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -403,7 +403,7 @@ jobs:
       - name: Notify Slack
         if: env.SLACK_WEBHOOK_URL != ''
         continue-on-error: true   # a Slack hiccup must never red an already-published release
-        uses: slackapi/slack-github-action@v3
+        uses: slackapi/slack-github-action@v4
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -428,7 +428,7 @@ jobs:
     steps:
       - name: Notify Slack
         if: env.SLACK_WEBHOOK_URL != ''
-        uses: slackapi/slack-github-action@v3
+        uses: slackapi/slack-github-action@v4
         with:
           # v2+ requires the URL via the `webhook` input + an explicit `webhook-type`.
           # SLACK_WEBHOOK_URL is a classic Incoming Webhook -> incoming-webhook.
