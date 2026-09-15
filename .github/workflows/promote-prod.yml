@@ -277,7 +277,7 @@ jobs:
           ref: refs/tags/${{ needs.resolve.outputs.tag }}
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - run: pip install build twine trove-classifiers check-wheel-contents pytest
       - run: python -m build
