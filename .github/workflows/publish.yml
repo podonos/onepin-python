@@ -57,7 +57,7 @@ jobs:
           ref: refs/tags/${{ github.event.inputs.tag }}
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - run: pip install build twine trove-classifiers check-wheel-contents pytest
       - run: python -m build
@@ -119,7 +119,7 @@ jobs:
     needs: [build, test-pypi]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - name: Install just-published version from TestPyPI (tolerate index propagation lag)
         env:
