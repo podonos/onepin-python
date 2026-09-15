@@ -33,10 +33,17 @@ class ProvidersClient:
         """
         List all available speech synthesis providers in the catalog.
 
-        Returns the full set of speech synthesis providers — each with its display name,
-        number of available models, and a HATEOAS `models` link to
-        `GET /providers/{provider}/models`. The response contains only
+        Returns the speech synthesis providers available to your account — each with its
+        display name, number of available models, a `beta` badge flag, and a HATEOAS
+        `models` link to `GET /providers/{provider}/models`. The response contains only
         customer-facing metadata; cost, credentials, and base URLs are never included.
+
+        Staff can restrict a provider or an individual model to internal accounts or to
+        paying customers. Restricted entries are omitted from this list entirely rather
+        than returned and marked, so the list is exactly what your account may use. `beta`
+        is a display badge only and never affects availability; a provider carries it only
+        when EVERY model available to you under it is beta, so a single experimental model
+        among mature ones is badged on the model rather than on the provider.
 
         This endpoint is the starting point for building a provider/model/voice
         selection flow. The typical traversal is: list providers → follow `models`
@@ -78,9 +85,10 @@ class ProvidersClient:
         Get a single speech synthesis provider by its canonical identifier.
 
         Returns the same shape as an item in `GET /providers` — display name, model
-        count, and a HATEOAS `models` link — but scoped to a single provider. Returns
-        404 if the provider identifier is not recognized. The canonical identifier is
-        the lowercase slug returned in the `provider` field of the list response.
+        count, `beta`, and a HATEOAS `models` link — but scoped to a single provider.
+        Returns 404 if the provider identifier is not recognized or is not available to
+        your account. The canonical identifier is the lowercase slug returned in the
+        `provider` field of the list response.
 
         Parameters
         ----------
@@ -120,15 +128,21 @@ class ProvidersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiListResponseCatalogModelOut:
         """
-        List all models available for a given provider.
+        List the models available to your account for a given provider.
 
         Returns each model's display name, content type, live `voice_count` (the
-        number of platform voices catalogued under that model), and a `controls` map
-        describing the canonical provider-agnostic parameters supported by the model
-        (e.g. speed, stability). Also includes `config_schema` for back-compat — new
-        integrations should prefer `controls` as the authoritative parameter
-        description. Each item includes a HATEOAS `voices` link to the paginated
-        voice list for that model. Returns 404 if the provider is not recognized.
+        number of platform voices catalogued under that model that can produce an
+        officially supported locale on it — the same population the model's `voices`
+        link returns), a `beta` badge flag, and
+        a `controls` map describing the canonical provider-agnostic parameters supported
+        by the model (e.g. speed, stability). Also includes `config_schema` for
+        back-compat — new integrations should prefer `controls` as the authoritative
+        parameter description. Each item includes a HATEOAS `voices` link to the paginated
+        voice list for that model.
+
+        Models staff have restricted to internal accounts or paying customers are omitted
+        unless your account qualifies. Returns 404 if the provider is not recognized or
+        has no models available to your account.
 
         Parameters
         ----------
@@ -179,6 +193,12 @@ class ProvidersClient:
         one entry; voices with no supported models are excluded from all model
         listings.
 
+        Voices are restricted to the officially supported locales, judged against THIS
+        model: a voice whose official locale lives only on a sibling model is not listed
+        here, and `supported_languages` carries only official locales. A voice for which
+        the provider supplied no authoritative locale data for this model is excluded too.
+        The `voice_count` on the model card that links here counts the same population.
+
         Each voice includes gender, age, accent, supported locales, and a short-lived
         presigned `preview_url` for the audio sample — do not cache these URLs across
         sessions. The response `pagination.total` field reflects the total match count
@@ -188,7 +208,8 @@ class ProvidersClient:
         voices and supports favorite/similarity filtering), use `GET /voices` with
         `?provider=` and `?model=` query parameters instead.
 
-        Returns 404 if the provider or model is not recognized.
+        Returns 404 if the provider or model is not recognized or is not available to
+        your account.
 
         Parameters
         ----------
@@ -242,8 +263,9 @@ class ProvidersClient:
 
         Returns the same shape as an item in `GET /providers/{provider}/models`,
         including `controls` (canonical parameter map), `config_schema` (for
-        back-compat), live `voice_count`, and a HATEOAS `voices` link. Returns 404
-        if the provider or model identifier is not recognized.
+        back-compat), live `voice_count`, `beta`, and a HATEOAS `voices` link. Returns
+        404 if the provider or model identifier is not recognized or is not available to
+        your account.
 
         Parameters
         ----------
@@ -300,10 +322,17 @@ class AsyncProvidersClient:
         """
         List all available speech synthesis providers in the catalog.
 
-        Returns the full set of speech synthesis providers — each with its display name,
-        number of available models, and a HATEOAS `models` link to
-        `GET /providers/{provider}/models`. The response contains only
+        Returns the speech synthesis providers available to your account — each with its
+        display name, number of available models, a `beta` badge flag, and a HATEOAS
+        `models` link to `GET /providers/{provider}/models`. The response contains only
         customer-facing metadata; cost, credentials, and base URLs are never included.
+
+        Staff can restrict a provider or an individual model to internal accounts or to
+        paying customers. Restricted entries are omitted from this list entirely rather
+        than returned and marked, so the list is exactly what your account may use. `beta`
+        is a display badge only and never affects availability; a provider carries it only
+        when EVERY model available to you under it is beta, so a single experimental model
+        among mature ones is badged on the model rather than on the provider.
 
         This endpoint is the starting point for building a provider/model/voice
         selection flow. The typical traversal is: list providers → follow `models`
@@ -355,9 +384,10 @@ class AsyncProvidersClient:
         Get a single speech synthesis provider by its canonical identifier.
 
         Returns the same shape as an item in `GET /providers` — display name, model
-        count, and a HATEOAS `models` link — but scoped to a single provider. Returns
-        404 if the provider identifier is not recognized. The canonical identifier is
-        the lowercase slug returned in the `provider` field of the list response.
+        count, `beta`, and a HATEOAS `models` link — but scoped to a single provider.
+        Returns 404 if the provider identifier is not recognized or is not available to
+        your account. The canonical identifier is the lowercase slug returned in the
+        `provider` field of the list response.
 
         Parameters
         ----------
@@ -405,15 +435,21 @@ class AsyncProvidersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiListResponseCatalogModelOut:
         """
-        List all models available for a given provider.
+        List the models available to your account for a given provider.
 
         Returns each model's display name, content type, live `voice_count` (the
-        number of platform voices catalogued under that model), and a `controls` map
-        describing the canonical provider-agnostic parameters supported by the model
-        (e.g. speed, stability). Also includes `config_schema` for back-compat — new
-        integrations should prefer `controls` as the authoritative parameter
-        description. Each item includes a HATEOAS `voices` link to the paginated
-        voice list for that model. Returns 404 if the provider is not recognized.
+        number of platform voices catalogued under that model that can produce an
+        officially supported locale on it — the same population the model's `voices`
+        link returns), a `beta` badge flag, and
+        a `controls` map describing the canonical provider-agnostic parameters supported
+        by the model (e.g. speed, stability). Also includes `config_schema` for
+        back-compat — new integrations should prefer `controls` as the authoritative
+        parameter description. Each item includes a HATEOAS `voices` link to the paginated
+        voice list for that model.
+
+        Models staff have restricted to internal accounts or paying customers are omitted
+        unless your account qualifies. Returns 404 if the provider is not recognized or
+        has no models available to your account.
 
         Parameters
         ----------
@@ -472,6 +508,12 @@ class AsyncProvidersClient:
         one entry; voices with no supported models are excluded from all model
         listings.
 
+        Voices are restricted to the officially supported locales, judged against THIS
+        model: a voice whose official locale lives only on a sibling model is not listed
+        here, and `supported_languages` carries only official locales. A voice for which
+        the provider supplied no authoritative locale data for this model is excluded too.
+        The `voice_count` on the model card that links here counts the same population.
+
         Each voice includes gender, age, accent, supported locales, and a short-lived
         presigned `preview_url` for the audio sample — do not cache these URLs across
         sessions. The response `pagination.total` field reflects the total match count
@@ -481,7 +523,8 @@ class AsyncProvidersClient:
         voices and supports favorite/similarity filtering), use `GET /voices` with
         `?provider=` and `?model=` query parameters instead.
 
-        Returns 404 if the provider or model is not recognized.
+        Returns 404 if the provider or model is not recognized or is not available to
+        your account.
 
         Parameters
         ----------
@@ -543,8 +586,9 @@ class AsyncProvidersClient:
 
         Returns the same shape as an item in `GET /providers/{provider}/models`,
         including `controls` (canonical parameter map), `config_schema` (for
-        back-compat), live `voice_count`, and a HATEOAS `voices` link. Returns 404
-        if the provider or model identifier is not recognized.
+        back-compat), live `voice_count`, `beta`, and a HATEOAS `voices` link. Returns
+        404 if the provider or model identifier is not recognized or is not available to
+        your account.
 
         Parameters
         ----------

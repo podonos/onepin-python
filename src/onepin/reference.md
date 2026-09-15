@@ -152,7 +152,7 @@ client.dictionary.list_dictionary_entries(
 <dl>
 <dd>
 
-**sort:** `typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestSort]` — Field to sort by. `uses_count` ranks the most-applied entries first, useful for auditing high-impact corrections.
+**sort:** `typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestSort]` — Field to sort by. `uses_count` is retained for compatibility but is never incremented — no runtime path consumes dictionary entries today.
     
 </dd>
 </dl>
@@ -218,11 +218,17 @@ client.dictionary.list_dictionary_entries(
 
 Create a pronunciation dictionary entry in the current workspace.
 
-Dictionary entries teach the synthesis pipeline how to pronounce words that
-it would otherwise handle incorrectly — brand names, acronyms, technical
-terms, proper nouns, and foreign loanwords. Each entry is scoped to a single
-BCP-47 locale and is applied during workflow execution when that locale is
-the synthesis target.
+Dictionary entries record how words should be pronounced that the synthesis
+pipeline would otherwise handle incorrectly — brand names, acronyms,
+technical terms, proper nouns, and foreign loanwords. Each entry is scoped to
+a single BCP-47 locale.
+
+**Not currently applied at synthesis time.** Entries are stored and returned
+by this API but no workflow node reads them today. Pronunciation control is
+vocalization: it was removed from the normalizer (which performs
+verbalization only) and the replacement path through the phoneme layer has
+not yet been wired to workspace entries. Creating an entry will not change
+generated audio until it is.
 
 Three methods are supported via the `method` field:
 
@@ -1172,10 +1178,17 @@ client.nodes.get_node_detail_v2(
 
 List all available speech synthesis providers in the catalog.
 
-Returns the full set of speech synthesis providers — each with its display name,
-number of available models, and a HATEOAS `models` link to
-`GET /providers/{provider}/models`. The response contains only
+Returns the speech synthesis providers available to your account — each with its
+display name, number of available models, a `beta` badge flag, and a HATEOAS
+`models` link to `GET /providers/{provider}/models`. The response contains only
 customer-facing metadata; cost, credentials, and base URLs are never included.
+
+Staff can restrict a provider or an individual model to internal accounts or to
+paying customers. Restricted entries are omitted from this list entirely rather
+than returned and marked, so the list is exactly what your account may use. `beta`
+is a display badge only and never affects availability; a provider carries it only
+when EVERY model available to you under it is beta, so a single experimental model
+among mature ones is badged on the model rather than on the provider.
 
 This endpoint is the starting point for building a provider/model/voice
 selection flow. The typical traversal is: list providers → follow `models`
@@ -1254,9 +1267,10 @@ client.providers.list_catalog_providers()
 Get a single speech synthesis provider by its canonical identifier.
 
 Returns the same shape as an item in `GET /providers` — display name, model
-count, and a HATEOAS `models` link — but scoped to a single provider. Returns
-404 if the provider identifier is not recognized. The canonical identifier is
-the lowercase slug returned in the `provider` field of the list response.
+count, `beta`, and a HATEOAS `models` link — but scoped to a single provider.
+Returns 404 if the provider identifier is not recognized or is not available to
+your account. The canonical identifier is the lowercase slug returned in the
+`provider` field of the list response.
 </dd>
 </dl>
 </dd>
@@ -1337,15 +1351,21 @@ client.providers.get_catalog_provider(
 <dl>
 <dd>
 
-List all models available for a given provider.
+List the models available to your account for a given provider.
 
 Returns each model's display name, content type, live `voice_count` (the
-number of platform voices catalogued under that model), and a `controls` map
-describing the canonical provider-agnostic parameters supported by the model
-(e.g. speed, stability). Also includes `config_schema` for back-compat — new
-integrations should prefer `controls` as the authoritative parameter
-description. Each item includes a HATEOAS `voices` link to the paginated
-voice list for that model. Returns 404 if the provider is not recognized.
+number of platform voices catalogued under that model that can produce an
+officially supported locale on it — the same population the model's `voices`
+link returns), a `beta` badge flag, and
+a `controls` map describing the canonical provider-agnostic parameters supported
+by the model (e.g. speed, stability). Also includes `config_schema` for
+back-compat — new integrations should prefer `controls` as the authoritative
+parameter description. Each item includes a HATEOAS `voices` link to the paginated
+voice list for that model.
+
+Models staff have restricted to internal accounts or paying customers are omitted
+unless your account qualifies. Returns 404 if the provider is not recognized or
+has no models available to your account.
 </dd>
 </dl>
 </dd>
@@ -1434,6 +1454,12 @@ under multiple models when its `supported_models` list includes more than
 one entry; voices with no supported models are excluded from all model
 listings.
 
+Voices are restricted to the officially supported locales, judged against THIS
+model: a voice whose official locale lives only on a sibling model is not listed
+here, and `supported_languages` carries only official locales. A voice for which
+the provider supplied no authoritative locale data for this model is excluded too.
+The `voice_count` on the model card that links here counts the same population.
+
 Each voice includes gender, age, accent, supported locales, and a short-lived
 presigned `preview_url` for the audio sample — do not cache these URLs across
 sessions. The response `pagination.total` field reflects the total match count
@@ -1443,7 +1469,8 @@ For the workspace voice picker (which merges platform and workspace-scoped
 voices and supports favorite/similarity filtering), use `GET /voices` with
 `?provider=` and `?model=` query parameters instead.
 
-Returns 404 if the provider or model is not recognized.
+Returns 404 if the provider or model is not recognized or is not available to
+your account.
 </dd>
 </dl>
 </dd>
@@ -1553,8 +1580,9 @@ Get a single model for a given provider.
 
 Returns the same shape as an item in `GET /providers/{provider}/models`,
 including `controls` (canonical parameter map), `config_schema` (for
-back-compat), live `voice_count`, and a HATEOAS `voices` link. Returns 404
-if the provider or model identifier is not recognized.
+back-compat), live `voice_count`, `beta`, and a HATEOAS `voices` link. Returns
+404 if the provider or model identifier is not recognized or is not available to
+your account.
 </dd>
 </dl>
 </dd>
@@ -2300,7 +2328,11 @@ This is the primary way to use a template: it produces a new `Workflow`
 owned by the caller's workspace, ready to accept scripts and run jobs.
 
 Use `body.name` to set the workflow name; omit it (or send blank/whitespace)
-to get the default `"{template name} (Copy)"`.
+to name the workflow after the template itself — an inherited template name
+that uses characters workflow names disallow is stripped down to them, or
+replaced by a placeholder name if nothing usable remains. Workflow names are
+not unique within a workspace, so cloning the same template twice succeeds
+and yields two workflows with the same name.
 
 Cross-workspace clones (gallery/starter templates) copy the published
 snapshot so unpublished draft edits made by the template owner never leak to
@@ -2566,12 +2598,42 @@ Every filter accepts repeat-key OR semantics:
 `?gender=female&gender=neutral&category=narration&source=platform&source=workspace`.
 Filters combine across fields with AND; within a field, values OR.
 
+Hybrid search: when `search` is a non-empty string, semantic search is enabled
+for the deployment (`VOICE_SEMANTIC_SEARCH_ENABLED`), and the text embedder is
+available, `search` runs a hybrid of SEMANTIC relevance — meaning, not keywords, so
+"cheerful" also surfaces "bright/upbeat" voices, over the platform voices that carry a
+profile embedding — AND a keyword arm that matches the voice NAME (plus descriptor/tags),
+which also surfaces voices with no embedding and workspace-owned voices in scope, so a
+voice literally named by the query is found. Both arms honor the same filters and are
+fused into one ranking. In that mode `sort`/`order` are IGNORED (relevance order wins).
+If semantic search is disabled, the embedder is
+unavailable, or the embed call fails, `search` transparently falls back to the
+lexical name/tag/descriptor match described below — the response shape
+(`ApiCountedListResponse[VoiceOut]`) is identical either way.
+
 `language` matches a voice when any of its declared locales matches any
 requested value. A voice with no declared locales matches NO `language`
 filter — it must positively declare a locale to surface under it. This holds
 for platform and user-uploaded voices alike: an unclassified platform voice
 (catalog gap) is not treated as general-use, and a user-uploaded/cloned voice
 with no locale stays "language unknown" pending clone-flow detection.
+
+Passing `language` also fills `language_sample_url` on every row that has a clip
+in it — the same audio `GET /voices/{voice_id}/preview?language=` serves, so a
+caller auditioning a shortlist can play the locale-correct take straight from the
+list instead of a request per voice. `language_sample_locale` reports the region
+actually served. Both are null without the filter; `sample_url` is unaffected and
+still does not follow it.
+
+Platform voices are restricted to the officially supported locales: a platform
+voice that declares no official locale is not returned, and the locale arrays on
+the voices that are returned (`supported_languages`,
+`model_capabilities[].supported_languages`, `preview_locales`) list only official
+locales. A bare family code counts as official when the family is supported
+(`ko` qualifies because `ko-kr` is), matching the `language` filter above. Voices
+your workspace owns — imported, recorded, or uploaded — are exempt from both the
+exclusion and the narrowing: they routinely carry no declared locale at all, and
+hiding them would remove a customer's own voices from their own list.
 
 Multi-sort: `sort` and `order` are parallel lists. `?sort=uses_count&sort=name&order=desc&order=asc`
 orders primarily by uses_count DESC, secondarily by name ASC. When `order`
@@ -2682,7 +2744,7 @@ client.voices.list()
 <dl>
 <dd>
 
-**search:** `typing.Optional[str]` — Full-text search against voice name, description, and tags.
+**search:** `typing.Optional[str]` — Searches name, tags, and the voice's summary-derived descriptor text (closely tracks the served description; summary beyond 200 chars is not searched).
     
 </dd>
 </dl>
@@ -2790,6 +2852,29 @@ plus `provider`/`model`/`language`/`gender`/`age`/`category`/`accent`/`search`).
 OTHER active filter but exclude that dimension's own selection — e.g. with
 `provider=elevenlabs` the language counts are scoped to ElevenLabs, while the
 provider chips still show every provider so the caller can switch.
+
+`search` follows the SAME two modes as `GET /voices` (see `_semantic_search_active`).
+In SEMANTIC mode (flag on, embedder available, platform in scope) the chips are
+counted over the population the semantic list can return — every active filter, plus
+"carries a description embedding OR is in the current ranked set" (the ANN only ranks
+embedded voices; the keyword arm contributes the rest) — so the chips describe the
+voices the list actually shows and never collapse to "No matches" on a query that has
+no literal name/tag hit. Per-dimension self-exclusion applies in full, exactly as in
+lexical mode. Counts are clamped to `VOICE_SEARCH_MAX_RANKED`, because the semantic
+list's `pagination.total` is that same capped ranked-set size — so a chip's `count` is
+the number of rows `GET /voices` returns once that value is selected. Two bounded
+exceptions: a voice reachable only through the keyword arm is counted only under the
+value already selected (the ranked set is computed under the current filters), and
+ANN recall can return fewer rows than the chip promises. In the LEXICAL
+fallback (flag off / no embedder / non-platform source / embed fault) `search` is the
+`name`/`descriptor`/`tags` ILIKE and counts are exact (no cap), exactly as before.
+
+Chips are drawn from the same population `GET /voices` returns, so the
+official-locale restriction applies here too and no chip can open an empty page.
+For the `model` dimension the restriction is evaluated per capability row rather
+than per voice — a voice whose only official locale sits on a sibling model does
+not count toward this model's chip, because `GET /voices?model=` would not return
+it either.
 
 Count-0 policy: data-driven dimensions omit count-0 values (only present ones,
 each a valid `GET /voices` filter — providers/models restricted to the enabled
@@ -2949,10 +3034,14 @@ client.voices.get_voice_facets()
 Fetch a single voice by its ID.
 
 Returns both platform (system-wide) voices and voices that belong to the
-caller's workspace. Returns 404 when the voice does not exist or is not
-accessible to the caller's workspace. The `sample_url` field is a
+caller's workspace. Returns 404 when the voice does not exist, is not
+accessible to the caller's workspace, or is a platform voice from a provider
+that is not available to your account. Voices your workspace owns stay
+readable regardless of provider availability. The `sample_url` field is a
 time-limited presigned URL valid for 1 hour; regenerate it by calling this
-endpoint again rather than caching it long-term.
+endpoint again rather than caching it long-term. This endpoint sets
+`Cache-Control: no-store` because the response bakes in that short-lived
+presigned URL — server-side (Redis) caching still applies underneath.
 </dd>
 </dl>
 </dd>
@@ -3039,10 +3128,19 @@ Results are ranked by semantic similarity score (descending) and include the
 reference voice's workspace voices and all platform voices. Each result
 includes a `similarity_score` between 0 and 1. Optionally filter by one or
 more `language` BCP-47 codes (repeat the parameter for OR semantics); up to
-16 language values are accepted. Returns 503 when the reference voice has no
-embedding yet — retry after the indicated `Retry-After` interval. Prefer this
+16 language values are accepted. Results are restricted to officially supported
+locales on the same terms as `GET /voices`; the reference voice itself is not,
+so you can ask for neighbours of a voice that no longer appears in the list.
+Returns 503 when the reference voice has no embedding yet — retry after the
+indicated `Retry-After` interval. Prefer this
 endpoint over `GET /voices` with manual filtering when building a
 "voices like this" recommendation UI.
+
+Platform voices from providers that are not available to your account are
+rejected as a reference (404) and omitted from the results; voices your
+workspace owns are unaffected. This endpoint sets `Cache-Control: no-store`
+because the response bakes in short-lived presigned sample URLs — server-side
+(Redis) caching still applies underneath for the default `limit`/`language` shape.
 </dd>
 </dl>
 </dd>
@@ -3127,6 +3225,124 @@ client.voices.similar(
 </dl>
 </details>
 
+<details><summary><code>client.voices.<a href="src/onepin/voices/client.py">preview</a>(...) -> ApiResponseVoicePreviewOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Fetch ready-to-play preview audio for one voice in one language.
+
+Returns the voice's `name`, the preview's `locale`, the `model` it was
+synthesized with, its stored `content_type`, and a `sample_url` — a
+time-limited presigned URL valid for 1 hour; regenerate it by calling this
+endpoint again rather than caching it long-term. Pass `model` to prefer a
+specific TTS model; a preview from another model is still returned when
+that model has none.
+
+`language` accepts a bare family (`ko`, `en`) as well as an exact locale
+(`ko-kr`, `en-gb`). A bare family expands to every supported locale in it,
+and which region wins is deterministic but arbitrary — so the response
+echoes the `locale` actually served. Read `locale`, never the request
+parameter, when labelling what the caller is hearing.
+
+404 means no preview audio has been generated for this voice in that
+locale — NOT that the voice cannot speak it. `supported_languages` on the
+voice is the claim about what it can speak; `preview_locales` is the list
+of locales this endpoint will succeed for. 404 is also returned when the
+voice does not exist, is not accessible to the caller's workspace, or is a
+platform voice from a provider that is not available to your account.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.voices.preview(
+    voice_id="voice_id",
+    language="de",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**voice_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**language:** `PreviewVoicesRequestLanguage` — BCP-47 language code, e.g. en-us, ko-kr
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**model:** `typing.Optional[str]` — TTS model id, e.g. sonic-2
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.voices.<a href="src/onepin/voices/client.py">favorite_voice</a>(...) -> ApiResponseVoiceOut</code></summary>
 <dl>
 <dd>
@@ -3141,10 +3357,17 @@ client.voices.similar(
 
 Add a voice to the current workspace's favorites.
 
+The response is a full `VoiceOut` and is narrowed exactly as `GET /voices/{voice_id}`
+is, so favoriting a voice never reveals locales the read endpoints hide. Note that
+favoriting a platform voice with no official locale succeeds but that voice will
+not appear under `?favorites_only=true`, which applies the same list restriction.
+
 Favorites are workspace-scoped, not per-user: all members of the workspace
 see the same favorited set. Idempotent — favoriting a voice that is already
 favorited succeeds without error. Returns the voice with `is_favorite=true`.
-Requires the caller to have at least editor role in the workspace.
+Requires the caller to have at least editor role in the workspace. Returns
+404 for a platform voice from a provider that is not available to your
+account; voices your workspace owns can always be favorited.
 </dd>
 </dl>
 </dd>
@@ -4612,6 +4835,273 @@ client.workspaces.update_workspace(
 </dl>
 </details>
 
+<details><summary><code>client.workspaces.<a href="src/onepin/workspaces/client.py">get_workspace_plan_limits</a>(...) -> ApiResponsePlanLimits</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+The plan limits that govern THIS workspace's tier — the workspace-scoped counterpart of
+``/users/me/limits``.
+
+For a personal workspace this resolves to the owning user's plan; for an **org** workspace it
+resolves to the **organization's** plan (from the org principal), or free-tier limits when the
+org has no plan assigned yet. Use this instead of ``/users/me/limits`` when rendering a
+workspace's plan/entitlements, so an org workspace shows the ORGANIZATION's plan rather than the
+acting member's personal one. Open to any member (read); membership is existence-hidden (404).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workspaces.get_workspace_plan_limits(
+    workspace_id="workspace_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workspace_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.workspaces.<a href="src/onepin/workspaces/client.py">get_workspace_subscription</a>(...) -> ApiResponseUnionCustomerSubscriptionResponseNoneType</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+The active subscription governing THIS workspace — the workspace-scoped counterpart of
+``/users/me/subscription``.
+
+Personal workspace → the owning user's subscription, readable **only by the owner**; **org**
+workspace → the **organization's** subscription (or ``null`` on free tier), readable by any
+member or an org admin. Use this instead of ``/users/me/subscription`` when rendering a
+workspace's plan, so an org workspace shows the ORGANIZATION's plan. Membership is
+existence-hidden (404); the org-admin fallback applies (an org admin with no materialized
+member row can still read).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workspaces.get_workspace_subscription(
+    workspace_id="workspace_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workspace_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.workspaces.<a href="src/onepin/workspaces/client.py">create_workspace_org_checkout</a>(...) -> ApiResponseCheckoutResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create a self-serve Stripe Checkout session to put THIS ORGANIZATION on a paid plan (card).
+
+Workspace-**admin** only (403 otherwise), and only for an **org** workspace (400 for a personal
+one — personal billing uses ``/billing/checkout``). The org's own Stripe Customer + subscription
+are used; returns 409 if the org already has an active subscription OR a staff-assigned plan.
+Enterprise (CUSTOM) plans are staff-assigned/invoice-billed, not self-serve — the two paths coexist.
+``coupon_code`` is not supported for org checkout and is **rejected with 422** if supplied (never
+silently dropped). Membership is existence-hidden: a non-member gets 404, not 403.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workspaces.create_workspace_org_checkout(
+    workspace_id="workspace_id",
+    plan_price_id="plan_price_id",
+    return_url="return_url",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workspace_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**plan_price_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**return_url:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**coupon_code:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## uploads
 <details><summary><code>client.uploads.<a href="src/onepin/uploads/client.py">create</a>(...) -> ApiResponseUploadCreateResponse</code></summary>
 <dl>
@@ -4635,7 +5125,7 @@ The two-step upload flow:
    upload record transitions from `pending` to `uploaded`.
 
 `category` controls which file formats are accepted:
-- `script` — text-based formats (txt, srt, csv, json, xliff, docx)
+- `script` — text-based formats (txt, pdf)
 - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
 
 The presigned URL expires within a short window (see `upload_url` TTL in the
@@ -4695,7 +5185,7 @@ client.uploads.create(
 <dl>
 <dd>
 
-**category:** `UploadRequestCategory` — File category. Determines which formats are accepted: `script` for text formats (txt, srt, csv, json, xliff, docx); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+**category:** `UploadRequestCategory` — File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
     
 </dd>
 </dl>
@@ -4739,9 +5229,9 @@ Confirm a completed upload and bind it to a resource (step 2 of 2).
 
 Call this after successfully PUTting your file to the presigned URL returned
 by `POST /uploads`. Provide `context_type` and `context_id` to associate the
-file with an existing resource (currently `workflow` is the supported context
-type). The file is moved to its final location and `status` transitions from
-`pending` to `uploaded`.
+file with an existing `workflow` or `assistant_session` resource, or with the
+selected workspace for `playground`. The file is moved to its final location
+and `status` transitions from `pending` to `uploaded`.
 
 This endpoint is idempotent: if the upload was already confirmed, the current
 state is returned without re-processing.
@@ -4751,9 +5241,12 @@ would exceed the workspace storage limit, a 402 is returned and the file
 remains in its staging location (the upload record stays `pending` so you can
 delete the staging file and try a smaller file).
 
-Binding to a workspace-scoped resource requires the caller to be a member of
-that workspace. Workspace is inferred from the resource when `X-Workspace-Id`
-is omitted.
+Binding to a workspace-scoped resource requires the caller to hold at least the
+`editor` role in that workspace (viewers get 403); the workspace is inferred from
+the resource when `X-Workspace-Id` is omitted. Workspace membership is always
+required (non-members get 404). The internal `playground` context replaces the
+`editor` requirement with current platform-admin identity. API-key callers are
+workspace-scoped already and bypass the role check for non-playground contexts.
 
 Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 </dd>
@@ -4867,6 +5360,10 @@ the workspace storage counter accurate.
 Callers can delete uploads in any state (`pending` or `uploaded`). Deleting
 a `pending` upload (e.g. after an expired presigned URL) is the correct way
 to clean up an abandoned upload attempt.
+
+Delete is owner-scoped: the lookup is limited to the caller's own uploads, so no
+workspace-role gate applies — a caller can only remove their own upload, never another
+member's workspace content.
 
 Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 </dd>
@@ -5312,13 +5809,17 @@ client.usage.usage_activity()
 Return the caller's current credit balance and billing period details.
 
 `balance` is the authoritative gate value: use it to decide whether to
-attempt a workflow run. `remaining` is a display convenience derived from
-settled ledger entries and may temporarily exceed `balance` while a workflow
-run holds an open reserve. `used` reflects credits consumed in the current
+attempt a workflow run. `remaining` is a display alias for the same combined
+monthly + lifetime-free spendable pool. `used` reflects credits consumed in the current
 billing period. `plan_grant` is the total monthly credit allowance for the
-caller's plan, enabling a "X / Y used" display. `period_start` and
-`period_end` mark the boundaries of the current billing window; free-tier
-callers use a calendar-month boundary.
+caller's plan, enabling a "X / Y used" display. `period_start` is the current
+credit anchor and `period_end` is the next EXPECTED credit-reset boundary
+(`period_start` + 1 month), or null when no reset is promised — Free/one-time,
+unanchored, a canceling/ended entitlement, or a monthly renewal whose boundary
+passed without confirmed payment. `period_end` is the expected boundary, not a
+guaranteed grant time: monthly credits stay gated on successful Stripe payment.
+For an annual subscriber this GET may perform idempotent maintenance, granting
+any due intermediate monthly credits before returning; retries remain safe.
 </dd>
 </dl>
 </dd>
@@ -5856,6 +6357,14 @@ client.workflows.list()
 <dl>
 <dd>
 
+**include_definition:** `typing.Optional[bool]` — Include each workflow's full `definition` graph in the response. Off by default because the graphs dominate the payload and a list view does not render them; turn it on to compare what the listed workflows do without a per-workflow GET.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **offset:** `typing.Optional[int]` — Zero-based pagination offset.
     
 </dd>
@@ -5914,6 +6423,11 @@ workspace; viewers cannot create workflows.
 The `definition` contains a `graph` (nodes and edges) and an `execution`
 block (ordered step list and execution params). Omitting `definition`
 creates a workflow with an empty graph that can be edited later.
+
+`name` is optional. Omit it to get the server-side placeholder
+`"Untitled workflow"` (`name_source: "placeholder"`), which the assistant
+auto-names from the first message via `POST /workflows/{id}/name/generate`.
+An explicit `name` is stored as-is with `name_source: "user"`.
 </dd>
 </dl>
 </dd>
@@ -5936,9 +6450,7 @@ client = OnePinClient(
     environment=OnePinClientEnvironment.PROD,
 )
 
-client.workflows.create_workflow(
-    name="name",
-)
+client.workflows.create_workflow()
 
 ```
 </dd>
@@ -5954,7 +6466,7 @@ client.workflows.create_workflow(
 <dl>
 <dd>
 
-**name:** `str` — Human-readable workflow name (1–200 characters, non-blank).
+**workspace_id:** `typing.Optional[str]` 
     
 </dd>
 </dl>
@@ -5962,7 +6474,7 @@ client.workflows.create_workflow(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]` 
+**name:** `typing.Optional[str]` — Human-readable workflow name (1–200 characters, non-blank). Omit to create an unnamed workflow that gets a server-side placeholder and is auto-named from the first assistant message.
     
 </dd>
 </dl>
@@ -6010,14 +6522,13 @@ client.workflows.create_workflow(
 <dl>
 <dd>
 
-Check whether a workflow name is free within the current workspace.
+Deprecated shim kept for the pre-auto-name web client, which gates its
+create button on this call.
 
-Workflow names are unique per workspace among live (non-deleted) workflows,
-so this lets a client validate a name before create or rename. The `name` is
-trimmed and validated with the same policy as create — an invalid name
-returns 422. The check is case-sensitive and ignores soft-deleted workflows,
-mirroring the underlying uniqueness constraint. Pass `exclude_id` when
-renaming so the workflow's current name is not reported as taken by itself.
+Workflow names are no longer unique per workspace, so this always reports
+`available: true` for a name that passes the shared name policy. An invalid
+name still returns 422. `exclude_id` is accepted and ignored. Removed once no
+deployed client calls it.
 </dd>
 </dl>
 </dd>
@@ -6115,7 +6626,8 @@ applied, so node configs always reflect the current schema even if the
 workflow was saved with an older version.
 
 Use `GET /workflows` to list multiple workflows without fetching their
-full definitions.
+full definitions, or `GET /workflows?include_definition=true` to list them
+with the same migrated `definition` this route returns.
 </dd>
 </dl>
 </dd>
@@ -6495,6 +7007,103 @@ client.workflows.patch_workflow(
 </dl>
 </details>
 
+<details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">get_workflow_markdown</a>(...) -> ApiResponseWorkflowMarkdownOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Render this workflow as a markdown document.
+
+For showing a person what a workflow is: the pipeline in execution order with
+parallel steps as branches, retry loops called out on their own line, a node
+table with each node's configuration, the voices, and the quality gates with
+what each one does on failure.
+
+Text only, and printable as-is on any surface including a terminal: there is
+no diagram, because the pipeline section already states the graph, retry loops
+included.
+
+The rendering is server-side so every client describes a graph the same way. A
+renderer in each CLI and each UI would diverge the first time a node type
+shipped, and nothing would report the divergence.
+
+`definition` is config-migrated first, exactly as `GET /workflows/{id}` returns
+it, so the document never describes a node config the API no longer serves.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workflows.get_workflow_markdown(
+    workflow_id="workflow_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workflow_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">list_workflow_uploads</a>(...) -> ApiListResponseUploadOut</code></summary>
 <dl>
 <dd>
@@ -6615,8 +7224,12 @@ Estimate the credit cost of running a workflow without creating a run.
 
 Computes a breakdown of expected credits per node type based on the
 workflow's current definition. No run is created, no credits are charged,
-and no side effects occur. Equivalent to `POST /runs/preview`; prefer that
-path in new integrations as it is co-located with the run lifecycle.
+and no side effects occur. The optional request body accepts the same
+run-scoped `script_text`/`source_language` overrides as `POST /runs`, so
+an estimate that will be followed by a run with those overrides prices
+the text that run will actually speak. Equivalent to `POST /runs/preview`;
+prefer that path in new integrations as it is co-located with the run
+lifecycle.
 </dd>
 </dl>
 </dd>
@@ -6631,7 +7244,7 @@ path in new integrations as it is co-located with the run lifecycle.
 <dd>
 
 ```python
-from onepin import OnePinClient
+from onepin import OnePinClient, WorkflowRunStartIn
 from onepin.environment import OnePinClientEnvironment
 
 client = OnePinClient(
@@ -6641,6 +7254,7 @@ client = OnePinClient(
 
 client.workflows.estimate_workflow(
     workflow_id="workflow_id",
+    request=WorkflowRunStartIn(),
 )
 
 ```
@@ -6666,6 +7280,14 @@ client.workflows.estimate_workflow(
 <dd>
 
 **workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `typing.Optional[WorkflowRunStartIn]` 
     
 </dd>
 </dl>
@@ -6701,8 +7323,12 @@ Dry-run credit estimate for a workflow — no run is created.
 
 Returns a per-node-type credit breakdown based on the workflow's current
 definition. No run is enqueued, no credits are charged, and the workflow
-state is not modified. Use this before calling `POST /runs` to confirm
-the expected cost. Equivalent to `POST /estimate`.
+state is not modified. The optional request body accepts the same
+run-scoped `script_text`/`source_language` overrides as `POST /runs`
+(applied to this preview only, same as a run's snapshot) — so estimating
+with a script and then running with that script prices the operation
+that will actually be charged. Use this before calling `POST /runs` to
+confirm the expected cost. Equivalent to `POST /estimate`.
 </dd>
 </dl>
 </dd>
@@ -6717,7 +7343,7 @@ the expected cost. Equivalent to `POST /estimate`.
 <dd>
 
 ```python
-from onepin import OnePinClient
+from onepin import OnePinClient, WorkflowRunStartIn
 from onepin.environment import OnePinClientEnvironment
 
 client = OnePinClient(
@@ -6727,6 +7353,7 @@ client = OnePinClient(
 
 client.workflows.preview_run(
     workflow_id="workflow_id",
+    request=WorkflowRunStartIn(),
 )
 
 ```
@@ -6752,6 +7379,14 @@ client.workflows.preview_run(
 <dd>
 
 **workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `typing.Optional[WorkflowRunStartIn]` 
     
 </dd>
 </dl>
@@ -6786,12 +7421,16 @@ client.workflows.preview_run(
 Aggregate run statistics for a workflow over an optional date window.
 
 Returns per-status counts (`completed`, `failed`, `cancelled`, `pending`,
-`running`, `paused`) plus two derived metrics:
+`running`, `paused`) plus three derived metrics:
 
-- `pass_rate`: `completed / (completed + failed + cancelled)`. `null` when
-  there are no terminal runs in the window.
-- `average_duration_seconds`: mean of `completed_at - started_at` over
-  successfully completed runs only. `null` when no runs have completed.
+- `pass_rate`: `completed / (completed + failed)`. Cancelled runs are
+  user-aborted, not quality failures, so they are excluded. `null` when
+  there are no non-cancelled terminal runs in the window.
+- `delivered_audio_ms`: total delivered-take audio in milliseconds, summed
+  over completed runs.
+- `average_duration_seconds`: mean *active* duration — `completed_at -
+  started_at` minus paused time — over successfully completed runs only.
+  `null` when no runs have completed.
 
 **Date range:** `from` / `to` filter by `created_at`. Both must be ISO 8601
 with a UTC offset; a naive datetime returns 422. An inverted range
@@ -7036,6 +7675,127 @@ client = OnePinClient(
 )
 
 client.workflows.get_run_overview(
+    workflow_id="workflow_id",
+    run_id="run_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workflow_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**run_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">get_run_analysis</a>(...) -> ApiResponseWorkflowRunAnalysisOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Fetch delivery, quality and cost analysis for a workflow run.
+
+Three independent blocks, each carrying its own `status` so one unavailable
+block never blanks the others:
+
+- `audio` — delivered vs replaced audio duration per locale. "Replaced"
+  counts persisted non-delivered takes only; discarded takes and split-line
+  concat entries are excluded so nothing is double counted.
+- `validators` — one entry per validator NODE (not per kind: two validators
+  of the same kind on different generators are legal and may carry different
+  thresholds), with per-locale scores read from each line's DELIVERED take.
+- `credits` — per-node breakdown of the run's charge, mirroring the ledger.
+  Amounts are unrounded decimal STRINGS; the run-level floor and minimum are
+  applied once at settlement and reported separately as `charged`, which is
+  the balance debit PLUS `overage_credits` — the remainder billed against the
+  next invoice when a paid plan's balance ran out mid-run.
+
+The `run` block's `duration_ms` is ACTIVE duration — wall-clock
+(`completed_at - started_at`) minus time the run spent paused — and
+`paused_ms` reports that excluded paused total (POD-417).
+
+Scores here can differ from `GET /runs/{run_id}/overview`: that endpoint
+reads each line's last take and is frozen on those semantics, while this one
+reads the take actually delivered. When a retry produced a worse clip and an
+earlier one won, the two legitimately disagree.
+
+Related sub-resources:
+
+- `GET /runs/{run_id}` — full run record including the raw definition snapshot.
+- `GET /runs/{run_id}/status` — volatile status fields only; for polling.
+- `GET /runs/{run_id}/overview` — pre-aggregated metrics and node state map.
+- `GET /runs/{run_id}/data` — paginated script+audio rows for a data table.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workflows.get_run_analysis(
     workflow_id="workflow_id",
     run_id="run_id",
 )
@@ -7585,6 +8345,8 @@ transitions to `paused` status once drained; during the drain period,
 The operation is idempotent: pausing an already-paused run returns it
 unchanged. A paused run can be resumed via `POST /runs/{run_id}/resume`
 or permanently stopped via `POST /runs/{run_id}/cancel`.
+
+Requires at least `editor` role in the workspace; viewers cannot pause runs.
 </dd>
 </dl>
 </dd>
@@ -7685,6 +8447,8 @@ workflow, or if the caller is at the concurrent-run limit. In that case
 the run stays `paused` and the caller can retry later. Only runs in
 `paused` status can be resumed; attempting to resume a `running`,
 `completed`, `failed`, or `cancelled` run returns 409.
+
+Requires at least `editor` role in the workspace; viewers cannot resume runs.
 </dd>
 </dl>
 </dd>
@@ -7735,6 +8499,108 @@ client.workflows.resume_run(
 <dd>
 
 **run_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.workflows.<a href="src/onepin/workflows/client.py">validate_workflow</a>(...) -> ApiResponseWorkflowValidateOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Validate a workflow `definition` against the FULL run-start bundle, without saving it.
+
+Runs every gate a run start would apply — `validate_definition` (structural /
+port-contract validation) plus every `preflight_definition` gate (source/output
+completeness, locale routing, translator coverage) — not the narrower save-time
+subset `POST /workflows` and `PUT /workflows/{id}` use. A definition that saves
+cleanly can still fail every one of these; that gap is exactly what this endpoint
+exists to close before a definition is ever persisted.
+
+Always returns 200. `valid: false` with a populated `errors` list is itself a
+successful answer to "is this valid?" — 422 stays reserved for a malformed request
+body. A true entitlement refusal (a plan-gated node/provider the caller's plan
+cannot use, `ErrorCode.FORBIDDEN`) is reported separately in `blocked`: not fixable
+by editing the graph. A voice-ownership violation (unauthorized/unknown/unsupported
+voice reference) is `ErrorCode.VALIDATION_ERROR` instead — an LLM fixes it the same
+way it fixes any other rule, by picking a different voice/model — so it is folded
+into `errors` like every other rule violation, not `blocked`.
+
+No side effects — nothing is read from or written to the `workflows` table.
+Requires at least `editor` role. Scope is `workflows:write` deliberately: a caller
+who cannot create a workflow should not receive a validation result that exists
+only to gate creation.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient, WorkflowDefinitionInput
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workflows.validate_workflow(
+    definition=WorkflowDefinitionInput(),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**definition:** `WorkflowDefinitionInput` — Graph and execution config to validate. Nothing is persisted.
     
 </dd>
 </dl>
@@ -8024,6 +8890,8 @@ incur no charges.
 
 Returns 409 if the workspace is at its concurrent-run limit or another
 run for this workflow is already active.
+
+Requires at least `editor` role in the workspace; viewers cannot run workflows.
 </dd>
 </dl>
 </dd>
@@ -8465,6 +9333,8 @@ idempotent success; a still-active compare-and-swap loser returns 409.
 
 Unlike `pause`, cancel is permanent — a cancelled run cannot be resumed.
 Use `pause` if you intend to continue the run later.
+
+Requires at least `editor` role in the workspace; viewers cannot cancel runs.
 </dd>
 </dl>
 </dd>

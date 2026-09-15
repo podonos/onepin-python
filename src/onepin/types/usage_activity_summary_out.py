@@ -33,17 +33,17 @@ class UsageActivitySummaryOut(UniversalBaseModel):
 
     total: int = pydantic.Field()
     """
-    Total generated line count across all activity buckets.
+    Total credits consumed across all activity buckets — workspace-wide over the activity view window. Distinct from `UsageSummaryOut.credits.used`, which is the caller's own consumption scoped to the billing period.
     """
 
     avg: float = pydantic.Field()
     """
-    Average generated line count per activity bucket, rounded to 1 decimal.
+    Average credits consumed per activity bucket, rounded to 1 decimal.
     """
 
     peak: typing.Optional[UsageActivityPeakOut] = pydantic.Field(default=None)
     """
-    The bucket with the highest line count, or `null` when there is no activity.
+    The bucket with the highest credit consumption, or `null` when no credits were consumed.
     """
 
     if IS_PYDANTIC_V2:

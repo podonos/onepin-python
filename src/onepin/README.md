@@ -13,7 +13,6 @@ The OnePin Python library provides convenient access to the OnePin APIs from Pyt
 - [Environments](#environments)
 - [Async Client](#async-client)
 - [Exception Handling](#exception-handling)
-- [Pagination](#pagination)
 - [Advanced](#advanced)
   - [Access Raw Response Data](#access-raw-response-data)
   - [Retries](#retries)
@@ -100,29 +99,6 @@ try:
 except ApiError as e:
     print(e.status_code)
     print(e.body)
-```
-
-## Pagination
-
-Paginated requests will return a `SyncPager` or `AsyncPager`, which can be used as generators for the underlying object.
-
-```python
-from onepin import OnePinClient
-
-client = OnePinClient(
-    token="<token>",
-)
-
-client.templates.list()
-```
-
-```python
-# You can also iterate through pages and access the typed response per page
-pager = client.templates.list(...)
-for page in pager.iter_pages():
-    print(page.response)  # access the typed response for each page
-    for item in page:
-        print(item)
 ```
 
 ## Advanced

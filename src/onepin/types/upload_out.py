@@ -55,12 +55,17 @@ class UploadOut(UniversalBaseModel):
 
     char_count: typing.Optional[int] = pydantic.Field(default=None)
     """
-    Decoded character count of the uploaded script, using the same definition as usage/billing (`unit_chars`): the sum of Unicode code-point lengths of each stripped, non-empty line (leading/trailing whitespace, blank lines, and newlines excluded). Populated after a successful confirm for `script` uploads in plain-text (`.txt`) format only. `null` while pending, for `.csv` (script column is chosen after confirm), for other formats, and for `dictionary` (audio) uploads.
+    Decoded character count of the uploaded script: the sum of Unicode code-point lengths of each stripped, non-empty line (leading/trailing whitespace, blank lines, and newlines excluded). This is always code points; it equals the billed `unit_chars` for character-billed models but not for byte-billed models (e.g. Fish Audio), which bill UTF-8 bytes. Populated after a successful confirm for `script` uploads in `.txt` or `.pdf` format (a PDF is parsed with the same text extractor the run uses). `null` while pending, for a PDF whose text cannot be extracted (encrypted, scanned/image-only, or corrupt), and for `dictionary` (audio) uploads.
     """
 
     line_count: typing.Optional[int] = pydantic.Field(default=None)
     """
-    Number of non-empty lines in the uploaded script. Populated alongside `char_count` (same scope: confirmed `script` `.txt` uploads); `null` otherwise.
+    Number of non-empty lines in the uploaded script. Populated alongside `char_count` (same scope: confirmed `script` `.txt`/`.pdf` uploads); `null` otherwise.
+    """
+
+    detected_language: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Server-detected dominant source language as a bare BCP-47 code (e.g. `en`, `ko`). Populated after a successful confirm for `script` `.txt`/`.pdf` uploads. The client maps it to a supported regional locale (e.g. `en` → `en-us`). `null` when detection is not confident, when the detected language is not a supported locale, and for non-script uploads — in which case the source language is picked manually.
     """
 
     download_url: typing.Optional[str] = pydantic.Field(default=None)

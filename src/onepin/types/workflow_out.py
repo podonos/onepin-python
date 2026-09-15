@@ -24,6 +24,11 @@ class WorkflowOut(UniversalBaseModel):
     Human-readable workflow name.
     """
 
+    name_source: str = pydantic.Field()
+    """
+    How `name` was set: 'placeholder' | 'generated' | 'user'.
+    """
+
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
     Optional workflow description.

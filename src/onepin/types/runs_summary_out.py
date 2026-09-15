@@ -44,12 +44,17 @@ class RunsSummaryOut(UniversalBaseModel):
 
     pass_rate: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Fraction of terminal runs that completed successfully: `completed / (completed + failed + cancelled)`. Null when there are no terminal runs.
+    Fraction of non-cancelled terminal runs that completed successfully: `completed / (completed + failed)`. Cancelled runs are user-aborted, not quality failures, so they are excluded. Null when there are no non-cancelled terminal runs.
+    """
+
+    delivered_audio_ms: int = pydantic.Field()
+    """
+    Delivered-take audio in milliseconds, summed over completed runs only, within the queried window. Intentionally narrower than the workspace usage 'Audio' total (which counts all terminal runs, including cancelled), so the two are not expected to reconcile. Runs that completed before this figure was stamped (v0.41.105, 2026-08-07) have no stored value and count as 0.
     """
 
     average_duration_seconds: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Mean wall-clock duration in seconds over completed runs only (`completed_at - started_at`). Null when no runs have completed.
+    Mean active duration in seconds over completed runs only (`completed_at - started_at` minus paused time). Null when no runs have completed.
     """
 
     if IS_PYDANTIC_V2:

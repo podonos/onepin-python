@@ -10,7 +10,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 class UsageActivityPeakOut(UniversalBaseModel):
     value: int = pydantic.Field()
     """
-    Peak bucket line count.
+    Peak bucket credit consumption.
     """
 
     label: str

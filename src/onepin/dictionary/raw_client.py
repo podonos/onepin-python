@@ -78,7 +78,7 @@ class RawDictionaryClient:
             Filter by one or more entry methods. Repeat to OR: `?method=spelled&method=recorded`. Omit to return all methods.
 
         sort : typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestSort]
-            Field to sort by. `uses_count` ranks the most-applied entries first, useful for auditing high-impact corrections.
+            Field to sort by. `uses_count` is retained for compatibility but is never incremented — no runtime path consumes dictionary entries today.
 
         order : typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestOrder]
             Sort direction.
@@ -161,11 +161,17 @@ class RawDictionaryClient:
         """
         Create a pronunciation dictionary entry in the current workspace.
 
-        Dictionary entries teach the synthesis pipeline how to pronounce words that
-        it would otherwise handle incorrectly — brand names, acronyms, technical
-        terms, proper nouns, and foreign loanwords. Each entry is scoped to a single
-        BCP-47 locale and is applied during workflow execution when that locale is
-        the synthesis target.
+        Dictionary entries record how words should be pronounced that the synthesis
+        pipeline would otherwise handle incorrectly — brand names, acronyms,
+        technical terms, proper nouns, and foreign loanwords. Each entry is scoped to
+        a single BCP-47 locale.
+
+        **Not currently applied at synthesis time.** Entries are stored and returned
+        by this API but no workflow node reads them today. Pronunciation control is
+        vocalization: it was removed from the normalizer (which performs
+        verbalization only) and the replacement path through the phoneme layer has
+        not yet been wired to workspace entries. Creating an entry will not change
+        generated audio until it is.
 
         Three methods are supported via the `method` field:
 
@@ -728,7 +734,7 @@ class AsyncRawDictionaryClient:
             Filter by one or more entry methods. Repeat to OR: `?method=spelled&method=recorded`. Omit to return all methods.
 
         sort : typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestSort]
-            Field to sort by. `uses_count` ranks the most-applied entries first, useful for auditing high-impact corrections.
+            Field to sort by. `uses_count` is retained for compatibility but is never incremented — no runtime path consumes dictionary entries today.
 
         order : typing.Optional[ListDictionaryEntriesApiV1DictionaryGetRequestOrder]
             Sort direction.
@@ -811,11 +817,17 @@ class AsyncRawDictionaryClient:
         """
         Create a pronunciation dictionary entry in the current workspace.
 
-        Dictionary entries teach the synthesis pipeline how to pronounce words that
-        it would otherwise handle incorrectly — brand names, acronyms, technical
-        terms, proper nouns, and foreign loanwords. Each entry is scoped to a single
-        BCP-47 locale and is applied during workflow execution when that locale is
-        the synthesis target.
+        Dictionary entries record how words should be pronounced that the synthesis
+        pipeline would otherwise handle incorrectly — brand names, acronyms,
+        technical terms, proper nouns, and foreign loanwords. Each entry is scoped to
+        a single BCP-47 locale.
+
+        **Not currently applied at synthesis time.** Entries are stored and returned
+        by this API but no workflow node reads them today. Pronunciation control is
+        vocalization: it was removed from the normalizer (which performs
+        verbalization only) and the replacement path through the phoneme layer has
+        not yet been wired to workspace entries. Creating an entry will not change
+        generated audio until it is.
 
         Three methods are supported via the `method` field:
 

@@ -5,6 +5,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .pause_reason import PauseReason
 
 
 class WorkflowRunStepOut(UniversalBaseModel):
@@ -19,6 +20,21 @@ class WorkflowRunStepOut(UniversalBaseModel):
     result: typing.Optional[typing.Dict[str, typing.Any]] = None
     has_result: typing.Optional[bool] = None
     active_ports: typing.Optional[typing.List[str]] = None
+    locales: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Locales of the lines this step processes, sorted and de-duplicated, stamped once when the step was created. Null for a node with no line input and for steps created before this field existed. On a fail-wins wave this may be a superset of the locales actually synthesized: it is taken from the raw gathered input, before delivery filtering.
+    """
+
+    pause_reason: typing.Optional[PauseReason] = pydantic.Field(default=None)
+    """
+    Why this step was interrupted recoverably. Null for steps that were not affected by the current or historical pause episode.
+    """
+
+    pause_error: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Persistent customer-facing explanation for this step's recoverable interruption. Separate from terminal error.
+    """
+
     error: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:

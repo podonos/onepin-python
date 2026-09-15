@@ -5,6 +5,8 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .held_node_out import HeldNodeOut
+from .pause_reason import PauseReason
 from .triggered_by_out import TriggeredByOut
 
 
@@ -24,19 +26,58 @@ class WorkflowRunDetailOut(UniversalBaseModel):
     total_nodes: typing.Optional[int] = None
     total_steps: typing.Optional[int] = None
     finished_steps: typing.Optional[int] = None
+    finished_nodes: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Graph nodes that have reached a terminal state, judged by each node's highest-iteration step, so a retried node counts once. Pair with total_nodes for 'N of M completed'. A node interrupted by an automatic pause does NOT count while parked (its step is cancelled with a hard recovery checkpoint and is reopened in place on resume), so that kind of pause neither inflates the count nor drops it on resume. A partial-recovery resume schedules a NEW iteration for the node, so the count can drop by one until that iteration finishes. finished_steps counts rows and never excludes the parked row.
+    """
+
+    held_nodes: typing.Optional[typing.List[HeldNodeOut]] = pydantic.Field(default=None)
+    """
+    Nodes the run is parked in front of, each with the locales it will process. Meaningful while status == 'paused'; cleared to null on resume and RETAINED on a run cancelled while paused. Null (never []) also means never computed: a run paused before this field shipped, or one parked straight from 'pending'. [] means it WAS computed and nothing is held. Excludes nodes skipped by an upstream discard and a node interrupted mid-execution by an automatic pause (that one is visible as its own cancelled step).
+    """
+
     token_cost: int
     usage_summary: typing.Optional[typing.Dict[str, typing.Any]] = None
     started_at: typing.Optional[dt.datetime] = None
     completed_at: typing.Optional[dt.datetime] = None
     pause_requested_at: typing.Optional[dt.datetime] = None
     paused_at: typing.Optional[dt.datetime] = None
+    paused_ms: typing.Optional[int] = None
+    pause_reason: typing.Optional[PauseReason] = pydantic.Field(default=None)
+    """
+    Why the run is paused or draining toward an automatic pause. Manual pauses use user; null when no pause is active.
+    """
+
+    pause_error: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Aggregate customer-facing explanation for an automatic pause. Null for manual pauses and separate from terminal error.
+    """
+
     created_at: dt.datetime
     updated_at: dt.datetime
     error: typing.Optional[str] = None
     has_export: typing.Optional[bool] = None
     triggered_by: typing.Optional[TriggeredByOut] = None
-    credits: typing.Optional[int] = None
+    credits: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Credits debited from the user's spendable balance for this run; excludes invoiced overage.
+    """
+
+    credits_absorbed: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Credits discounted by floor-rounding for this run. This is the positive sub-credit remainder above the charged floor and excludes any minimum charge adjustment; charged credits plus this value reconstructs true cost only for fully covered, uncapped runs that were not lifted by the minimum charge. Returns 0 for unsettled or legacy runs.
+    """
+
     definition_snapshot: typing.Optional[typing.Dict[str, typing.Any]] = None
+    public_share_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Share id when this run is published publicly, else null. Clients build the share URL as `<app origin>/r/<public_share_id>`. Readable with an API key, but only the dashboard (Clerk JWT) can create or revoke a share.
+    """
+
+    shared_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
+    """
+    When the run was published. Null whenever `public_share_id` is null.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

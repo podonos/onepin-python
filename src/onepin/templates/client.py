@@ -425,7 +425,11 @@ class TemplatesClient:
         owned by the caller's workspace, ready to accept scripts and run jobs.
 
         Use `body.name` to set the workflow name; omit it (or send blank/whitespace)
-        to get the default `"{template name} (Copy)"`.
+        to name the workflow after the template itself — an inherited template name
+        that uses characters workflow names disallow is stripped down to them, or
+        replaced by a placeholder name if nothing usable remains. Workflow names are
+        not unique within a workspace, so cloning the same template twice succeeds
+        and yields two workflows with the same name.
 
         Cross-workspace clones (gallery/starter templates) copy the published
         snapshot so unpublished draft edits made by the template owner never leak to
@@ -1006,7 +1010,11 @@ class AsyncTemplatesClient:
         owned by the caller's workspace, ready to accept scripts and run jobs.
 
         Use `body.name` to set the workflow name; omit it (or send blank/whitespace)
-        to get the default `"{template name} (Copy)"`.
+        to name the workflow after the template itself — an inherited template name
+        that uses characters workflow names disallow is stripped down to them, or
+        replaced by a placeholder name if nothing usable remains. Workflow names are
+        not unique within a workspace, so cloning the same template twice succeeds
+        and yields two workflows with the same name.
 
         Cross-workspace clones (gallery/starter templates) copy the published
         snapshot so unpublished draft edits made by the template owner never leak to

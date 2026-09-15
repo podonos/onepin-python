@@ -45,7 +45,7 @@ class RawUploadsClient:
            upload record transitions from `pending` to `uploaded`.
 
         `category` controls which file formats are accepted:
-        - `script` — text-based formats (txt, srt, csv, json, xliff, docx)
+        - `script` — text-based formats (txt, pdf)
         - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
 
         The presigned URL expires within a short window (see `upload_url` TTL in the
@@ -63,7 +63,7 @@ class RawUploadsClient:
             Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
-            File category. Determines which formats are accepted: `script` for text formats (txt, srt, csv, json, xliff, docx); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
 
         workspace_id : typing.Optional[str]
 
@@ -133,9 +133,9 @@ class RawUploadsClient:
 
         Call this after successfully PUTting your file to the presigned URL returned
         by `POST /uploads`. Provide `context_type` and `context_id` to associate the
-        file with an existing resource (currently `workflow` is the supported context
-        type). The file is moved to its final location and `status` transitions from
-        `pending` to `uploaded`.
+        file with an existing `workflow` or `assistant_session` resource, or with the
+        selected workspace for `playground`. The file is moved to its final location
+        and `status` transitions from `pending` to `uploaded`.
 
         This endpoint is idempotent: if the upload was already confirmed, the current
         state is returned without re-processing.
@@ -145,9 +145,12 @@ class RawUploadsClient:
         remains in its staging location (the upload record stays `pending` so you can
         delete the staging file and try a smaller file).
 
-        Binding to a workspace-scoped resource requires the caller to be a member of
-        that workspace. Workspace is inferred from the resource when `X-Workspace-Id`
-        is omitted.
+        Binding to a workspace-scoped resource requires the caller to hold at least the
+        `editor` role in that workspace (viewers get 403); the workspace is inferred from
+        the resource when `X-Workspace-Id` is omitted. Workspace membership is always
+        required (non-members get 404). The internal `playground` context replaces the
+        `editor` requirement with current platform-admin identity. API-key callers are
+        workspace-scoped already and bypass the role check for non-playground contexts.
 
         Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
@@ -237,6 +240,10 @@ class RawUploadsClient:
         a `pending` upload (e.g. after an expired presigned URL) is the correct way
         to clean up an abandoned upload attempt.
 
+        Delete is owner-scoped: the lookup is limited to the caller's own uploads, so no
+        workspace-role gate applies — a caller can only remove their own upload, never another
+        member's workspace content.
+
         Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
@@ -315,7 +322,7 @@ class AsyncRawUploadsClient:
            upload record transitions from `pending` to `uploaded`.
 
         `category` controls which file formats are accepted:
-        - `script` — text-based formats (txt, srt, csv, json, xliff, docx)
+        - `script` — text-based formats (txt, pdf)
         - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
 
         The presigned URL expires within a short window (see `upload_url` TTL in the
@@ -333,7 +340,7 @@ class AsyncRawUploadsClient:
             Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
-            File category. Determines which formats are accepted: `script` for text formats (txt, srt, csv, json, xliff, docx); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
 
         workspace_id : typing.Optional[str]
 
@@ -403,9 +410,9 @@ class AsyncRawUploadsClient:
 
         Call this after successfully PUTting your file to the presigned URL returned
         by `POST /uploads`. Provide `context_type` and `context_id` to associate the
-        file with an existing resource (currently `workflow` is the supported context
-        type). The file is moved to its final location and `status` transitions from
-        `pending` to `uploaded`.
+        file with an existing `workflow` or `assistant_session` resource, or with the
+        selected workspace for `playground`. The file is moved to its final location
+        and `status` transitions from `pending` to `uploaded`.
 
         This endpoint is idempotent: if the upload was already confirmed, the current
         state is returned without re-processing.
@@ -415,9 +422,12 @@ class AsyncRawUploadsClient:
         remains in its staging location (the upload record stays `pending` so you can
         delete the staging file and try a smaller file).
 
-        Binding to a workspace-scoped resource requires the caller to be a member of
-        that workspace. Workspace is inferred from the resource when `X-Workspace-Id`
-        is omitted.
+        Binding to a workspace-scoped resource requires the caller to hold at least the
+        `editor` role in that workspace (viewers get 403); the workspace is inferred from
+        the resource when `X-Workspace-Id` is omitted. Workspace membership is always
+        required (non-members get 404). The internal `playground` context replaces the
+        `editor` requirement with current platform-admin identity. API-key callers are
+        workspace-scoped already and bypass the role check for non-playground contexts.
 
         Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
@@ -506,6 +516,10 @@ class AsyncRawUploadsClient:
         Callers can delete uploads in any state (`pending` or `uploaded`). Deleting
         a `pending` upload (e.g. after an expired presigned URL) is the correct way
         to clean up an abandoned upload attempt.
+
+        Delete is owner-scoped: the lookup is limited to the caller's own uploads, so no
+        workspace-role gate applies — a caller can only remove their own upload, never another
+        member's workspace content.
 
         Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 

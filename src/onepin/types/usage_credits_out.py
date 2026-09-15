@@ -14,12 +14,12 @@ class UsageCreditsOut(UniversalBaseModel):
 
     quota: typing.Optional[int] = pydantic.Field(default=None)
     """
-    Credit quota for the current billing period, or `null` if unlimited.
+    Customer display quota reconciled with settled billing-period usage and the current spendable balance, without dropping below the applicable plan or lifetime-grant allowance. Null only when no authenticated user is available for this aggregate.
     """
 
     percent: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Credits used as a fraction of quota (0–100), or `null` when quota is unlimited.
+    Credits used as a percentage of quota, clamped to 0–100; null when quota is zero or unavailable.
     """
 
     if IS_PYDANTIC_V2:

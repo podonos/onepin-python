@@ -7,8 +7,11 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .voice_accent import VoiceAccent
 from .voice_age import VoiceAge
+from .voice_availability import VoiceAvailability
 from .voice_category import VoiceCategory
 from .voice_gender import VoiceGender
+from .voice_import_state import VoiceImportState
+from .voice_model_capability_out import VoiceModelCapabilityOut
 from .voice_source import VoiceSource
 
 
@@ -73,11 +76,6 @@ class VoiceOut(UniversalBaseModel):
     Freeform keyword tags for filtering and search.
     """
 
-    descriptor: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Short one-line voice personality descriptor.
-    """
-
     uses_count: typing.Optional[int] = pydantic.Field(default=None)
     """
     Number of times this voice has been used in workflow runs across the platform.
@@ -90,7 +88,17 @@ class VoiceOut(UniversalBaseModel):
 
     source: typing.Optional[VoiceSource] = pydantic.Field(default=None)
     """
-    Origin of the voice: `platform` for system-provided voices, `workspace` for voices added or cloned by the workspace.
+    Origin of the voice: `platform` for system-provided voices, `recorded`/`uploaded` for voices added or cloned by the workspace, `provider_imported` for voices imported from the workspace's own provider account.
+    """
+
+    availability: typing.Optional[VoiceAvailability] = pydantic.Field(default=None)
+    """
+    Whether an imported voice can currently be selected. `unavailable` rows stay listed and readable but are rejected by workflow save, run, and synthesis. Null for platform and legacy workspace voices.
+    """
+
+    unavailable_reason: typing.Optional[VoiceImportState] = pydantic.Field(default=None)
+    """
+    Why an imported voice is unavailable. Null when `availability` is `available` or absent.
     """
 
     duration_seconds: typing.Optional[float] = pydantic.Field(default=None)
@@ -100,17 +108,37 @@ class VoiceOut(UniversalBaseModel):
 
     sample_url: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Time-limited presigned URL for the audio preview sample. Valid for 1 hour; regenerate by fetching the voice again.
+    Time-limited presigned URL for the audio preview sample. For a voice that declares no English locale this is one of its `preview_locales` clips when any exists, so the sample is never in a language the voice cannot speak; otherwise it is the voice's default clip, whose spoken language is not guaranteed. It does not vary with the `language` filter — read `language_sample_url` (same response, no extra request) or GET /voices/{voice_id}/preview for that. Valid for 1 hour; regenerate by fetching the voice again.
+    """
+
+    language_sample_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Time-limited presigned URL for the preview clip in the requested `language`, and the one field on this model that DOES follow that filter. Populated only when the request carried `language=`; null without it, and null when the voice has no preview clip in a locale that filter expands to. It is the same row GET /voices/{voice_id}/preview?language= would serve, resolved through the same repository method, so a caller that plays this hears exactly what that endpoint would return — without a request per voice. Read `language_sample_locale` for the region actually served. Valid for 1 hour; regenerate by fetching the list again.
+    """
+
+    language_sample_locale: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The actual regioned locale `language_sample_url` was served from, never a reflection of the request. A bare-family filter like `?language=en` expands to both `en-us` and `en-gb` and which one wins is deterministic but arbitrary, so label the clip from this and not from what you asked for. Null exactly when `language_sample_url` is.
     """
 
     supported_languages: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    BCP-47 language codes this voice supports. Null means the voice declares no locales; it is not matched by any `language` filter — a voice must positively declare a locale to surface under that filter.
+    BCP-47 language codes this voice supports, restricted to the officially supported locales. Null means the voice declares no locales at all; it is not matched by any `language` filter — a voice must positively declare a locale to surface under that filter. An empty array is a different state: the voice declared locales, but none of them is officially supported. Platform voices in that state are absent from the list endpoints entirely, so an empty array is only seen on a single-voice read. Voices your workspace owns are exempt from the restriction and report every locale they declare.
+    """
+
+    preview_locales: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Locales this voice has ready-to-play preview audio for. Fetch it with GET /voices/{voice_id}/preview?language=<locale>. This is what the voice can be HEARD in, not what it can SPEAK — see supported_languages for that. Empty means no locale preview exists yet.
     """
 
     supported_models: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    Model identifiers this voice is compatible with. Null means compatible with all available models for the provider.
+    Deprecated compatibility union of model identifiers this voice is compatible with. Null means compatible with all available models for the provider.
+    """
+
+    model_capabilities: typing.Optional[typing.List[VoiceModelCapabilityOut]] = pydantic.Field(default=None)
+    """
+    Authoritative model-to-language observations after a successful full provider sync. Empty means no authoritative pair observation is available yet.
     """
 
     is_favorite: typing.Optional[bool] = pydantic.Field(default=None)

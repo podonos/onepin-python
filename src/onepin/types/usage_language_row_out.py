@@ -32,6 +32,11 @@ class UsageLanguageRowOut(UniversalBaseModel):
     Characters processed for this language in the period.
     """
 
+    corrected: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Words respliced by the Pronunciation Corrector for this language in the period. A different unit from `characters` — never add the two.
+    """
+
     lines: int = pydantic.Field()
     """
     Script lines generated for this language in the period.

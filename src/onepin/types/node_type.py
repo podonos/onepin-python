@@ -8,10 +8,13 @@ NodeType = typing.Union[
         "operator_translator",
         "operator_normalizer",
         "operator_generator",
+        "operator_phoneme_injector",
         "sink_preview",
         "validator_error_rate",
         "validator_naturalness",
         "validator_noise",
+        "validator_pronunciation",
+        "operator_pronunciation_corrector",
     ],
     typing.Any,
 ]

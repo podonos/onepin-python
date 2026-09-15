@@ -24,9 +24,19 @@ class WorkflowListItem(UniversalBaseModel):
     Human-readable workflow name.
     """
 
+    name_source: str = pydantic.Field()
+    """
+    How `name` was set: 'placeholder' | 'generated' | 'user'.
+    """
+
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
     Optional workflow description.
+    """
+
+    definition: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    """
+    Full workflow graph, present only when the request passed `include_definition=true`. Omitted by default: a list page needs names and run stats, not N graphs. Ask for it when you need to compare what the workflows in this list actually DO — which is a question the other fields here cannot answer at any list size.
     """
 
     created_at: dt.datetime = pydantic.Field()

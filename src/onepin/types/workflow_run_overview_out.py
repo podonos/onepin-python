@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .run_share_origin_out import RunShareOriginOut
 from .workflow_run_overview_audio_language_out import WorkflowRunOverviewAudioLanguageOut
 from .workflow_run_overview_capabilities_out import WorkflowRunOverviewCapabilitiesOut
 from .workflow_run_overview_future_links_out import WorkflowRunOverviewFutureLinksOut
@@ -17,6 +18,7 @@ from .workflow_run_overview_workflow_out import WorkflowRunOverviewWorkflowOut
 class WorkflowRunOverviewOut(UniversalBaseModel):
     workflow: WorkflowRunOverviewWorkflowOut
     run: WorkflowRunOverviewRunOut
+    share: typing.Optional[RunShareOriginOut] = None
     metric_sections: typing.Optional[typing.List[WorkflowRunOverviewMetricSectionOut]] = None
     audio_by_language: typing.Optional[typing.List[WorkflowRunOverviewAudioLanguageOut]] = None
     validators: typing.Optional[typing.List[WorkflowRunOverviewValidatorOut]] = None
