@@ -13,7 +13,9 @@ stays readable and the dispatcher stays a small interpreter.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, get_args
+
+from onepin.types import NodeType
 
 
 @dataclass(frozen=True)
@@ -114,15 +116,12 @@ def _list_opts(*extra: Opt) -> list[Opt]:
 # Workflow run status filter / terminal states (SDK exposes run status as raw str; no enum).
 _RUN_STATUS = ("draft", "running", "completed", "failed", "paused", "cancelled", "pending")
 
-_NODE_TYPES = (
-    "source_script",
-    "operator_translator",
-    "operator_normalizer",
-    "operator_generator",
-    "sink_preview",
-    "validator_error_rate",
-    "validator_naturalness",
-    "validator_noise",
+# Derived from the generated `NodeType`, never hand-listed: a literal copy silently goes stale
+# every time the API adds a node type, and the contract test that compares the two then fails
+# the regen — blocking the whole SDK sync on an unrelated CLI edit. Deriving keeps them equal
+# by construction. `NodeType` is a Union[Literal[...], Any], so unwrap one level of get_args.
+_NODE_TYPES: tuple[str, ...] = tuple(
+    value for branch in get_args(NodeType) for value in get_args(branch) if isinstance(value, str)
 )
 
 # Column presets keyed by output model.
