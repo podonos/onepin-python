@@ -511,8 +511,8 @@ def voices_sample(
         client = get_client()
         rows = [_voice_sample_row(client, voice_id, language, model) for voice_id in voice_ids]
 
-        for row in rows:
-            destination = _sample_destination(row, out, out_dir, play)
+        destinations = _sample_destinations(rows, out, out_dir, play)
+        for row, destination in zip(rows, destinations, strict=True):
             if destination is not None:
                 row["path"] = str(_write_sample(row["sample_url"], destination, force=force))
 
@@ -584,19 +584,39 @@ def _voice_sample_row(client: Any, voice_id: str, language: Optional[str], model
     }
 
 
-def _sample_destination(row: dict[str, Any], out: Optional[str], out_dir: Optional[str], play: bool) -> Optional[Path]:
-    """Where this row's audio should land, or ``None`` when nothing is written."""
-    if out:
-        return Path(out)
-    extension = _audio_extension(row)
-    if out_dir:
-        return Path(out_dir) / f"{_sample_stem(row)}{extension}"
-    if play:
-        # Play-only: a throwaway file, because the macOS player takes a path and not a URL.
-        import tempfile
+def _sample_destinations(
+    rows: list[dict[str, Any]], out: Optional[str], out_dir: Optional[str], play: bool
+) -> list[Optional[Path]]:
+    """Plan where every row's audio lands, resolving name collisions before anything is written.
 
-        return Path(tempfile.mkdtemp(prefix="onepin-sample-")) / f"{_sample_stem(row)}{extension}"
-    return None
+    Voice display names are not unique — two providers both ship a "Sarah" — so a stem built
+    from name + locale collides, and the loop would write both rows to one path, report two
+    files, and exit 0 having silently dropped one sample. Stems are therefore planned as a set:
+    only the ones that actually collide get their voice id appended, so the common case keeps
+    readable filenames and no row can overwrite another.
+    """
+    if out:
+        return [Path(out)] * len(rows)
+    if not out_dir and not play:
+        return [None] * len(rows)
+
+    stems = [_sample_stem(row) for row in rows]
+    duplicated = {stem for stem in stems if stems.count(stem) > 1}
+    names = [
+        f"{stem}-{row['voice_id']}{_audio_extension(row)}" if stem in duplicated else f"{stem}{_audio_extension(row)}"
+        for stem, row in zip(stems, rows, strict=True)
+    ]
+    if out_dir:
+        return [Path(out_dir) / name for name in names]
+
+    # Play-only: throwaway files, because the macOS player takes a path and not a URL. One
+    # directory for the whole invocation rather than one per row — the paths are reported to
+    # the caller and so have to outlive the process, which makes every one of them a leak;
+    # auditioning a five-voice shortlist should cost one of them, not five.
+    import tempfile
+
+    scratch = Path(tempfile.mkdtemp(prefix="onepin-sample-"))
+    return [scratch / name for name in names]
 
 
 def _sample_stem(row: dict[str, Any]) -> str:

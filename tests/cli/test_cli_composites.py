@@ -889,6 +889,74 @@ def _preview_json(name="Ara", locale="ko-kr", url="https://cdn.example/ara-ko.mp
     return {"name": name, "locale": locale, "model": "clova", "sample_url": url, "content_type": "audio/mpeg"}
 
 
+class TestVoicesSampleDestinations:
+    @respx.mock
+    def test_same_named_voices_do_not_overwrite_each_other(self, tmp_home, tmp_path) -> None:
+        """Display names are not unique across providers; two "Sarah"s must not collide.
+
+        Colliding stems previously wrote both rows to one path, reported two files, and
+        exited 0 — one sample silently lost.
+        """
+        for voice_id, url in (("v-1", "https://cdn.example/a.mp3"), ("v-2", "https://cdn.example/b.mp3")):
+            respx.get(f"https://api.onepin.ai/api/v1/voices/{voice_id}/preview").mock(
+                return_value=httpx.Response(
+                    200, json={"data": _preview_json("Sarah", url=f"{url}?Signature=x"), "meta": _META_JSON}
+                )
+            )
+        respx.get("https://cdn.example/a.mp3").mock(return_value=httpx.Response(200, content=b"AAAA"))
+        respx.get("https://cdn.example/b.mp3").mock(return_value=httpx.Response(200, content=b"BBBB"))
+
+        out_dir = tmp_path / "s"
+        out_dir.mkdir()
+        result = runner.invoke(
+            app,
+            [
+                "--api-key",
+                "op_live_x",
+                "--no-color",
+                "voices",
+                "sample",
+                "v-1",
+                "v-2",
+                "--language",
+                "ko-kr",
+                "--out-dir",
+                str(out_dir),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        written = sorted(path.read_bytes() for path in out_dir.iterdir())
+        assert written == [b"AAAA", b"BBBB"], sorted(p.name for p in out_dir.iterdir())
+
+    @respx.mock
+    def test_distinct_names_keep_readable_filenames(self, tmp_home, tmp_path) -> None:
+        """Only colliding stems get disambiguated — the common case stays legible."""
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        respx.get("https://cdn.example/ara-ko.mp3").mock(return_value=httpx.Response(200, content=b"ID3ara"))
+
+        out_dir = tmp_path / "s"
+        out_dir.mkdir()
+        result = runner.invoke(
+            app,
+            [
+                "--api-key",
+                "op_live_x",
+                "--no-color",
+                "voices",
+                "sample",
+                "v-1",
+                "--language",
+                "ko-kr",
+                "--out-dir",
+                str(out_dir),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert [path.name for path in out_dir.iterdir()] == ["Ara-ko-kr.mp3"]
+
+
 class TestVoicesSample:
     @respx.mock
     def test_prints_url_when_no_destination(self, tmp_home) -> None:
