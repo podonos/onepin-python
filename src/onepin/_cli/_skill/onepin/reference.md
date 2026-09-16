@@ -63,76 +63,47 @@ everyone to ignore the check. Offer the candidates *and* "build a new one" as on
 choice is the user's. If `workflows list` / `templates list` fails (a write-only key gets
 `FORBIDDEN`), report that the check could not run rather than that nothing similar exists.
 
-## Node catalog
+## Nodes: ask the catalog, don't read a table
 
-**`onepin nodes list` is authoritative and you can always call it** — that endpoint needs no API key
-and no workspace header, so it works even before `login`. It returns, per node: the `node_type`
-slug, `display_name`, `description`, `version`, `beta`, the `inputs`/`outputs` ports, and
-`input_schema` / `config_schema`. `onepin nodes show <node_type>` adds `category` and `options` —
-the runtime values you actually configure with (available target languages, provider/model choices,
-a voice-picker link).
+Everything about a node — the slug, the label, the ports, the config keys and their defaults and
+ranges — comes back from one call, so this file does not keep a copy. Copies rot: the labels here
+were wrong within a week of being written (`Phoneme Injector` is now `Phonemizer`), and the catalog
+is edited by staff without a deploy and gated per workspace plan, so a frozen table can be wrong in
+a way that is invisible until a graph is rejected.
 
-Read that output rather than this table. The labels, descriptions and the `beta` badge live in a
-staff-editable catalog and are re-read per request, and **which nodes a workspace can use is
-plan-gated** — a slug listed below that `nodes list` does not return is not available here. Never
-author with a slug `nodes list` did not return.
+```bash
+# the whole catalog, one row per node
+onepin --json nodes list \
+  | jq -r '.[] | [.node_type, (.display_name + (if .beta then " (beta)" else "" end)),
+                  (if (.outputs|length) == 0 then "-" else (.outputs|map(.name)|join("/")) end),
+                  ((.config_schema // {}) | keys | join(","))] | @tsv' \
+  | column -t -s$'\t'
 
-What the table *is* good for: knowing which slug to look up, since the slug is the stable identity
-and the display name is not. (Labels and descriptions below were read from the live catalog on
-2026-09-16; treat them as a snapshot, not a contract.)
+# one node's config keys, with defaults, ranges and enums
+onepin --json nodes list | jq '.[] | select(.node_type == "validator_error_rate") | .config_schema'
+```
 
-| `node_type` (stable) | Label today | Category | Ports | What it does |
-|---|---|---|---|---|
-| `source_script` | Script Input | source | 0 in / 1 out | Upload or type your script. |
-| `operator_translator` | Translator | operator | 1 in / 1 out | Translate the script into one or more other languages. |
-| `operator_normalizer` | Normalizer | operator | 1 in / 1 out | Rewrite each line the way it should be read aloud: numbers, dates, symbols, and abbreviations. |
-| `operator_generator` | Voice Generator | operator | 1 in / 1 out | TTS engine - voice generation. **Auto-route** picks the model for the language/locale off Onepin's benchmark, balancing quality against price; or set provider + model by hand. Speed / emotion / tone are model-dependent. |
-| `operator_phoneme_injector` | Phonemizer | operator | 1 in / 1 out | Work out how each word should be pronounced in context, so the Pronunciation Check knows what's correct. |
-| `operator_pronunciation_corrector` | Pronunciation Corrector *(beta)* | operator | 1 in / 1 out | Automatically fix mispronounced words, keeping the same voice. |
-| `sink_preview` | Export | output | 1 in / 0 out | Export final audio. Aggregates audio + scripts + validation results for download. |
-| `validator_error_rate` | Word Accuracy | validation | 1 in / 2 out | Check the spoken audio matches the script, word for word. Pass / fail pins. |
-| `validator_naturalness` | Naturalness check | validation | 1 in / 2 out | Rate how natural the generated speech sounds. Pass / fail pins. |
-| `validator_noise` | Clarity check | validation | 1 in / 2 out | Check the audio is clean, with no background noise or artifacts. Pass / fail pins. |
-| `validator_pronunciation` | Pronunciation check *(beta)* | validation | 1 in / 2 out | Check each word is pronounced correctly, sound by sound. Pass / fail pins. |
+Per node `nodes list` returns `node_type`, `display_name`, `description`, `version`, `beta`, the
+`inputs` / `outputs` ports, `input_schema`, and `config_schema` — note `config_schema` is a bare
+`name → schema` map, not a JSON-Schema object with a `properties` key. `nodes show <node_type>` adds
+`category` and `options`: the runtime values (available target languages, provider/model choices, a
+voice-picker link). **Never author with a slug `nodes list` did not return** — it may exist in the
+enum and still be unavailable to this workspace.
 
-Every validator's threshold is **adjustable** — the defaults differ per validator, see *Node config
-keys* below — and each carries a per-object **retry counter**: each visit increments it, and once it
-reaches `max_retries` (3 by default) the object leaves through the **pass** pin regardless of score,
-which is what stops a fail→regenerate loop from running forever.
+One caveat on when you can call it: the *endpoint* needs no valid credential, but the *CLI* refuses
+to run any command without one, so `nodes list` works with an expired or even nonsense key but not
+with no key at all.
 
-Costs differ per node and the generator/translator price against the vendor you pick, so
-`workflows preview-run` — not this table — is what tells the user what a graph will cost.
+### What the catalog does not tell you
 
-## Node config keys
-
-What each node takes in its `config`, read from the live catalog on 2026-09-16 — `nodes list`
-(`config_schema`, a bare name → schema map) is the source of truth, and `nodes show <node_type>`
-adds the runtime option values (available languages, provider/model choices, a voice-picker link).
-
-| `node_type` | `config` keys (defaults where set) |
-|---|---|
-| `source_script` | `input_type` (`text` / `file` / `media`), `text`, `upload_ids`, `csv_column`, `csv_has_header` = `true`, `source_language`, `input_mode` = `plain` (`plain` / `markup`) |
-| `operator_translator` | `target_languages` |
-| `operator_normalizer` | `engine` = `llm`, `target_locale` |
-| `operator_generator` | `voice_map`, `target_locale` |
-| `operator_phoneme_injector` | `max_ngram` = `1` [1–5], `llm_candidate_filter` = `true`, `exclude_address_rows` = `true`, `use_derived_word_parts` = `true` |
-| `operator_pronunciation_corrector` | `n_candidates` = `2` [1–8], `seed`, `target_ipa_source` = `dictionary` (`dictionary` / `ped`), `fallback_to_detector_ipa` = `true` |
-| `validator_error_rate` | `threshold` = `93.0` [70–99], `max_retries` = `3` [1–50] |
-| `validator_naturalness` | `threshold` = `70.0` [0–100], `max_retries` = `3` [1–50] |
-| `validator_noise` | `threshold` = `70.0` [0–100], `max_retries` = `3` [1–50] |
-| `validator_pronunciation` | `threshold` = `99.0` [0–100], `max_retries` = `3` [1–50], `k` = `1.0` |
-| `sink_preview` | `format` = `wav` (`wav` / `mp3`) |
-
-Two things worth knowing before you propose a graph:
-
-- **Validator defaults are not uniform.** Word accuracy sits at 93 (and is clamped to 70–99);
-  naturalness and clarity at 70; pronunciation at 99. All four retry 3 times. Say the number you are
-  proposing rather than "the default".
-- **A voice lives in `operator_generator.config.voice_map`** — a map of locale → list of
-  `VoiceAssignment`, each needing at least `voice_id`, `provider` and `model` (optionally
+- **Where a voice lives.** `operator_generator.config.voice_map` is a map of locale → list of
+  `VoiceAssignment` (each needs at least `voice_id`, `provider`, `model`; optionally
   `catalog_voice_id`, `voice_name`, `provider_config`, `canonical_controls`). Changing a workflow's
-  voice means editing that map and calling `workflows update`; there is no dedicated command.
-  The generator currently accepts these locales: `de-de`, `en-gb`, `en-us`, `es-es`, `es-mx`, `fr-fr`, `ja-jp`, `ko-kr`, `pt-br`, `pt-pt`, `zh-cn`.
+  voice means editing that map and calling `workflows update` — there is no set-voice command.
+- **That validator defaults are not uniform.** They differ per validator and are clamped to
+  different ranges, so read the `threshold` default from `config_schema` and quote *that* number to
+  the user rather than saying "the default".
+- **What the pass/fail pins are for.** Validators expose two outputs; the routing rules are below.
 
 ## Designing a workflow
 

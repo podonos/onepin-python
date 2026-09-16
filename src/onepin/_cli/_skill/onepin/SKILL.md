@@ -61,8 +61,9 @@ them, and confirm every slug against `nodes list` first:
   `operator_phoneme_injector` if pronunciation matters?
 - **Generator** — `operator_generator`, one `voice_map` entry per locale.
 - **Validators** — which checks, and at what bar: word accuracy, naturalness, clarity,
-  pronunciation. Each has a `threshold` and `max_retries`; the defaults are not all the same and are
-  listed in [reference.md](reference.md).
+  pronunciation. Each has a `threshold` and `max_retries`, and **the defaults differ per validator**
+  — read the real one out of `nodes list` (`.config_schema.threshold.default`) and quote that number
+  to the user instead of saying "the default".
 - **Sink** — `sink_preview` (`format`: `wav` or `mp3`).
 
 Then `workflows definition-schema` → `workflows create --definition @wf.json` → and you are back at
@@ -135,8 +136,9 @@ see below) and the workflow you are about to run (show its shape before it costs
 - **Run one-off text without editing the workflow:** `--script "<text>"` overrides the saved script
   for that run only; add `--source-language <bcp-47>` (e.g. `en-us`) when the text isn't in the
   workflow's saved language. The workflow itself is left untouched.
-- **Build/design a workflow:** check *Reuse before you build* first — then see the node catalog
-  (slugs, ports, plan gating) and the *Designing a workflow* topology rules (sources → processing → generators → validators →
+- **Build/design a workflow:** check *Reuse before you build* first — then ask the catalog
+  (`nodes list` — slugs, ports, config keys, plan gating) and read the *Designing a workflow*
+  topology rules (sources → processing → generators → validators →
   sinks; validator pass/fail pins and retries) in [reference.md](reference.md). Discover slugs with
   `onepin nodes list` — never invent them.
 
