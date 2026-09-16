@@ -252,25 +252,31 @@ def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int) -> None:
         render_json(rows)
         return
     render_table(rows, _columns_for(cmd, rows))
-    _echo_pager_footer(pager, len(rows))
+    _echo_pager_footer(pager, len(rows), limit=limit)
 
 
-def _echo_pager_footer(pager: Any, shown: int) -> None:
-    """Print ``Showing X of N.`` when the response carries an unpaginated total.
+def _echo_pager_footer(pager: Any, shown: int, *, limit: int) -> None:
+    """Say how much of the result set this page is, so a cap never reads as completeness.
 
-    Counted list endpoints return ``pagination.total`` — how many rows match the filters,
-    not how many came back. Without it a full page is indistinguishable from the whole
-    result set, which is how a capped list gets reported to a user as a complete one.
+    Counted list endpoints return ``pagination.total`` — how many rows match the filters, not
+    how many came back — and those get an exact ``Showing X of N``. The rest answer with a bare
+    ``PaginationMeta`` that carries no total (``workflows uploads``, ``workspace list``,
+    ``templates list``), and there a page filled exactly to ``--limit`` is indistinguishable
+    from the end of the results: only ``--offset`` can tell the two apart. Saying nothing in
+    that case is how a capped list gets handed to a user as a complete one, so it is reported
+    as possibly-truncated rather than not at all.
 
     Human output only. The ``--json`` payload stays a bare array because that shape is the
     agent contract pinned by the manifest snapshot; agents read the count by paging.
     """
     total = getattr(getattr(pager, "pagination", None), "total", None)
-    if not isinstance(total, int):
+    if isinstance(total, int):
+        remaining = total - shown
+        more = f" {remaining} more — page with --offset." if remaining > 0 else ""
+        print(f"Showing {shown} of {total}.{more}")
         return
-    remaining = total - shown
-    more = f" {remaining} more — page with --offset." if remaining > 0 else ""
-    print(f"Showing {shown} of {total}.{more}")
+    if shown >= limit:
+        print(f"Showing {shown} rows — a full page, so there may be more. Page with --offset.")
 
 
 def _emit_list(cmd: Cmd, resp: Any, json_on: bool) -> None:

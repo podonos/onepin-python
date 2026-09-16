@@ -20,7 +20,7 @@ position.
 
 | Group | What it covers |
 |-------|----------------|
-| `workflows` | CRUD + `run`, `preview-run`, `duplicate`, `definition-schema`, `uploads`; subgroup `runs` |
+| `workflows` | CRUD + `run`, `preview-run`, `duplicate`, `set-voice`, `definition-schema`, `uploads`; subgroup `runs` |
 | `workflows runs` | `list`, `show`, `status`, `steps`, `overview`, `data`, `summary`, `cancel`, `download`, `download-node` |
 | `templates` | `list`, `show`, `create`, `update`, `delete`, `clone`, `favorite`, `unfavorite` |
 | `voices` | `list`, `facets`, `show`, `similar`, `sample`, `favorite`, `unfavorite` |
@@ -309,7 +309,10 @@ take `--offset`, so a set larger than one page is walked with `--offset 100`, `-
 (`usage activity` pages with `--cursor` instead; `nodes list` and `workspace members list` are
 unpaged.) Text output ends with
 `Showing X of N`, where `N` is the unpaginated match count — use it to decide whether another page
-exists rather than guessing from a full one. `--json` returns the rows alone.
+exists rather than guessing from a full one. Three endpoints do not compute that total
+(`workflows uploads`, `workspace list`, `templates list`); there a full page ends with
+`Showing X rows — a full page, so there may be more`, and only `--offset` settles it.
+`--json` returns the rows alone in either case.
 
 **Every filter is evaluated server-side.** The CLI forwards them as query parameters and renders
 what comes back, so filtering is the only thing that makes a list mean anything. Under `--json` the

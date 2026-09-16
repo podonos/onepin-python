@@ -7,7 +7,6 @@ Covers, per representative command: happy path, ``--json``, not-authenticated, a
 from __future__ import annotations
 
 import datetime as dt
-from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
@@ -86,9 +85,32 @@ def _meta():
     return Meta(request_id="req-1", timestamp=NOW)
 
 
-def _envelope(rows: list, *, total: int):
-    """A counted list envelope for endpoints with no hand-built type in this module."""
-    return SimpleNamespace(data=rows, meta=_meta(), pagination=SimpleNamespace(total=total))
+def _uncounted(rows: list, *, limit: int = 50):
+    """The real ``workflows uploads`` envelope: ``PaginationMeta``, which carries no ``total``.
+
+    Built from the generated model on purpose. A hand-rolled ``SimpleNamespace`` with a ``total``
+    on it passes assertions the API can never satisfy -- which is how a footer that cannot print
+    for this endpoint was covered by a green test.
+    """
+    from onepin.types import ApiListResponseUploadOut
+    from onepin.types.pagination_meta import PaginationMeta
+    from onepin.types.upload_out import UploadOut
+
+    uploads = [
+        UploadOut(
+            id=row["id"],
+            user_id="u-1",
+            workflow_id="wf-1",
+            filename=row["filename"],
+            category="script",
+            content_type="text/plain",
+            status="confirmed",
+            created_at=NOW,
+            updated_at=NOW,
+        )
+        for row in rows
+    ]
+    return ApiListResponseUploadOut(data=uploads, meta=_meta(), pagination=PaginationMeta(limit=limit))
 
 
 class FakeRuns:
@@ -123,9 +145,12 @@ class FakeWorkflows:
             return _counted(self.counted_total, [_workflow_item()])
         return _pager([_workflow_item()])
 
+    upload_count = 1
+
     def list_workflow_uploads(self, workflow_id, **kw):
         self.uploads_kwargs = {"workflow_id": workflow_id, **kw}
-        return _envelope([{"id": "up-1", "filename": "script.txt"}], total=3)
+        rows = [{"id": f"up-{i}", "filename": f"script-{i}.txt"} for i in range(self.upload_count)]
+        return _uncounted(rows, limit=kw.get("limit") or 50)
 
     def get_run_data(self, workflow_id, run_id, **kw):
         self.run_data_kwargs = {"workflow_id": workflow_id, "run_id": run_id, **kw}
@@ -453,11 +478,23 @@ class TestWorkflowUploadsPaging:
         assert result.exit_code == 0, result.output
         assert fake_client.workflows.uploads_kwargs == {"workflow_id": "wf-1", "limit": 10, "offset": 20}
 
-    def test_footer_reports_the_unpaged_total(self, fake_client: FakeClient, tmp_home) -> None:
-        result = _invoke(["--no-color", "workflows", "uploads", "wf-1"])
+    def test_partial_page_says_nothing(self, fake_client: FakeClient, tmp_home) -> None:
+        """Fewer rows than --limit is the whole result set; there is nothing to warn about."""
+        fake_client.workflows.upload_count = 3
+        result = _invoke(["--no-color", "workflows", "uploads", "wf-1", "--limit", "10"])
 
         assert result.exit_code == 0, result.output
-        assert "Showing 1 of 3." in result.output
+        assert "Showing" not in result.output
+
+    def test_full_page_warns_that_there_may_be_more(self, fake_client: FakeClient, tmp_home) -> None:
+        """``ApiListResponseUploadOut`` carries no ``pagination.total``, so an exact-fit page is
+        indistinguishable from the end of the list — and silence there reads as completeness."""
+        fake_client.workflows.upload_count = 10
+        result = _invoke(["--no-color", "workflows", "uploads", "wf-1", "--limit", "10"])
+
+        assert result.exit_code == 0, result.output
+        assert "Showing 10 rows — a full page, so there may be more." in result.output
+        assert "--offset" in result.output
 
 
 class TestRunDataIncludeDropped:
