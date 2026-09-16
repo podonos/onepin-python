@@ -219,7 +219,7 @@ def _confirm_destructive(cmd: Cmd, assume_yes: bool, *, json_on: bool) -> None:
 def _emit(cmd: Cmd, resp: Any, bound: dict[str, Any], json_on: bool, *, limit: int) -> None:
     """Render an SDK response according to the command's unwrap mode."""
     if cmd.unwrap == "pager":
-        _emit_pager(cmd, resp, json_on, limit=limit)
+        _emit_pager(cmd, resp, json_on, limit=limit, offset=int(bound.get("offset") or 0))
         return
     if cmd.unwrap == "list":
         _emit_list(cmd, resp, json_on)
@@ -231,7 +231,7 @@ def _emit(cmd: Cmd, resp: Any, bound: dict[str, Any], json_on: bool, *, limit: i
     _emit_data(cmd, resp, bound, json_on)
 
 
-def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int) -> None:
+def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int, offset: int = 0) -> None:
     # The SDK returns a SyncPager when generated with pagination enabled, and a
     # list-envelope model (items under .data) otherwise. Iterating a pydantic
     # envelope directly would yield (field, value) tuples — unwrap .data first.
@@ -242,15 +242,21 @@ def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int) -> None:
         render_json(rows)
         return
     render_table(rows, _columns_for(cmd, rows))
-    _echo_pager_footer(pager, len(rows))
+    _echo_pager_footer(pager, len(rows), offset)
 
 
-def _echo_pager_footer(pager: Any, shown: int) -> None:
+def _echo_pager_footer(pager: Any, shown: int, offset: int = 0) -> None:
     """Print ``Showing X of N.`` when the response carries an unpaginated total.
 
     Counted list endpoints return ``pagination.total`` — how many rows match the filters,
     not how many came back. Without it a full page is indistinguishable from the whole
     result set, which is how a capped list gets reported to a user as a complete one.
+
+    The remainder is counted from ``offset + shown``, not from ``shown`` alone: this page
+    is not necessarily the first one. Counting from ``shown`` makes the last page advertise
+    a full result set still to fetch, and an agent told to page until the remainder is zero
+    then never stops. ``CountedPaginationMeta`` carries no offset, so it comes from the
+    bound ``--offset``.
 
     Human output only. The ``--json`` payload stays a bare array because that shape is the
     agent contract pinned by the manifest snapshot; agents read the count by paging.
@@ -258,7 +264,7 @@ def _echo_pager_footer(pager: Any, shown: int) -> None:
     total = getattr(getattr(pager, "pagination", None), "total", None)
     if not isinstance(total, int):
         return
-    remaining = total - shown
+    remaining = max(total - (offset + shown), 0)
     more = f" {remaining} more — page with --offset." if remaining > 0 else ""
     print(f"Showing {shown} of {total}.{more}")
 

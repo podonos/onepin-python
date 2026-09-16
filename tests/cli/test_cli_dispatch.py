@@ -104,6 +104,7 @@ class FakeRuns:
 class FakeWorkflows:
     raise_404 = False
     counted_total: int | None = None
+    counted_rows: int = 1
 
     def __init__(self) -> None:
         self.runs = FakeRuns()
@@ -112,7 +113,12 @@ class FakeWorkflows:
     def list(self, **kw):
         self.list_kwargs = kw
         if self.counted_total is not None:
-            return _counted(self.counted_total, [_workflow_item()])
+            # Serve the slice the offset actually asks for, so a footer assertion means
+            # something on pages after the first.
+            offset = int(kw.get("offset") or 0)
+            remaining = max(self.counted_total - offset, 0)
+            rows = [_workflow_item() for _ in range(min(self.counted_rows, remaining))]
+            return _counted(self.counted_total, rows)
         return _pager([_workflow_item()])
 
     def get(self, workflow_id, **kw):
@@ -335,6 +341,34 @@ class TestOffsetPaging:
         result = _invoke(["--no-color", "workflows", "list"])
         assert result.exit_code == 0, result.output
         assert "Showing 1 of 1." in result.output
+        assert "more" not in result.output
+
+    def test_footer_remainder_counts_from_the_offset(self, fake_client: FakeClient, tmp_home) -> None:
+        """The remainder is what is left *after this page*, not after its row count.
+
+        Counting from `shown` alone makes every page past the first re-advertise the rows
+        already walked, so a caller paging until the remainder is zero never terminates.
+        """
+        fake_client.workflows.counted_total = 42
+        fake_client.workflows.counted_rows = 10
+        result = _invoke(["--no-color", "workflows", "list", "--offset", "30"])
+        assert result.exit_code == 0, result.output
+        assert "Showing 10 of 42." in result.output
+        assert "2 more" in result.output
+
+    def test_footer_on_the_last_page_says_no_more(self, fake_client: FakeClient, tmp_home) -> None:
+        fake_client.workflows.counted_total = 42
+        fake_client.workflows.counted_rows = 10
+        result = _invoke(["--no-color", "workflows", "list", "--offset", "40"])
+        assert result.exit_code == 0, result.output
+        assert "Showing 2 of 42." in result.output
+        assert "more" not in result.output
+
+    def test_footer_past_the_end_does_not_advertise_a_full_set(self, fake_client: FakeClient, tmp_home) -> None:
+        fake_client.workflows.counted_total = 42
+        result = _invoke(["--no-color", "workflows", "list", "--offset", "90"])
+        assert result.exit_code == 0, result.output
+        assert "Showing 0 of 42." in result.output
         assert "more" not in result.output
 
     def test_json_payload_stays_a_bare_array(self, fake_client: FakeClient, tmp_home) -> None:
