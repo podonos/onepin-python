@@ -68,8 +68,8 @@ choice is the user's. If `workflows list` / `templates list` fails (a write-only
 Node knowledge comes from the API, not from a table in this file. Copies rot: the labels here were
 wrong within a week of being written (`Phoneme Injector` is now `Phonemizer`), the catalog is edited
 by staff without a deploy, and it is gated per workspace plan — so a frozen table can be wrong in a
-way that is invisible until a graph is rejected. It takes **two** calls, and a third command that
-does not currently work:
+way that is invisible until a graph is rejected. Three calls answer different halves of the
+question:
 
 ```bash
 # the whole catalog, one row per node
@@ -94,11 +94,13 @@ enum and still be unavailable to this workspace.
 (`id`, `source`, `sourcePort`, `target`, `targetPort`, all required). The port names in an edge are
 the ones `nodes list` gave you — `lines` for the line-carrying ports, `pass` / `fail` on validators.
 
-**3. `nodes show <node_type>` — currently broken with an API key.** It is the call that would carry
-`category` plus `options` (the workspace's available voices and providers), but the CLI maps it to
-the deprecated v1 endpoint, which rejects API-key auth: it returns `UNAUTHORIZED` even for a key that
-works on every other command. Don't build a flow that depends on it; get what you need from
-`voices list` instead (below).
+**3. `nodes show <node_type>`** — adds `category` and `options`, the runtime side of a node. The
+options are **hrefs, not inline data** (`{"kind": "href", "target": "/api/v1/voices", ...}`), and the
+useful part is each href's `properties`: for `operator_generator` that is the complete set of valid
+filter values — the locales, the providers, and the models, each with a display name. That is the
+authoritative answer to "which model can I put in a `voice_map`". Follow the `voices` href with
+`onepin voices list`; the `providers` href (`/api/v1/providers`) has no CLI command, but a voice
+row's `supported_models` covers the same ground.
 
 One caveat on when you can call it: the *endpoint* needs no valid credential, but the *CLI* refuses
 to run any command without one, so `nodes list` works with an expired or even nonsense key but not

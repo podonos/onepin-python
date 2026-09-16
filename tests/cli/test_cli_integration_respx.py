@@ -128,3 +128,44 @@ class TestErrorEnvelope:
         assert result.exit_code == 1
         assert "[NOT_FOUND]" in result.output
         assert "Workflow not found." in result.output
+
+
+class TestNodesShowUsesV2:
+    """`nodes show` must call the v2 node-detail endpoint.
+
+    The v1 endpoint rejects API-key auth — it answers 401 for a key that works on every
+    other command — so wiring this command to v1 made it unusable for every CLI user.
+    v2 takes the same arguments and swaps the inlined model catalog for a `providers` href.
+    """
+
+    @respx.mock
+    def test_hits_v2_not_v1(self, tmp_home) -> None:
+        body = {
+            "data": {
+                "node_type": "operator_generator",
+                "display_name": "Voice Generator",
+                "description": "TTS engine - voice generation",
+                "version": 3,
+                "beta": False,
+                "category": "operator",
+                "inputs": [{"name": "lines", "fields": ["locale_code", "script"]}],
+                "outputs": [{"name": "lines", "fields": ["audio_files"]}],
+                "input_schema": {},
+                "config_schema": {},
+                "options": {
+                    "providers": {"kind": "href", "target": "/api/v1/providers", "method": "GET"},
+                },
+            },
+            "meta": _META,
+        }
+        v1 = respx.get(f"{_BASE}/api/v1/nodes/operator_generator").mock(
+            return_value=httpx.Response(401, json={"error": {"code": "UNAUTHORIZED", "message": "nope"}})
+        )
+        v2 = respx.get(f"{_BASE}/api/v2/nodes/operator_generator").mock(return_value=httpx.Response(200, json=body))
+
+        result = _invoke(["nodes", "show", "operator_generator", "--json"])
+
+        assert result.exit_code == 0, result.output
+        assert v2.called, "nodes show must use the v2 node-detail endpoint"
+        assert not v1.called, "v1 rejects API-key auth; nothing should call it"
+        assert '"category": "operator"' in result.output
