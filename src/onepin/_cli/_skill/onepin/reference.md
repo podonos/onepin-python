@@ -95,12 +95,44 @@ and the display name is not. (Labels and descriptions below were read from the l
 | `validator_noise` | Clarity check | validation | 1 in / 2 out | Check the audio is clean, with no background noise or artifacts. Pass / fail pins. |
 | `validator_pronunciation` | Pronunciation check *(beta)* | validation | 1 in / 2 out | Check each word is pronounced correctly, sound by sound. Pass / fail pins. |
 
-Every validator's threshold is **adjustable** (85 is the usual default) and each carries a per-object
-**retry counter**: each visit increments it, and once it reaches max-retry the object leaves through
-the **pass** pin regardless of score — that is what stops a fail→regenerate loop from running forever.
+Every validator's threshold is **adjustable** — the defaults differ per validator, see *Node config
+keys* below — and each carries a per-object **retry counter**: each visit increments it, and once it
+reaches `max_retries` (3 by default) the object leaves through the **pass** pin regardless of score,
+which is what stops a fail→regenerate loop from running forever.
 
 Costs differ per node and the generator/translator price against the vendor you pick, so
 `workflows preview-run` — not this table — is what tells the user what a graph will cost.
+
+## Node config keys
+
+What each node takes in its `config`, read from the live catalog on 2026-09-16 — `nodes list`
+(`config_schema`, a bare name → schema map) is the source of truth, and `nodes show <node_type>`
+adds the runtime option values (available languages, provider/model choices, a voice-picker link).
+
+| `node_type` | `config` keys (defaults where set) |
+|---|---|
+| `source_script` | `input_type` (`text` / `file` / `media`), `text`, `upload_ids`, `csv_column`, `csv_has_header` = `true`, `source_language`, `input_mode` = `plain` (`plain` / `markup`) |
+| `operator_translator` | `target_languages` |
+| `operator_normalizer` | `engine` = `llm`, `target_locale` |
+| `operator_generator` | `voice_map`, `target_locale` |
+| `operator_phoneme_injector` | `max_ngram` = `1` [1–5], `llm_candidate_filter` = `true`, `exclude_address_rows` = `true`, `use_derived_word_parts` = `true` |
+| `operator_pronunciation_corrector` | `n_candidates` = `2` [1–8], `seed`, `target_ipa_source` = `dictionary` (`dictionary` / `ped`), `fallback_to_detector_ipa` = `true` |
+| `validator_error_rate` | `threshold` = `93.0` [70–99], `max_retries` = `3` [1–50] |
+| `validator_naturalness` | `threshold` = `70.0` [0–100], `max_retries` = `3` [1–50] |
+| `validator_noise` | `threshold` = `70.0` [0–100], `max_retries` = `3` [1–50] |
+| `validator_pronunciation` | `threshold` = `99.0` [0–100], `max_retries` = `3` [1–50], `k` = `1.0` |
+| `sink_preview` | `format` = `wav` (`wav` / `mp3`) |
+
+Two things worth knowing before you propose a graph:
+
+- **Validator defaults are not uniform.** Word accuracy sits at 93 (and is clamped to 70–99);
+  naturalness and clarity at 70; pronunciation at 99. All four retry 3 times. Say the number you are
+  proposing rather than "the default".
+- **A voice lives in `operator_generator.config.voice_map`** — a map of locale → list of
+  `VoiceAssignment`, each needing at least `voice_id`, `provider` and `model` (optionally
+  `catalog_voice_id`, `voice_name`, `provider_config`, `canonical_controls`). Changing a workflow's
+  voice means editing that map and calling `workflows update`; there is no dedicated command.
+  The generator currently accepts these locales: `de-de`, `en-gb`, `en-us`, `es-es`, `es-mx`, `fr-fr`, `ja-jp`, `ko-kr`, `pt-br`, `pt-pt`, `zh-cn`.
 
 ## Designing a workflow
 

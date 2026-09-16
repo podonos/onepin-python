@@ -29,6 +29,45 @@ then poll it. Three rules follow from that and they outrank the mechanics below:
 - **Reuse before you build, and make it the user's choice.** Before authoring a workflow, look
   at what the workspace already has and offer *both* paths. See *Reuse before you build*.
 
+## The flow
+
+"Make me some speech" is not one command — it is a short conversation with decisions that belong to
+the user, not to you. Walk it in order and stop at each question.
+
+1. **Which workflow?** `onepin --json workflows list` *and* `templates list`. Put the existing
+   workflows (named with their languages and voices), the gallery templates, and **"build a new
+   one"** into a single question. → *Reuse before you build*
+2. **Show it before it costs anything.** `workflows show <workflow_id>` → render the pipeline, the
+   voice per language, and the quality gates. → *Show the workflow before you run it*
+3. **The voice — keep it, hear it, or change it?** Ask; don't assume the saved one is wanted.
+   - *hear it*: `voices list --language <locale> --search <name>` → announce → play
+     `language_sample_url`. → *Audio: the part you must not skip*
+   - *change it*: there is **no set-voice command**. Patch the generator's
+     `config.voice_map["<locale>"]` in the definition and `workflows update <id> --definition @wf.json`
+     (a `VoiceAssignment` needs at least `voice_id`, `provider`, `model`).
+4. **The script.** Their exact text on `workflows run --script`, with `--source-language` when it
+   isn't the saved one. → *The script is the user's*
+5. **Price, then permission.** `workflows preview-run <workflow_id>` → show the expected credits →
+   get an explicit yes → `workflows run`. Poll `runs status`, or run with `--watch --timeout 300`.
+6. **Hand over the audio.** `runs data` → announce → play or link every line. A run that finished
+   and was only described in text is not finished. → *Audio: the part you must not skip*
+
+**If they chose to build a new one**, step 2 becomes its own set of questions — ask, don't pick for
+them, and confirm every slug against `nodes list` first:
+
+- **Source** — `source_script` (their text or an upload).
+- **Operators** — a `operator_normalizer` (numbers, dates, abbreviations → spoken form)? an
+  `operator_translator` (`target_languages`) if they want other languages? an
+  `operator_phoneme_injector` if pronunciation matters?
+- **Generator** — `operator_generator`, one `voice_map` entry per locale.
+- **Validators** — which checks, and at what bar: word accuracy, naturalness, clarity,
+  pronunciation. Each has a `threshold` and `max_retries`; the defaults are not all the same and are
+  listed in [reference.md](reference.md).
+- **Sink** — `sink_preview` (`format`: `wav` or `mp3`).
+
+Then `workflows definition-schema` → `workflows create --definition @wf.json` → and you are back at
+step 3. There is no separate validate command: `create` is what rejects an invalid graph.
+
 ## Golden rules
 
 - **Discover, don't guess.** `onepin schema` prints a JSON manifest of every command
