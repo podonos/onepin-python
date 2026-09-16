@@ -752,6 +752,95 @@
       ]
     },
     {
+      "args": [],
+      "destructive": false,
+      "group": "voices",
+      "name": "facets",
+      "options": [
+        {
+          "default": false,
+          "flag": "--favorites-only",
+          "help": "Scope the counts to favorited voices.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": null,
+          "flag": "--gender",
+          "help": "Filter by gender.",
+          "required": false,
+          "type": "choice[male,female,neutral]"
+        },
+        {
+          "default": null,
+          "flag": "--age",
+          "help": "Filter by age band.",
+          "required": false,
+          "type": "choice[young,middle_aged,old]"
+        },
+        {
+          "default": null,
+          "flag": "--category",
+          "help": "Filter by delivery style (news, narration, podcast, ...).",
+          "required": false,
+          "type": "choice[news,narration,story,podcast,conversational,social_media,educational,business]"
+        },
+        {
+          "default": null,
+          "flag": "--accent",
+          "help": "Filter by accent.",
+          "required": false,
+          "type": "choice[american,british,australian,indian,canadian,irish,african,european,east_asian,southeast_asian,latin_american,middle_eastern,slavic,spanish,french,german,italian,portuguese,japanese,korean,chinese,thai,vietnamese,other]"
+        },
+        {
+          "default": null,
+          "flag": "--source",
+          "help": "Filter by where the voice came from (platform, or this workspace's own).",
+          "required": false,
+          "type": "choice[platform,recorded,uploaded,workspace]"
+        },
+        {
+          "default": null,
+          "flag": "--provider",
+          "help": "Filter by provider(s), comma-separated (e.g. elevenlabs,fish_audio).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--model",
+          "help": "Filter by TTS model(s), comma-separated (e.g. arcana,sonic-2).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--language",
+          "help": "Filter by language code(s), comma-separated (e.g. en-us,ko-kr).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--search",
+          "help": "Scope the counts to a free-text voice search.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "voices",
+        "facets"
+      ]
+    },
+    {
       "args": [
         {
           "name": "voice_id"
@@ -810,8 +899,43 @@
         },
         {
           "default": null,
+          "flag": "--age",
+          "help": "Filter by age band.",
+          "required": false,
+          "type": "choice[young,middle_aged,old]"
+        },
+        {
+          "default": null,
+          "flag": "--category",
+          "help": "Filter by delivery style (news, narration, podcast, ...).",
+          "required": false,
+          "type": "choice[news,narration,story,podcast,conversational,social_media,educational,business]"
+        },
+        {
+          "default": null,
+          "flag": "--accent",
+          "help": "Filter by accent.",
+          "required": false,
+          "type": "choice[american,british,australian,indian,canadian,irish,african,european,east_asian,southeast_asian,latin_american,middle_eastern,slavic,spanish,french,german,italian,portuguese,japanese,korean,chinese,thai,vietnamese,other]"
+        },
+        {
+          "default": null,
+          "flag": "--source",
+          "help": "Filter by where the voice came from (platform, or this workspace's own).",
+          "required": false,
+          "type": "choice[platform,recorded,uploaded,workspace]"
+        },
+        {
+          "default": null,
           "flag": "--provider",
           "help": "Filter by provider(s), comma-separated (e.g. elevenlabs,fish_audio).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--model",
+          "help": "Filter by TTS model(s), comma-separated (e.g. arcana,sonic-2).",
           "required": false,
           "type": "text"
         },
@@ -825,9 +949,23 @@
         {
           "default": null,
           "flag": "--search",
-          "help": "Substring search.",
+          "help": "Free-text voice search over meaning plus name/tags/descriptor, returned relevance-ranked \u2014 not a plain substring match. Pass a description (\"warm, unhurried narrator\"), not just a name.",
           "required": false,
           "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--sort",
+          "help": "Sort field. Ignored while --search is ranking by relevance.",
+          "required": false,
+          "type": "choice[name,created_at,uses_count]"
+        },
+        {
+          "default": null,
+          "flag": "--order",
+          "help": "Sort direction.",
+          "required": false,
+          "type": "choice[asc,desc]"
         },
         {
           "default": false,

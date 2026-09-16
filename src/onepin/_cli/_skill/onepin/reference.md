@@ -23,7 +23,7 @@ position.
 | `workflows` | CRUD + `run`, `preview-run`, `duplicate`, `definition-schema`, `uploads`; subgroup `runs` |
 | `workflows runs` | `list`, `show`, `status`, `steps`, `overview`, `data`, `summary`, `cancel`, `download`, `download-node` |
 | `templates` | `list`, `show`, `create`, `update`, `delete`, `clone`, `favorite`, `unfavorite` |
-| `voices` | `list`, `show`, `similar`, `favorite`, `unfavorite` |
+| `voices` | `list`, `facets`, `show`, `similar`, `sample`, `favorite`, `unfavorite` |
 | `uploads` | `create` (presigned S3), `confirm`, `delete` |
 | `workspace` | `list`, `show`, `create`, `update`, `delete`, `settings`; subgroup `members` |
 | `workspace members` | `list`, `invite`, `set-role`, `remove`, `accept`, `invite-role`, `revoke-invite` |
@@ -259,16 +259,22 @@ and refuse to clobber without `--force`, like `runs download`.
 Let the server narrow it; don't page the catalog (SKILL.md → *Let the server pick the shortlist*).
 
 ```bash
-onepin --json voices list --language ko-kr --gender female \
+# What is even available in this locale? (values + match counts, per dimension)
+onepin --json voices facets --language ko-kr
+
+onepin --json voices list --language ko-kr --gender female --category narration \
   --search "calm, warm audiobook narrator" --limit 10 \
   | jq -r '.[] | [.name, .provider, (.age // "-"), (.category // "-"), .language_sample_url] | @tsv'
 ```
 
 `--search` is a relevance-ranked query over meaning plus name/tags/descriptor, so pass the user's
-own words rather than guessing a name. `age` / `category` / `accent` / `tags` come back on every row
-even though no flag filters on them — refine on those *after* the server has narrowed, and say so,
-because it only reorders the page you were given. Nothing matched? Drop `--search` first, then one
-filter at a time. Then audition: `language_sample_url` is the clip in the locale you asked for, and
+own words rather than guessing a name. Put every axis you know into the request — `--gender`,
+`--age`, `--category`, `--accent`, `--source`, `--provider`, `--model` all filter server-side, so
+there is no reason to pull rows you could have excluded. Only `tags`, `description` and
+`uses_count` have no flag; refine on those *after* the server has narrowed, and say so, because it
+only reorders the page you were given. Nothing matched? Re-run `voices facets` with the same
+filters to see which axis is at zero, then drop `--search` first and the rest one at a time. Then
+audition: `language_sample_url` is the clip in the locale you asked for, and
 `voices similar <voice_id> --language <code>` is the server-side "more like this one".
 
 ## Recipe: hand over a run's audio
@@ -302,16 +308,22 @@ instead; `nodes list` and `workspace members list` are unpaged.) Text output end
 exists rather than guessing from a full one. `--json` returns the rows alone.
 
 **Every filter is evaluated server-side.** The CLI forwards them as query parameters and renders
-what comes back, so filtering is the only thing that makes a list mean anything. It also renders
-*only the rows* — the response's pagination envelope is dropped — so no list command reports a
-total. A short list is "what this page held", never "this is all there is".
+what comes back, so filtering is the only thing that makes a list mean anything. Under `--json` the
+payload is the rows alone, with no total — a short JSON list is "what this page held", never "this
+is all there is".
 
-**`voices list --search` is the one that is easy to underestimate.** `onepin schema` describes it as
-a substring search; the server actually matches the query against a voice's meaning as well as its
-name, tags and descriptor, and returns the result relevance-ranked — so a phrase like
-`"warm, unhurried documentary narrator"` is a better query than a guessed name. `schema` is
-authoritative on *which flags exist and what shape they take*; it is not a description of how the
-server matches them. See SKILL.md → *Let the server pick the shortlist*.
+**`voices list --search` is the one that is easy to underestimate.** It is not a substring match:
+the server matches the query against a voice's meaning as well as its name, tags and descriptor,
+and returns the result relevance-ranked — so a phrase like `"warm, unhurried documentary narrator"`
+is a better query than a guessed name, and `--sort`/`--order` are ignored while it is ranking. See
+SKILL.md → *Let the server pick the shortlist*.
+
+**`voices facets` is the discovery call for the rest of the filters.** `voices list` filters on
+`--gender` / `--age` / `--category` / `--accent` / `--source` / `--provider` / `--model` /
+`--language`, and `facets` returns which values of each actually exist plus a match count for each,
+under whatever filters you already passed. Counts are context-aware — each dimension applies every
+*other* active filter but not its own selection — so it doubles as "which axis is the one making
+this empty?". The `value` it returns is exactly what `voices list` accepts.
 
 `voices list --language` accepts only specific codes (e.g. `en-us`, `en-gb`, `en`); unsupported
 codes (e.g. `en-au`) return `422`, even when voices report them in `supported_languages`. Passing it

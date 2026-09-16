@@ -172,9 +172,15 @@ see below) and the workflow you are about to run (show its shape before it costs
 
 ### Voices
 - `onepin --json voices list` — every filter is applied **server-side**: `--search`, `--language`,
-  `--gender`, `--provider`, `--favorites-only`. Filters AND across fields; a comma-separated value
+  `--gender`, `--age`, `--category`, `--accent`, `--source`, `--provider`, `--model`,
+  `--favorites-only`, plus `--sort`/`--order`. Filters AND across fields; a comma-separated value
   ORs within one. Ask the server for the shortlist instead of paging the catalog →
   *Let the server pick the shortlist*.
+- **`onepin --json voices facets` answers "what can I filter by, and how much is left?"** — one call
+  returns every provider, model, language, gender, age, category and accent that exists, each with
+  a match count, and it takes the same filters so the counts narrow as you add them. Its `value`s
+  are exactly what `voices list` accepts, so use it instead of guessing a locale code into a `422`
+  or offering the user a filter that would return nothing.
 - `--language` accepts only specific comma-separated codes (e.g. `en-us`, `en-gb`, `en`); an
   unsupported code returns `422` — don't guess regions, and note a voice's own
   `supported_languages` may be broader than the filter codes.
@@ -208,22 +214,27 @@ shortlist.**
    against a voice's meaning as well as its name, tags and descriptor, and returns one
    relevance-ranked list, so the user's own phrasing *is* the query:
    `--search "warm, unhurried documentary narrator"` surfaces calm, measured voices that share no
-   literal word with it. Pass what the user said. (`onepin schema` calls this flag "substring
-   search" — that one-line help understates it. It is the same flag either way; how the query is
-   matched is the server's business, not a mode you have to select.)
-2. **Pin the axes you actually know.** `--language <locale>` — which also fills
-   `language_sample_url` on every row, so the shortlist is auditionable without a call per voice —
-   plus `--gender`, `--provider`, and `--favorites-only` for what this workspace already liked.
-3. **Refine on the returned rows, and say that you did.** Rows carry `age`, `category`, `accent`,
-   `tags`, `description` and `uses_count` even though no flag filters on them, so narrowing a
-   server-filtered shortlist on those fields is fine — just don't report it as a catalog-wide
-   answer, because it only sorted the page you were handed.
-4. **"More like that one" is also a server call.** `voices similar <voice_id> --language <locale>`
+   literal word with it. Pass what the user said.
+2. **Pin every axis you actually know — there is a flag for each.** `--language <locale>` (which
+   also fills `language_sample_url` on every row, so the shortlist is auditionable without a call
+   per voice), `--gender`, `--age`, `--category` (the delivery style: `narration`, `podcast`,
+   `news`, …), `--accent`, `--source` (`platform` vs. this workspace's own), `--provider`,
+   `--model`, and `--favorites-only` for what this workspace already liked. Don't pull rows you
+   could have excluded in the request.
+3. **Ask `voices facets` when you don't know what to ask for.** It reports the values that exist
+   with a count each, under the filters you already have — so "is there even a Korean
+   conversational voice?" is one call, not a search that comes back empty and tells you nothing.
+   Reach for it before guessing a value, and after an empty result to see which axis emptied it.
+4. **Refine on the returned rows only for what has no flag**, and say that you did: `tags`,
+   `description`, `uses_count`. Anything with a flag belongs in the request instead. And a
+   row-level refinement is never a catalog-wide answer — it only sorted the page you were handed.
+5. **"More like that one" is also a server call.** `voices similar <voice_id> --language <locale>`
    when the user liked a voice but not quite — better than re-listing and re-reading names.
 
 **Empty means widen, not enumerate.** A `--search` plus three filters can legitimately match
 nothing. Relax `--search` first (it is the fuzziest constraint), then one filter at a time, and tell
-the user what you dropped. The wrong recovery is an unfiltered `voices list` read by eye.
+the user what you dropped — or run `voices facets` with the same filters to see which axis is the
+one at zero. The wrong recovery is an unfiltered `voices list` read by eye.
 
 **Read the count, and check the row is usable.** The row count is bounded by `--limit` and is never
 "how many matched" — the match count is the `N` in the `Showing X of N` footer (text output; under

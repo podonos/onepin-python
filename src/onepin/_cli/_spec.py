@@ -15,7 +15,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional, get_args
 
-from onepin.types import NodeType
+from onepin.types import NodeType, VoiceAccent, VoiceAge, VoiceCategory, VoiceGender
+from onepin.voices.types import (
+    ListVoicesRequestOrderItem,
+    ListVoicesRequestSortItem,
+    ListVoicesRequestSourceItem,
+)
 
 
 @dataclass(frozen=True)
@@ -119,13 +124,19 @@ def _list_opts(*extra: Opt) -> list[Opt]:
 # Workflow run status filter / terminal states (SDK exposes run status as raw str; no enum).
 _RUN_STATUS = ("draft", "running", "completed", "failed", "paused", "cancelled", "pending")
 
-# Derived from the generated `NodeType`, never hand-listed: a literal copy silently goes stale
-# every time the API adds a node type, and the contract test that compares the two then fails
-# the regen — blocking the whole SDK sync on an unrelated CLI edit. Deriving keeps them equal
-# by construction. `NodeType` is a Union[Literal[...], Any], so unwrap one level of get_args.
-_NODE_TYPES: tuple[str, ...] = tuple(
-    value for branch in get_args(NodeType) for value in get_args(branch) if isinstance(value, str)
-)
+
+def _literals(alias: Any) -> tuple[str, ...]:
+    """Unwrap a generated ``Union[Literal[...], Any]`` alias into its literal values.
+
+    Choice tuples are derived from the generated types, never hand-listed: a literal copy
+    silently goes stale every time the API adds a value, and the contract test that compares
+    the two then fails the regen — blocking the whole SDK sync on an unrelated CLI edit.
+    Deriving keeps them equal by construction.
+    """
+    return tuple(value for branch in get_args(alias) for value in get_args(branch) if isinstance(value, str))
+
+
+_NODE_TYPES: tuple[str, ...] = _literals(NodeType)
 
 # Column presets keyed by output model.
 _COLS_WORKFLOW = ["id", "name", "runs_count", "last_run_status", "updated_at"]
@@ -471,7 +482,23 @@ TABLE: list[Cmd] = [
         options=_list_opts(
             _OFFSET,
             Opt("--favorites-only", "bool", False, help="Only favorited voices."),
-            Opt("--gender", ("male", "female", "neutral"), None, transform="wrap_list", help="Filter by gender."),
+            Opt("--gender", _literals(VoiceGender), None, transform="wrap_list", help="Filter by gender."),
+            Opt("--age", _literals(VoiceAge), None, transform="wrap_list", help="Filter by age band."),
+            Opt(
+                "--category",
+                _literals(VoiceCategory),
+                None,
+                transform="wrap_list",
+                help="Filter by delivery style (news, narration, podcast, ...).",
+            ),
+            Opt("--accent", _literals(VoiceAccent), None, transform="wrap_list", help="Filter by accent."),
+            Opt(
+                "--source",
+                _literals(ListVoicesRequestSourceItem),
+                None,
+                transform="wrap_list",
+                help="Filter by where the voice came from (platform, or this workspace's own).",
+            ),
             Opt(
                 # Free-form on purpose: the provider catalog grows server-side (fish_audio,
                 # inworld, ...) and a hardcoded choice list goes stale. The server filters
@@ -484,6 +511,19 @@ TABLE: list[Cmd] = [
                 help="Filter by provider(s), comma-separated (e.g. elevenlabs,fish_audio).",
             ),
             Opt(
+                # Free-form for the same reason as --provider: models are per provider and
+                # the catalog grows server-side.
+                "--model",
+                "str",
+                None,
+                transform="comma_list",
+                multiple=False,
+                help="Filter by TTS model(s), comma-separated (e.g. arcana,sonic-2).",
+            ),
+            Opt(
+                # Free-form rather than a Choice: the generated language enum carries only
+                # regioned locales, but a bare family (`ko`, `en`) is accepted too, so a
+                # Choice would reject codes the server honors.
                 "--language",
                 "str",
                 None,
@@ -491,10 +531,90 @@ TABLE: list[Cmd] = [
                 multiple=False,
                 help="Filter by language code(s), comma-separated (e.g. en-us,ko-kr).",
             ),
-            Opt("--search", "str", None, help="Substring search."),
+            Opt(
+                "--search",
+                "str",
+                None,
+                help=(
+                    "Free-text voice search over meaning plus name/tags/descriptor, returned "
+                    'relevance-ranked — not a plain substring match. Pass a description ("warm, '
+                    'unhurried narrator"), not just a name.'
+                ),
+            ),
+            Opt(
+                "--sort",
+                _literals(ListVoicesRequestSortItem),
+                None,
+                transform="wrap_list",
+                help="Sort field. Ignored while --search is ranking by relevance.",
+            ),
+            Opt(
+                "--order",
+                _literals(ListVoicesRequestOrderItem),
+                None,
+                transform="wrap_list",
+                help="Sort direction.",
+            ),
         ),
         unwrap="pager",
         columns=_COLS_VOICE,
+    ),
+    Cmd(
+        "voices",
+        "facets",
+        "voices.get_voice_facets",
+        "Show the voice filter values that exist and how many voices each one matches.",
+        # Counts are context-aware: each dimension applies every OTHER active filter but not
+        # its own selection, so one call answers "what can I still narrow by, and how much is
+        # left". The values returned are exactly what `voices list` accepts, which is how a
+        # caller stops discovering invalid locale codes by 422.
+        options=[
+            Opt("--favorites-only", "bool", False, help="Scope the counts to favorited voices."),
+            Opt("--gender", _literals(VoiceGender), None, transform="wrap_list", help="Filter by gender."),
+            Opt("--age", _literals(VoiceAge), None, transform="wrap_list", help="Filter by age band."),
+            Opt(
+                "--category",
+                _literals(VoiceCategory),
+                None,
+                transform="wrap_list",
+                help="Filter by delivery style (news, narration, podcast, ...).",
+            ),
+            Opt("--accent", _literals(VoiceAccent), None, transform="wrap_list", help="Filter by accent."),
+            Opt(
+                "--source",
+                _literals(ListVoicesRequestSourceItem),
+                None,
+                transform="wrap_list",
+                help="Filter by where the voice came from (platform, or this workspace's own).",
+            ),
+            Opt(
+                "--provider",
+                "str",
+                None,
+                transform="comma_list",
+                multiple=False,
+                help="Filter by provider(s), comma-separated (e.g. elevenlabs,fish_audio).",
+            ),
+            Opt(
+                "--model",
+                "str",
+                None,
+                transform="comma_list",
+                multiple=False,
+                help="Filter by TTS model(s), comma-separated (e.g. arcana,sonic-2).",
+            ),
+            Opt(
+                "--language",
+                "str",
+                None,
+                transform="comma_list",
+                multiple=False,
+                help="Filter by language code(s), comma-separated (e.g. en-us,ko-kr).",
+            ),
+            Opt("--search", "str", None, help="Scope the counts to a free-text voice search."),
+            _JSON,
+        ],
+        unwrap="data",
     ),
     Cmd(
         "voices",
