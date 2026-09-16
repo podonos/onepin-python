@@ -539,6 +539,35 @@ class TestWorkflowSetVoiceLocaleFamilies:
         assert not patch.called
 
 
+class TestWorkflowSetVoicePreviousList:
+    @respx.mock
+    def test_every_replaced_assignment_is_named(self, tmp_home) -> None:
+        """A locale slot holds a list; naming only the first loses the rest silently."""
+        existing = {
+            "ko-kr": [
+                {
+                    "voice_id": "vn",
+                    "catalog_voice_id": "v-a",
+                    "provider": "naver",
+                    "model": "clova",
+                    "voice_name": "Narrator",
+                },
+                {
+                    "voice_id": "vs",
+                    "catalog_voice_id": "v-b",
+                    "provider": "naver",
+                    "model": "clova",
+                    "voice_name": "SecondSpeaker",
+                },
+            ]
+        }
+        _mock_set_voice(_generator_definition(voice_map=existing))
+        result = runner.invoke(app, _ARGV)
+        assert result.exit_code == 0, result.output
+        assert "Narrator" in result.output
+        assert "SecondSpeaker" in result.output
+
+
 class TestWorkflowSetVoice:
     @respx.mock
     def test_writes_the_assignment_with_the_right_id_fields(self, tmp_home) -> None:

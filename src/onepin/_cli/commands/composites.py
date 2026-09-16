@@ -382,14 +382,24 @@ def _check_model(capabilities: list[dict[str, Any]], model: str, locale: str, vo
 
 
 def _describe_assignment(previous: Any) -> str:
-    """One-line description of the assignment being replaced, so it can be restored."""
+    """Describe the assignment(s) being replaced, so they can be restored.
+
+    A locale slot holds a *list* of ``VoiceAssignment``, not one, and this command replaces
+    the whole list. Printing only the first entry would quietly lose the rest: the caller is
+    told the change is reversible, so every entry that was there has to be in the line that
+    says what was there.
+    """
     if not previous:
         return "nothing (this locale had no voice assigned)."
-    entry = previous[0] if isinstance(previous, list) and previous else previous
-    if not isinstance(entry, dict):
+    entries = previous if isinstance(previous, list) else [previous]
+    if not all(isinstance(entry, dict) for entry in entries):
         return json.dumps(previous, default=str)
+    return "; ".join(_describe_entry(entry) for entry in entries) + "."
+
+
+def _describe_entry(entry: dict[str, Any]) -> str:
     name = entry.get("voice_name") or entry.get("catalog_voice_id") or entry.get("voice_id")
-    return f"{name} ({entry.get('provider')}/{entry.get('model')}), catalog id {entry.get('catalog_voice_id')}."
+    return f"{name} ({entry.get('provider')}/{entry.get('model')}), catalog id {entry.get('catalog_voice_id')}"
 
 
 # === workflows duplicate =================================================================
