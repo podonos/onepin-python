@@ -122,7 +122,9 @@ with no key at all.
   | `voice_name` | `name` (display only) |
 
   Changing a workflow's voice means editing that map and calling `workflows update` — there is no
-  set-voice command.
+  set-voice command, and no `--voice` on `workflows run` either, so there is no run-scoped way to
+  swap a voice. The edit is permanent; `workflows duplicate` first if the original must survive.
+  Both paths need the user's yes (SKILL.md → *Changing a voice is not run-scoped*).
 - **That validator defaults are not uniform.** They differ per validator and are clamped to
   different ranges, so read the `threshold` default from `config_schema` and quote *that* number to
   the user rather than saying "the default".
@@ -185,10 +187,25 @@ onepin workflows runs download <workflow_id> <run_id> --out export.zip  # full e
 onepin workflows runs download-node <workflow_id> <run_id> <node_id> --out node.zip   # one node's output
 ```
 
+`workflows run` is **not** `--yes`-gated even though it spends credits — confirm with the user
+first, every time, by the procedure in SKILL.md → *Running a workflow*. `preview-run` returns
+`min_credits` / `expected_credits` / `max_credits` per node; when it fails (an unfilled script node
+returns `VALIDATION_ERROR`), don't drop the cost — fall back to a past run's `credits` field on
+`onepin --json workflows runs list <workflow_id>`, or failing that to the script's character count
+(~1 credit/character for one Latin-script locale — a floor: extra locales multiply, CJK on a
+byte-priced model runs ~3×, a translator adds a language multiplier). Label the number an estimate.
+
+**Billing is per-unit, and the unit differs per node** — `character` for the text nodes, `byte` for a
+TTS model priced in UTF-8 bytes, `word` for the pronunciation corrector — so no single rate
+reproduces a charge exactly. A settled run also carries a per-run 1-credit floor. That is why the
+estimate above is a floor and must be presented as one.
+
 `workflows run` also takes **run-scoped script inputs**: `--script "<text>"` replaces the saved
 script for that one run (the workflow is not modified), and `--source-language <bcp-47>` (e.g.
 `en-us`) declares the language of that text when it differs from the saved one. Use this for
-one-off lines instead of `workflows update`.
+one-off lines instead of `workflows update`. Which of the two you are doing is one of the four
+things the run confirmation has to state. Note what is *not* on that list: there is no `--voice`, so
+a voice swap is always an edit to the saved definition, never a property of one run.
 
 ## Recipe: diagnose a run
 
@@ -208,7 +225,7 @@ payload for nothing. `runs summary <workflow_id> --from <iso> --to <iso>` aggreg
 
 | What you want | Command | Field that carries it |
 |---|---|---|
-| a voice's sample **in a given language** | `voices list --language <code> [--search <name>]` | `language_sample_url` (+ `language_sample_locale` — the region actually served) |
+| a voice's sample **in a given language** | `voices list --language <code> [--search "<description>"]` | `language_sample_url` (+ `language_sample_locale` — the region actually served) |
 | a voice's default sample | `voices list` · `voices show <voice_id>` | `sample_url` — does **not** follow `--language`, so it may be another language |
 | a run's **per-line** audio | `workflows runs data <workflow_id> <run_id>` | `rows[].cards[].audio.playback_url` |
 | files on disk | `workflows runs download` · `runs download-node` | the written file |
@@ -223,6 +240,23 @@ than caching it. Read the statuses before claiming delivery: `audio.status` is `
 **Not on the CLI:** the SDK additionally has `client.voices.preview(voice_id, language=…, model=…)`
 and `client.workflows.get_run_audio_url(workflow_id, run_id, audio_id)`, but no `onepin` command
 maps to either — use the table above instead of inventing a flag.
+
+## Recipe: shortlist a voice
+
+Let the server narrow it; don't page the catalog (SKILL.md → *Let the server pick the shortlist*).
+
+```bash
+onepin --json voices list --language ko-kr --gender female \
+  --search "calm, warm audiobook narrator" --limit 10 \
+  | jq -r '.[] | [.name, .provider, (.age // "-"), (.category // "-"), .language_sample_url] | @tsv'
+```
+
+`--search` is a relevance-ranked query over meaning plus name/tags/descriptor, so pass the user's
+own words rather than guessing a name. `age` / `category` / `accent` / `tags` come back on every row
+even though no flag filters on them — refine on those *after* the server has narrowed, and say so,
+because it only reorders the page you were given. Nothing matched? Drop `--search` first, then one
+filter at a time. Then audition: `language_sample_url` is the clip in the locale you asked for, and
+`voices similar <voice_id> --language <code>` is the server-side "more like this one".
 
 ## Recipe: hand over a run's audio
 
@@ -246,13 +280,27 @@ get — say so rather than letting a short list read as the whole run.
 
 ## Filters & pagination
 
-List commands take `--limit` (default 50, **max ~100** — larger values return `422`), `--search`
-(substring), and where shown `--sort`/`--order`/`--status`/`--category`. Most take **no offset or
-cursor**, so a set larger than one page cannot be fully enumerated — narrow with filters and tell
-the user when a list is partial. Two commands are paged and *can* be walked: `workflows runs data`
-(`--limit` / `--offset`) and `usage activity` (`--limit` / `--cursor`). `voices list --language`
-accepts only specific codes (e.g. `en-us`, `en-gb`, `en`); unsupported codes (e.g. `en-au`) return
-`422`, even when voices report them in `supported_languages`.
+List commands take `--limit` (default 50, **max ~100** — larger values return `422`), `--search`,
+and where shown `--sort`/`--order`/`--status`/`--category`. Most take **no offset or cursor**, so a
+set larger than one page cannot be fully enumerated — narrow with filters and tell the user when a
+list is partial. Two commands are paged and *can* be walked: `workflows runs data`
+(`--limit` / `--offset`) and `usage activity` (`--limit` / `--cursor`).
+
+**Every filter is evaluated server-side.** The CLI forwards them as query parameters and renders
+what comes back, so filtering is the only thing that makes a list mean anything. It also renders
+*only the rows* — the response's pagination envelope is dropped — so no list command reports a
+total. A short list is "what this page held", never "this is all there is".
+
+**`voices list --search` is the one that is easy to underestimate.** `onepin schema` describes it as
+a substring search; the server actually matches the query against a voice's meaning as well as its
+name, tags and descriptor, and returns the result relevance-ranked — so a phrase like
+`"warm, unhurried documentary narrator"` is a better query than a guessed name. `schema` is
+authoritative on *which flags exist and what shape they take*; it is not a description of how the
+server matches them. See SKILL.md → *Let the server pick the shortlist*.
+
+`voices list --language` accepts only specific codes (e.g. `en-us`, `en-gb`, `en`); unsupported
+codes (e.g. `en-au`) return `422`, even when voices report them in `supported_languages`. Passing it
+also fills `language_sample_url` / `language_sample_locale` on every row it has a clip for.
 
 ## Errors
 
