@@ -142,8 +142,13 @@ shape below is the design contract.
 one or more **Sinks**. A graph can have **multiple** sources, processors, generators, and sinks — it
 is not a single linear chain.
 
+**Which of these to build is a question for the user, not a default you pick** — SKILL.md →
+*Designing a new workflow (ask what goes in it)* is the gate: validators, operators and output,
+asked before `create`, with a recommendation leading.
+
 **Example topologies (simple → robust):**
-- **Minimal:** `source → generator → sink`.
+- **Minimal:** `source → generator → sink` — and note what this is: nothing checks the audio, so
+  whatever the first take says is what ships. Only on a user who was told that and chose it.
 - **+ accuracy:** `source → normalizer → generator → sink`.
 - **Higher accuracy:** `source → normalizer → multiple generators → multiple validators → sink(s)`.
 - **Fan-out:** a single source can feed several branches at once — e.g. `source → normalizer →
@@ -155,7 +160,8 @@ TTS).
 
 **Validators:**
 - Can be wired **in series** (chained checks) or **in parallel** (independent checks on the same audio).
-- Each exposes **pass / fail pins** plus a retry counter (default threshold 85, max-retry guard).
+- Each exposes **pass / fail pins** plus a retry counter (a `threshold` — commonly 85, but read the
+  real per-validator default from `nodes list` — and a `max_retries` guard).
 - A **fail pin** can route back to the *same* generator (regenerate) **or** forward to a *different /
   new* generator — failed items don't have to return to where they came from.
 
@@ -195,16 +201,22 @@ first, every time, by the procedure in SKILL.md → *Running a workflow*. `previ
 `min_credits` / `expected_credits` / `max_credits` per node, and takes the same
 `--script` / `--source-language` as `run` — pass them, or you price the saved definition instead of
 the run being charged (and an unfilled script node priced without `--script` returns
-`VALIDATION_ERROR`, since there is no text to count). If it still fails, don't drop the cost — fall
-back to a past run's `credits` field on
-`onepin --json workflows runs list <workflow_id>`, or failing that to the script's character count
-(~1 credit/character for one Latin-script locale — a floor: extra locales multiply, CJK on a
-byte-priced model runs ~3×, a translator adds a language multiplier). Label the number an estimate.
+`VALIDATION_ERROR`, since there is no text to count). If it still fails, **make `preview-run` work
+rather than estimating around it**: pass the real `--script`, or — when the text has to live in the
+workflow, as with an upload-backed source — save it there (`uploads confirm --workflow-id`, or
+`workflows update --definition`, a workflow edit with its own yes) and price again. A past run's
+`credits` on `onepin --json workflows runs list <workflow_id>` is context for what this workflow
+charged before, not a price for this run. No number means no run.
 
-**Billing is per-unit, and the unit differs per node** — `character` for the text nodes, `byte` for a
-TTS model priced in UTF-8 bytes, `word` for the pronunciation corrector — so no single rate
-reproduces a charge exactly. A settled run also carries a per-run 1-credit floor. That is why the
-estimate above is a floor and must be presented as one.
+**Never turn a character count into a credit figure.** Billing is per-unit and the unit differs per
+node — `character` for the text nodes, `byte` for a TTS model priced in UTF-8 bytes, `word` for the
+pronunciation corrector — each unit carries its own rate, every extra locale adds its own, and a
+settled run carries a per-run 1-credit floor. Nothing survives that as a per-character rule of
+thumb: the API's own pricing guide (`templates estimate`, SDK-only — no CLI command) is expressed in
+credits per `unit_chars` **input characters, default 1,000**, and one measured run billed 1 credit
+for ~107 characters. Quoted only to show how far a per-character guess lands from the truth — not as
+a rate to reuse. Credits are read from `preview-run`'s `expected_credits`, a run record's `credits`
+field, or the change in `current_balance`; a run's `token_cost` is a *unit* count, not credits.
 
 `workflows run` also takes **run-scoped script inputs**: `--script "<text>"` replaces the saved
 script for that one run (the workflow is not modified), and `--source-language <bcp-47>` (e.g.

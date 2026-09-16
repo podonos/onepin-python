@@ -62,14 +62,15 @@ the user, not to you. Walk it in order and stop at each question.
 5. **Price, then permission.** `workflows preview-run <workflow_id>` **with the same
    `--script`/`--source-language` you are about to run** → show the expected credits → get an
    explicit yes → `workflows run`. Poll `runs status`, or run with `--watch --timeout 300`.
-   Every run, however small; if `preview-run` still fails, estimate rather than skip the number. →
-   *Running a workflow*
+   Every run, however small; if `preview-run` fails, make it work — never turn the script's length
+   into a credit figure. → *Running a workflow*
 6. **Hand over the audio.** `runs data` → announce → play every line (link it only when this shell
    cannot play). A run that finished and was only described in text is not finished.
    → *Audio: the part you must not skip*
 
 **If they chose to build a new one**, step 2 becomes its own set of questions — ask, don't pick for
-them, and confirm every slug against `nodes list` first:
+them, lead with a recommendation rather than a menu, and confirm every slug against `nodes list`
+first. → *Designing a new workflow*
 
 - **Source** — `source_script` (their text or an upload).
 - **Operators** — a `operator_normalizer` (numbers, dates, abbreviations → spoken form)? an
@@ -80,7 +81,8 @@ them, and confirm every slug against `nodes list` first:
 - **Validators** — which checks, and at what bar: word accuracy, naturalness, clarity,
   pronunciation. Each has a `threshold` and `max_retries`, and **the defaults differ per validator**
   — read the real one out of `nodes list` (`.config_schema.threshold.default`) and quote that number
-  to the user instead of saying "the default".
+  to the user instead of saying "the default". **Leaving validators out is itself a decision**, and
+  one only the user gets to make. → *Designing a new workflow*
 - **Sink** — `sink_preview` (`format`: `wav` or `mp3`).
 
 Then `workflows definition-schema` → `workflows create --definition @wf.json` → and you are back at
@@ -413,6 +415,48 @@ duplicate is worse than no check at all — it teaches the user to wave the ques
 write-only key gets `FORBIDDEN` on the very list this reads. If the list call fails, say the reuse
 check couldn't run — never "nothing similar exists".
 
+## Designing a new workflow (ask what goes in it)
+
+"Build a new one" is not one decision, it is three — and `workflows create` will happily accept a
+graph that skips all of them. `source → generator → sink` is a valid workflow, and it is also a
+workflow with **no quality check at all**: whatever the model says on the first take is what ships,
+and nothing in the run will ever report that it was wrong. Authoring that silently, because it is
+the shortest definition to write, quietly drops the thing this product exists to do. So before
+`create`, put the three questions below to the user with AskUserQuestion — **leading with a
+recommendation**, not a menu: propose a shape, say why it fits their script, and let them cut it
+down.
+
+The ladder to recommend from (full topology rules, including fan-out and where a fail pin can
+route: [reference.md](reference.md) → *Designing a workflow*):
+
+| Shape | Graph | When |
+|---|---|---|
+| Minimal | `source → generator → sink` | one throwaway line, with the user told there is no check |
+| + accuracy | `source → normalizer → generator → sink` | any script with numbers, dates, abbreviations |
+| Higher accuracy | `source → normalizer → generator(s) → validator(s) → sink(s)` | **the default to propose** — anything the user will actually use |
+
+1. **Validators — which checks, at what bar, and what a fail does.** The catalog covers word
+   accuracy, naturalness, background noise and pronunciation; confirm the slugs with `nodes list`
+   and never author one it did not return. Each carries a `threshold` and a `max_retries` guard,
+   plus a fail pin that sends the line back for a regeneration — so quote both numbers in the
+   question, not just the list of names. Thresholds commonly default to **85**, but **the defaults
+   differ per validator**: read `.config_schema.threshold.default` out of `nodes list` and quote
+   *that*. And say plainly what "none" buys: **with no validator the audio goes out unverified.**
+   The user may well choose that for a one-off line — but it has to be their choice, said out loud,
+   not the default you took for them because it was less to write.
+2. **Operators — what happens to the text before it is spoken.** `operator_normalizer` (numbers,
+   dates, abbreviations → spoken form), the pronunciation corrector for names and jargon, and
+   `operator_translator` (`target_languages`) when they want more than one language. Ask against
+   *their* script: `"1,200"`, `"Dr."` and a product name nobody pronounces right are the concrete
+   reason to add one, and a script with none of them is a real reason to leave it out.
+3. **Output — format, and where it lands.** `sink_preview` with `format` `wav` or `mp3` keeps the
+   result in Onepin. If they want the files on their own disk, that is `runs download` after the
+   run — not a different sink; say so rather than promising a local path the graph cannot produce.
+
+Then `nodes list` for the slugs, `workflows definition-schema` for the wiring, and
+`workflows create --definition @wf.json`. `create` is what rejects an invalid graph — there is no
+separate validate command.
+
 ## Show the workflow before you run it
 
 A run costs credits and acts on the live workspace, so the user has to be able to see what they are
@@ -437,25 +481,34 @@ of a comparison included.
 1. **Resolve the exact target.** `workflows show <workflow_id>`, rendered — pipeline, voice per
    language, quality gates (see *Show the workflow before you run it*). If several workflows could
    plausibly be the one they meant, list the others with their languages and voices too.
-2. **Price the exact run — and if pricing fails, estimate instead of going quiet.**
+2. **Price the exact run — and if pricing fails, fix the pricing rather than guess around it.**
    `onepin --json workflows preview-run <workflow_id> --script "<the text>"` gives `min_credits` /
    `expected_credits` / `max_credits` per node. **Pass every run-scoped override you are going to
    run with.** Priced without them it prices the saved definition, which is a different operation
    than the one being charged — and on a workflow whose script node is empty (the normal shape when
    the text arrives per-run) pricing without `--script` fails outright with `VALIDATION_ERROR`,
-   because there is no text to count. A failure that survives passing the real script is **not**
-   permission to proceed without a number — fall back, in this order:
-   - **A past run of the same workflow.** `onepin --json workflows runs list <workflow_id>` rows
-     carry `credits` (the debit for that run). Scale it by script length. This is the best anchor
-     because it already contains this workflow's real node mix.
-   - **Character count.** Nothing else available → count the script. For a single-locale Latin-script
-     run the charge lands near **1 credit per character**; it is only a floor, so say so. Each extra
-     locale multiplies, CJK on a byte-priced model runs ~3× the character count, and a translator
-     adds a language multiplier.
+   because there is no text to count. When it fails, the job is to make `preview-run` work:
+   - **`VALIDATION_ERROR` with no text to count** → pass `--script` (and `--source-language`). If
+     the run's text genuinely has to live in the workflow — an upload-backed source — put it there
+     (`uploads confirm --workflow-id`, or `workflows update --definition`) and price again. That is
+     an edit to the saved workflow, so it needs its own yes before you make it.
+   - **Anything else** → report the `code: message` and stop. No number means no run: a run you
+     cannot price is one the user cannot agree to the cost of.
 
-   Quote it *as* an estimate, with its basis: "~112 credits, estimated from 112 characters;
-   `preview-run` failed with VALIDATION_ERROR." An estimate labelled as one always beats silence
-   about cost.
+   **Never convert the script's length into credits.** Characters are not credits and no ratio
+   between them holds: billing is per unit and the unit differs per node (character, UTF-8 byte,
+   word), each locale adds its own, and a settled run carries a 1-credit floor. The platform's own
+   pricing guide is quoted *per thousand* characters, so a per-character guess is off by roughly two
+   orders of magnitude — and a confident wrong number is worse than no number, because it buys a yes
+   for a cost the user never agreed to. A past run of the same workflow
+   (`workflows runs list <workflow_id>` → `credits`) is worth quoting as context — "the last run of
+   this cost N credits" — but it prices *that* script, not this one, and it is not a substitute for
+   `preview-run`.
+
+   **`token_cost` is not credits.** On a run record `token_cost` counts billing *units* — characters
+   for the text nodes — so a run showing `token_cost: 107` can be a 1-credit run. The credit figures
+   are `preview-run`'s `expected_credits`, the run record's own `credits` field (the actual debit),
+   and the drop in `current_balance` between two estimates. Never quote `token_cost` as a cost.
 3. **Ask — and put all four of these in the question.** A confirmation missing any of them does not
    count as a confirmation; it is a question the user has no way to answer:
    - **Which workflow** — name + `workflow_id`, and whether it already exists or you are about to
@@ -463,8 +516,9 @@ of a comparison included.
    - **Which voice** — provider/model + voice name, whether that is the workflow's saved voice, and
      that they can hear it first (*The flow*, step 3). Wanting a different one is an edit to the
      workflow with its own yes, not a run parameter. → *Changing a voice is not run-scoped*
-   - **How many credits** — the number from step 2, marked as exact or estimated. Not "a little",
-     not "not much", not omitted. For multi-locale runs, say it is the total across locales.
+   - **How many credits** — the number `preview-run` gave you in step 2, not one you worked out.
+     Not "a little", not "not much", not omitted. For multi-locale runs, say it is the total across
+     locales.
    - **Whether the workflow itself changes** — `--script` / `--source-language` are run-scoped and
      leave the saved workflow untouched; they are the *only* run-scoped overrides there are.
      `workflows set-voice` / `workflows update --definition` edit it permanently. Say which of the
