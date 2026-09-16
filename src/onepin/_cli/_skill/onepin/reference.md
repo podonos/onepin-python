@@ -244,6 +244,9 @@ than caching it. Read the statuses before claiming delivery: `audio.status` is `
 (treat a missing one as a line the user did not get, whatever the status says);
 `card.status` is `delivered` / `generated` / `not_delivered` / `dropped`; envelope-level
 `partial.status` (with `reason`, `source`) and `dropped_truncated` mean the page is incomplete.
+Cards the validator rejected outright are **not in the default response** — pass
+`workflows runs data … --include-dropped` to see them. Without it a rejected line is simply
+absent, which reads as a shorter script rather than as output the user did not get.
 
 `voices sample` is `client.voices.preview` per voice, with the per-locale 404 handled: that status
 means *no preview recorded in that locale*, not a voice that cannot speak it (`supported_languages`
@@ -301,9 +304,10 @@ get — say so rather than letting a short list read as the whole run.
 
 List commands take `--limit` (default 50, **max ~100** — larger values return `422`), `--search`,
 and where shown `--sort`/`--order`/`--status`/`--category`. `workflows list`, `workflows runs list`,
-`templates list`, `voices list` and `workflows runs data` also take `--offset`, so a set larger than
-one page is walked with `--offset 100`, `--offset 200`, … (`usage activity` pages with `--cursor`
-instead; `nodes list` and `workspace members list` are unpaged.) Text output ends with
+`templates list`, `voices list`, `workflows uploads`, `workspace list` and `workflows runs data` also
+take `--offset`, so a set larger than one page is walked with `--offset 100`, `--offset 200`, …
+(`usage activity` pages with `--cursor` instead; `nodes list` and `workspace members list` are
+unpaged.) Text output ends with
 `Showing X of N`, where `N` is the unpaginated match count — use it to decide whether another page
 exists rather than guessing from a full one. `--json` returns the rows alone.
 

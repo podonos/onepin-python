@@ -42,14 +42,22 @@ def _choice_enum(name: str, choices: tuple[str, ...]) -> type[enum.Enum]:
 
 
 def _annotation_for(opt: Opt) -> Any:
-    """Map an Opt's declared type to a Python annotation Typer understands."""
+    """Map an Opt's declared type to a Python annotation Typer understands.
+
+    A ``"bool"`` declared with a ``None`` default is annotated ``Optional[bool]`` rather than
+    ``bool``, which is what lets Typer keep the three states apart: passed on, passed off,
+    not passed. A plain ``bool`` collapses the last two, so an SDK param whose ``False`` means
+    something would be unreachable.
+    """
     if isinstance(opt.type, tuple):
         ident = "Choice_" + "_".join(opt.type)
         return Optional[_choice_enum(ident, opt.type)]
     if opt.type == "int":
         return Optional[int]
+    if opt.type == "float":
+        return Optional[float]
     if opt.type == "bool":
-        return bool
+        return Optional[bool] if opt.default is None else bool
     if opt.type == "datetime":
         return Optional[str]
     return Optional[str]
@@ -190,6 +198,8 @@ def _build_kwargs(cmd: Cmd, bound: dict[str, Any]) -> tuple[list[Any], dict[str,
             continue
         # Skip boolean filter flags (e.g. --favorites-only) at their default value so the
         # SDK sees None (its own default) rather than an explicit False, which would filter.
+        # Tri-state booleans default to None and are already dropped by the check above, so
+        # their explicit --no-x False survives to the SDK.
         if opt.type == "bool" and raw == opt.default:
             continue
         if opt.transform == "json_file":
