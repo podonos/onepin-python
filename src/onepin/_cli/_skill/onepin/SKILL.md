@@ -19,13 +19,20 @@ Onepin turns scripts into speech. A workflow is a graph of nodes that normalizes
 synthesizes audio, translates, and validates the result; runs are asynchronous — start one,
 then poll it. Three rules follow from that and they outrank the mechanics below:
 
-- **The deliverable is audio — never answer about it in text alone.** Every `sample_url` /
-  `language_sample_url` / `playback_url` the CLI returns is a plain audio file on an ordinary
-  presigned URL (no auth header, good for about an hour). Play it, or hand it over as a titled
-  markdown link — never a bare URL. See *Audio: the part you must not skip*.
-- **Never start audio unannounced.** Say whose voice or which line you are about to play, or
-  list the options and ask which one they want to hear. Sound arriving with no warning —
-  especially at the end of a long run the user stopped watching — is startling.
+- **The deliverable is audio — play it out loud.** Every `sample_url` / `language_sample_url` /
+  `playback_url` the CLI returns is a plain audio file on an ordinary presigned URL (no auth
+  header, good for about an hour). **Playing is the default, not one of two equal options**:
+  `--play` and `afplay` are already in your hands, so a reply that hands over links while sitting
+  at a terminal that can make noise has made the user do the last step themselves. A titled
+  markdown link is the *fallback* for a shell with no speakers — and a bare URL is never either.
+  See *Audio: the part you must not skip*.
+- **Announce, then play — don't ask for permission to play.** Say whose voice or which line is
+  coming, then play it in the same turn; sound arriving with no warning — especially at the end of
+  a long run the user stopped watching — is startling. "Announce" means one line naming what is
+  about to be heard, not a question. Stopping at *"here are the samples, have a listen and tell me
+  which"* is the failure this rule exists to prevent: you were holding the audio and handed back
+  homework. Ask first only when playing is itself the imposition — a long export, or audio they did
+  not ask for.
 - **Reuse before you build, and make it the user's choice.** Before authoring a workflow, look
   at what the workspace already has and offer *both* paths. See *Reuse before you build*.
 
@@ -42,7 +49,9 @@ the user, not to you. Walk it in order and stop at each question.
 3. **The voice — keep it, hear it, or change it?** Ask; don't assume the saved one is wanted.
    - *hear it*: `voices list --language <locale> --search <name>` to build the shortlist, then
      announce it and `voices sample <id>... --language <locale> --play` — **every** candidate in
-     one call, not just the one whose name you liked. → *Audio: the part you must not skip*
+     one call, not just the one whose name you liked. The shortlist and the audio go out in the
+     same turn: name them 1..N, play them 1..N, ask for a number.
+     → *Audio: the part you must not skip*
    - *change it*: ask what they want it to sound like, then hand that description to the server —
      `voices list --language <locale> --search "<their words>"` comes back ranked and already
      narrowed. → *Let the server pick the shortlist*. Then stop: `workflows set-voice` is one
@@ -55,8 +64,9 @@ the user, not to you. Walk it in order and stop at each question.
    explicit yes → `workflows run`. Poll `runs status`, or run with `--watch --timeout 300`.
    Every run, however small; if `preview-run` still fails, estimate rather than skip the number. →
    *Running a workflow*
-6. **Hand over the audio.** `runs data` → announce → play or link every line. A run that finished
-   and was only described in text is not finished. → *Audio: the part you must not skip*
+6. **Hand over the audio.** `runs data` → announce → play every line (link it only when this shell
+   cannot play). A run that finished and was only described in text is not finished.
+   → *Audio: the part you must not skip*
 
 **If they chose to build a new one**, step 2 becomes its own set of questions — ask, don't pick for
 them, and confirm every slug against `nodes list` first:
@@ -189,11 +199,12 @@ see below) and the workflow you are about to run (show its shape before it costs
   the point of the filters is to make the first page the right one.
 - `onepin --json voices show <voice_id>` · `onepin --json voices similar <voice_id>` ·
   `voices favorite` / `unfavorite <voice_id>` (and `voices list --favorites-only`).
-- **Audition them:** `onepin voices sample <voice_id>... --language <locale>` takes as many ids as
-  you have candidates and mints a fresh sample URL for each. Add `--play` to hear them in order,
-  `--out-dir <dir>` to write files, or pass neither to get name / locale / model / URL to hand
-  over. Sample URLs expire after about an hour — re-run the command to re-sign rather than reusing
-  an old link.
+- **Audition them:** `onepin voices sample <voice_id>... --language <locale> --play` takes as many
+  ids as you have candidates, mints a fresh sample URL for each, and plays them in order, naming
+  each voice just before its clip. `--play` is the normal form; `--out-dir <dir>` writes files
+  instead, and passing neither prints name / locale / model / URL to hand over when there is no way
+  to play. Sample URLs expire after about an hour — re-run the command to re-sign rather than
+  reusing an old link.
 - **Voices are chosen by ear.** Don't stop at the names — see *Audio: the part you must not skip*
   for which sample URL to play and how to announce it.
 
@@ -264,14 +275,19 @@ are near-identical — a user reading that list is choosing adjectives, not soun
 shortlist by ear instead, in one call:
 
 ```bash
-onepin voices sample <id-1> <id-2> <id-3> --language ko-kr --play   # announce first, then play
+onepin voices sample <id-1> <id-2> <id-3> --language ko-kr --play   # the default: announce, then play
 onepin voices sample <id-1> <id-2> <id-3> --language ko-kr          # name / locale / model / URL
 ```
 
-Announce whose voice is coming before `--play` makes noise on someone's desk. Where you cannot play
-sound, the bare form prints one row per candidate to turn into titled links. Asking "which of these
-names do you want?" while holding all of their samples turns a decision the user could have made in
-thirty seconds into a guess.
+**`--play` is the first form for a reason.** It fetches, writes and plays in order, naming each
+voice on its own line *before* that clip starts, so a shortlist played in one call is still
+followable by ear. Announce the list in your own reply too — same numbering as the command's
+argument order — and then let it run. The bare second form is for a shell that cannot play: it
+prints one row per candidate to turn into titled links.
+
+Asking *"which of these names do you want?"* while holding all of their samples turns a decision the
+user could have made in thirty seconds into a guess. So does *"I've downloaded them, have a
+listen"* — the fetch is not the deliverable, the sound is, and `--play` is one flag away.
 
 **Report the locale you were served, not the one you asked for.** `voices sample` prints it per row,
 and says so explicitly when a voice had no preview in the locale you requested and it fell back to
@@ -291,6 +307,17 @@ play, in the right order for the platform. For a run's lines you still hold a UR
 these URLs is a plain audio file with no auth header valid for about an hour — re-run the command to
 re-sign rather than caching it.
 
+Whether this shell can make noise is a question with an answer — settle it once, up front, instead
+of assuming it cannot and reaching for links:
+
+```bash
+[ -n "$SSH_TTY$SSH_CONNECTION" ] && echo "remote shell — link instead"
+command -v afplay || command -v ffplay || command -v mpg123 || echo "no player — link instead"
+```
+
+A player on a local shell means **play**. Neither line is a reason to ask the user's permission
+first; they are the only reasons to fall back to links.
+
 ```bash
 curl -fsSL "<url>" -o /tmp/onepin-clip.mp3 && afplay /tmp/onepin-clip.mp3   # macOS
 ffplay -nodisp -autoexit "<url>"                                           # takes the URL directly
@@ -305,12 +332,13 @@ duration**, so it is for samples and single lines, never a whole export (that is
   headphones, a muted monitor, or something else entirely. Say what you just played, and offer the
   link if they say they heard nothing.
 - **There may be no audio device at all.** If your shell is not on the user's own machine — SSH, a
-  container, CI, a cloud session — playing is not an option; go straight to the links below.
+  container, CI, a cloud session — playing is not an option; that is what the check above is for,
+  and then you go straight to the links below.
 - **Playing makes noise on someone's desk.** That is why the announcement rule above is not
-  optional.
+  optional — but announcing is a sentence, not a request. Say what is coming and play it.
 
-Announce it first — whose voice, or which line. **If you cannot play sound**, hand over one titled
-markdown link per clip, each on its own line:
+Announce it first — whose voice, or which line. **If the check above says you cannot play sound**,
+hand over one titled markdown link per clip, each on its own line:
 
 - `[▶ Line <line_index>](<playback_url>)` — use the response's own `line_index`, never the script
   text, which can contain brackets that close the link early and send the click elsewhere.
