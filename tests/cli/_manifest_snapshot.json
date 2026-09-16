@@ -1100,9 +1100,16 @@
       "name": "duplicate",
       "options": [
         {
+          "default": null,
+          "flag": "--name",
+          "help": "Name for the copy (default: the original + ' (Copy)').",
+          "required": false,
+          "type": "text"
+        },
+        {
           "default": false,
           "flag": "--json",
-          "help": "Emit JSON instead of a table.",
+          "help": "Emit JSON instead of text.",
           "required": false,
           "type": "bool"
         }

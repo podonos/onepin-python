@@ -329,9 +329,10 @@ edits:
   generator's `config.voice_map["<locale>"]` (a `VoiceAssignment` needs at least `voice_id`,
   `provider`, `model`; the id mapping is in [reference.md](reference.md)), write it back. This
   **overwrites the saved workflow for every future run**, not just this one.
-- **`workflows duplicate <id>`, then update the copy** — leaves the original exactly as it was, at
-  the price of one more workflow in their list. The duplicate is named automatically, so report the
-  id you ended up on.
+- **`workflows duplicate <id> --name "<name>"`, then update the copy** — leaves the original
+  exactly as it was, at the price of one more workflow in their list. Without `--name` every copy
+  is called `<original> (Copy)`, which is indistinguishable a week later; name it for the change
+  being made, and report the id you ended up on.
 
 Say which of the two you are proposing, and get a yes for it *before* the run gate and separately
 from it — this is a permanent change to something the user built, not a run parameter. Never

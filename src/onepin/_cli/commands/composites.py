@@ -209,6 +209,56 @@ def upload_create(
             typer.echo(f"Uploaded {path.name} as upload {upload_id}. Run `onepin uploads confirm {upload_id}`.")
 
 
+# === workflows duplicate =================================================================
+
+
+def workflow_duplicate(
+    workflow_id: str = typer.Argument(..., help="Workflow UUID."),
+    name: Optional[str] = typer.Option(None, "--name", help="Name for the copy (default: the original + ' (Copy)')."),
+    json_output_local: bool = typer.Option(False, "--json", help="Emit JSON instead of text."),
+) -> None:
+    """Copy a workflow, optionally naming the copy.
+
+    Duplicating is the way to change a saved voice without touching the original, so the copies
+    accumulate — and the API names every one of them ``<original> (Copy)``, which makes a list of
+    them indistinguishable. ``--name`` is applied as a follow-up patch because the duplicate
+    endpoint takes no name.
+    """
+    json_on = output_json(json_output_local)
+    with api_errors(json_on):
+        if name is not None and not name.strip():
+            # Validate before duplicating, not after: a blank name that surfaced later would
+            # leave a stray copy behind. Distinguishing "not passed" from "passed empty" also
+            # keeps --name "" from silently reporting a rename that never happened.
+            raise CliError("INVALID_ARGUMENTS", "--name must not be blank.")
+
+        client = get_client()
+        created = client.workflows.duplicate_workflow(
+            workflow_id, **_maybe_workspace(client.workflows.duplicate_workflow)
+        )
+        workflow = to_jsonable(getattr(created, "data", created))
+        new_id = workflow.get("id") if isinstance(workflow, dict) else None
+
+        if name is not None and new_id:
+            try:
+                renamed = client.workflows.patch_workflow(
+                    new_id, name=name, **_maybe_workspace(client.workflows.patch_workflow)
+                )
+            except Exception as exc:  # noqa: BLE001 - the copy exists; its id must not be lost
+                # Two calls, no transaction. Naming the id is the difference between a copy the
+                # user can find and fix, and an orphan they have to go hunting for.
+                raise CliError(
+                    "RENAME_FAILED",
+                    f"Duplicated into {new_id}, but renaming it failed: {exc}. The copy exists under its default name.",
+                ) from exc
+            workflow = to_jsonable(getattr(renamed, "data", renamed))
+
+        if json_on:
+            render_json(workflow)
+        else:
+            typer.echo(f"Duplicated workflow into {workflow.get('id', '')}.")
+
+
 # === voices sample =======================================================================
 
 # Extensions for the content types the preview endpoint reports. Anything else falls back to

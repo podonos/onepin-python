@@ -437,6 +437,75 @@ class TestUploadCreateJson:
         assert "UPLOAD_FAILED" in result.output
 
 
+# === workflows duplicate =================================================================
+
+
+def _workflow_json(workflow_id="wf-2", name="Alpha (Copy)"):
+    return {
+        "id": workflow_id,
+        "user_id": "u",
+        "name": name,
+        "name_source": "user",
+        "description": None,
+        "definition": {"graph": {"nodes": [], "edges": []}, "execution": {}},
+        "created_at": "2025-01-01T00:00:00Z",
+        "updated_at": "2025-01-01T00:00:00Z",
+    }
+
+
+class TestWorkflowDuplicate:
+    @respx.mock
+    def test_without_name_does_not_patch(self, tmp_home) -> None:
+        respx.post("https://api.onepin.ai/api/v1/workflows/wf-1/duplicate").mock(
+            return_value=httpx.Response(201, json={"data": _workflow_json(), "meta": _META_JSON})
+        )
+        patch = respx.patch("https://api.onepin.ai/api/v1/workflows/wf-2")
+        result = runner.invoke(app, ["--api-key", "op_live_x", "--no-color", "workflows", "duplicate", "wf-1"])
+        assert result.exit_code == 0, result.output
+        assert "Duplicated workflow into wf-2." in result.output
+        assert not patch.called
+
+    @respx.mock
+    def test_name_is_applied_to_the_copy(self, tmp_home) -> None:
+        respx.post("https://api.onepin.ai/api/v1/workflows/wf-1/duplicate").mock(
+            return_value=httpx.Response(201, json={"data": _workflow_json(), "meta": _META_JSON})
+        )
+        patch = respx.patch("https://api.onepin.ai/api/v1/workflows/wf-2").mock(
+            return_value=httpx.Response(200, json={"data": _workflow_json(name="Korean dub v2"), "meta": _META_JSON})
+        )
+        result = runner.invoke(
+            app,
+            ["--api-key", "op_live_x", "workflows", "duplicate", "wf-1", "--name", "Korean dub v2", "--json"],
+        )
+        assert result.exit_code == 0, result.output
+        assert json.loads(patch.calls[0].request.content) == {"name": "Korean dub v2"}
+        assert json.loads(result.output)["name"] == "Korean dub v2"
+
+    @respx.mock
+    def test_failed_rename_still_names_the_new_id(self, tmp_home) -> None:
+        """The copy exists even when the second call fails; losing its id strands it."""
+        respx.post("https://api.onepin.ai/api/v1/workflows/wf-1/duplicate").mock(
+            return_value=httpx.Response(201, json={"data": _workflow_json(), "meta": _META_JSON})
+        )
+        respx.patch("https://api.onepin.ai/api/v1/workflows/wf-2").mock(
+            return_value=httpx.Response(422, json={"error": {"code": "VALIDATION_ERROR", "message": "bad name"}})
+        )
+        result = runner.invoke(
+            app, ["--api-key", "op_live_x", "workflows", "duplicate", "wf-1", "--name", "Korean dub v2"]
+        )
+        assert result.exit_code == 1
+        assert "RENAME_FAILED" in result.output
+        assert "wf-2" in result.output
+
+    @respx.mock
+    def test_blank_name_is_rejected_before_duplicating(self, tmp_home) -> None:
+        duplicate = respx.post("https://api.onepin.ai/api/v1/workflows/wf-1/duplicate")
+        result = runner.invoke(app, ["--api-key", "op_live_x", "workflows", "duplicate", "wf-1", "--name", "  "])
+        assert result.exit_code == 1
+        assert "INVALID_ARGUMENTS" in result.output
+        assert not duplicate.called
+
+
 # === voices sample =======================================================================
 
 

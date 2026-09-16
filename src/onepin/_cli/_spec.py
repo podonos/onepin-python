@@ -225,16 +225,6 @@ TABLE: list[Cmd] = [
     ),
     Cmd(
         "workflows",
-        "duplicate",
-        "workflows.duplicate_workflow",
-        "Duplicate a workflow.",
-        args=[("workflow_id", "Workflow UUID.")],
-        options=[_JSON],
-        unwrap="data",
-        success_msg="Duplicated workflow into {id}.",
-    ),
-    Cmd(
-        "workflows",
         "uploads",
         "workflows.list_workflow_uploads",
         "List a workflow's uploads.",
