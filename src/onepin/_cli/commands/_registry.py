@@ -98,6 +98,9 @@ def _wire_composites(groups: dict[str, typer.Typer]) -> None:
         composites.workflow_run
     )
     workflows.command(name="duplicate", help="Duplicate a workflow.")(composites.workflow_duplicate)
+    workflows.command(name="set-voice", help="Assign a voice to one locale of a workflow's generator.")(
+        composites.workflow_set_voice
+    )
     workflows.command(name="preview-run", help="Estimate cost of a run without executing.")(
         composites.workflow_preview_run
     )

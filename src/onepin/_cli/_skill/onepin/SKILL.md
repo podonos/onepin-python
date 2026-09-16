@@ -45,9 +45,9 @@ the user, not to you. Walk it in order and stop at each question.
      one call, not just the one whose name you liked. → *Audio: the part you must not skip*
    - *change it*: ask what they want it to sound like, then hand that description to the server —
      `voices list --language <locale> --search "<their words>"` comes back ranked and already
-     narrowed. → *Let the server pick the shortlist*. Then stop: a voice change is **not**
-     run-scoped, it rewrites the saved workflow, and it needs a yes of its own before you touch
-     anything. → *Changing a voice is not run-scoped*
+     narrowed. → *Let the server pick the shortlist*. Then stop: `workflows set-voice` is one
+     command, but a voice change is **not** run-scoped — it rewrites the saved workflow, and it
+     needs a yes of its own before you touch anything. → *Changing a voice is not run-scoped*
 4. **The script.** Their exact text on `workflows run --script`, with `--source-language` when it
    isn't the saved one. → *The script is the user's*
 5. **Price, then permission.** `workflows preview-run <workflow_id>` **with the same
@@ -321,18 +321,22 @@ report the region that was actually used rather than the code you passed.
 ## Changing a voice is not run-scoped
 
 `--script` and `--source-language` are the *only* run-scoped overrides `workflows run` has. There is
-no `--voice` flag and no `set-voice` command, so "use a different voice just for this one" — an
-entirely ordinary thing to want — is not something the CLI can do. Both routes to a new voice are
-edits:
+no `--voice` flag, so "use a different voice just for this one" — an entirely ordinary thing to want
+— is not something the CLI can do. Every route to a new voice is an edit to the saved workflow:
 
-- **`workflows update <id> --definition @wf.json`** — `workflows show` the definition, patch the
-  generator's `config.voice_map["<locale>"]` (a `VoiceAssignment` needs at least `voice_id`,
-  `provider`, `model`; the id mapping is in [reference.md](reference.md)), write it back. This
-  **overwrites the saved workflow for every future run**, not just this one.
-- **`workflows duplicate <id> --name "<name>"`, then update the copy** — leaves the original
-  exactly as it was, at the price of one more workflow in their list. Without `--name` every copy
-  is called `<original> (Copy)`, which is indistinguishable a week later; name it for the change
+- **`workflows set-voice <id> --locale <locale> --voice <catalog_voice_id>`** — the one to use. It
+  moves a single `voice_map` entry, checks the voice can actually speak that locale and that the
+  model covers it, and prints the assignment it replaced so you can put it back. Add `--node-id`
+  when the graph has more than one generator; it refuses to guess rather than picking one.
+- **`workflows update <id> --definition @wf.json`** — the whole-definition path. Only for changes
+  `set-voice` cannot express, because it rewrites every node to move one field.
+- **`workflows duplicate <id> --name "<name>"` first, then set the voice on the copy** — leaves the
+  original exactly as it was, at the price of one more workflow in their list. Without `--name`
+  every copy is called `<original> (Copy)`, indistinguishable a week later; name it for the change
   being made, and report the id you ended up on.
+
+`set-voice` being one command does not make it a small change. It **overwrites the saved workflow
+for every future run**, and the output says so on purpose.
 
 Say which of the two you are proposing, and get a yes for it *before* the run gate and separately
 from it — this is a permanent change to something the user built, not a run parameter. Never
@@ -424,8 +428,8 @@ of a comparison included.
      not "not much", not omitted. For multi-locale runs, say it is the total across locales.
    - **Whether the workflow itself changes** — `--script` / `--source-language` are run-scoped and
      leave the saved workflow untouched; they are the *only* run-scoped overrides there are.
-     `workflows update --definition` (the only way to change a voice) edits it permanently. Say
-     which of the two this is, and never claim the first one when you are doing the second.
+     `workflows set-voice` / `workflows update --definition` edit it permanently. Say which of the
+     two this is, and never claim the first one when you are doing the second.
 4. **Get an explicit yes, then run.** `onepin --json workflows run <workflow_id>` (add
    `--watch --timeout 300` to poll to a terminal state).
 

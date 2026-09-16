@@ -437,6 +437,198 @@ class TestUploadCreateJson:
         assert "UPLOAD_FAILED" in result.output
 
 
+# === workflows set-voice =================================================================
+
+
+def _generator_definition(voice_map=None, node_id="gen-1", extra_generator=False):
+    nodes = [
+        {"id": "src-1", "type": "source_script", "position": {"x": 0, "y": 0}, "config": {"text": "hi"}},
+        {
+            "id": node_id,
+            "type": "operator_generator",
+            "position": {"x": 1, "y": 0},
+            "config": {"voice_map": voice_map} if voice_map is not None else {},
+        },
+    ]
+    if extra_generator:
+        nodes.append({"id": "gen-2", "type": "operator_generator", "position": {"x": 2, "y": 0}, "config": {}})
+    return {"graph": {"nodes": nodes, "edges": []}, "execution": {}}
+
+
+def _voice_row(**overrides):
+    row = {
+        **_VOICE_JSON,
+        "id": "v-ara",
+        "name": "Ara",
+        "provider": "naver",
+        "provider_voice_id": "vara",
+        "supported_languages": ["ko-kr"],
+        "supported_models": ["clova"],
+        "model_capabilities": [{"model": "clova", "languages_known": True, "supported_languages": ["ko-kr"]}],
+    }
+    row.update(overrides)
+    return row
+
+
+def _mock_set_voice(definition, voice=None):
+    respx.get("https://api.onepin.ai/api/v1/workflows/wf-1").mock(
+        return_value=httpx.Response(
+            200, json={"data": {**_workflow_json("wf-1", "Alpha"), "definition": definition}, "meta": _META_JSON}
+        )
+    )
+    respx.get("https://api.onepin.ai/api/v1/voices/v-ara").mock(
+        return_value=httpx.Response(200, json={"data": voice or _voice_row(), "meta": _META_JSON})
+    )
+    return respx.patch("https://api.onepin.ai/api/v1/workflows/wf-1").mock(
+        return_value=httpx.Response(
+            200, json={"data": {**_workflow_json("wf-1", "Alpha"), "definition": definition}, "meta": _META_JSON}
+        )
+    )
+
+
+_ARGV = [
+    "--api-key",
+    "op_live_x",
+    "--no-color",
+    "workflows",
+    "set-voice",
+    "wf-1",
+    "--locale",
+    "ko-kr",
+    "--voice",
+    "v-ara",
+]
+
+
+class TestWorkflowSetVoice:
+    @respx.mock
+    def test_writes_the_assignment_with_the_right_id_fields(self, tmp_home) -> None:
+        """voice_id is the provider's id; catalog_voice_id is the UUID. Swapping them saves and
+        then fails at run time, which is the mistake this command exists to remove."""
+        patch = _mock_set_voice(_generator_definition())
+        result = runner.invoke(app, _ARGV)
+        assert result.exit_code == 0, result.output
+
+        sent = json.loads(patch.calls[0].request.content)["definition"]
+        generator = next(n for n in sent["graph"]["nodes"] if n["type"] == "operator_generator")
+        assert generator["config"]["voice_map"]["ko-kr"] == [
+            {
+                "voice_id": "vara",
+                "catalog_voice_id": "v-ara",
+                "provider": "naver",
+                "model": "clova",
+                "voice_name": "Ara",
+            }
+        ]
+
+    @respx.mock
+    def test_other_nodes_are_left_alone(self, tmp_home) -> None:
+        patch = _mock_set_voice(_generator_definition())
+        assert runner.invoke(app, _ARGV).exit_code == 0
+
+        sent = json.loads(patch.calls[0].request.content)["definition"]
+        source = next(n for n in sent["graph"]["nodes"] if n["type"] == "source_script")
+        assert source == {
+            "id": "src-1",
+            "type": "source_script",
+            "position": {"x": 0, "y": 0},
+            "config": {"text": "hi"},
+        }
+
+    @respx.mock
+    def test_reports_what_it_replaced(self, tmp_home) -> None:
+        existing = {
+            "ko-kr": [
+                {
+                    "voice_id": "vdaeseong",
+                    "catalog_voice_id": "v-ds",
+                    "provider": "naver",
+                    "model": "clova",
+                    "voice_name": "Daeseong",
+                }
+            ]
+        }
+        _mock_set_voice(_generator_definition(voice_map=existing))
+        result = runner.invoke(app, _ARGV)
+        assert result.exit_code == 0, result.output
+        assert "Set ko-kr to Ara (naver/clova)" in result.output
+        assert "Previous: Daeseong (naver/clova), catalog id v-ds." in result.output
+        assert "every future run uses the new voice" in result.output
+
+    @respx.mock
+    def test_other_locales_survive(self, tmp_home) -> None:
+        existing = {"en-us": [{"voice_id": "ven", "provider": "eleven", "model": "v3", "voice_name": "Eve"}]}
+        patch = _mock_set_voice(_generator_definition(voice_map=existing))
+        assert runner.invoke(app, _ARGV).exit_code == 0
+
+        sent = json.loads(patch.calls[0].request.content)["definition"]
+        voice_map = next(n for n in sent["graph"]["nodes"] if n["type"] == "operator_generator")["config"]["voice_map"]
+        assert voice_map["en-us"] == existing["en-us"]
+        assert voice_map["ko-kr"][0]["voice_name"] == "Ara"
+
+    @respx.mock
+    def test_rejects_a_locale_the_voice_cannot_speak(self, tmp_home) -> None:
+        patch = _mock_set_voice(_generator_definition(), voice=_voice_row(supported_languages=["en-us"]))
+        result = runner.invoke(app, _ARGV)
+        assert result.exit_code == 1
+        assert "does not support ko-kr" in result.output
+        assert not patch.called
+
+    @respx.mock
+    def test_rejects_a_model_that_does_not_cover_the_locale(self, tmp_home) -> None:
+        voice = _voice_row(
+            model_capabilities=[{"model": "clova", "languages_known": True, "supported_languages": ["en-us"]}]
+        )
+        patch = _mock_set_voice(_generator_definition(), voice=voice)
+        result = runner.invoke(app, [*_ARGV, "--model", "clova"])
+        assert result.exit_code == 1
+        assert "does not cover ko-kr" in result.output
+        assert not patch.called
+
+    @respx.mock
+    def test_rejects_an_inactive_voice(self, tmp_home) -> None:
+        patch = _mock_set_voice(_generator_definition(), voice=_voice_row(is_active=False))
+        result = runner.invoke(app, _ARGV)
+        assert result.exit_code == 1
+        assert "not active" in result.output
+        assert not patch.called
+
+    @respx.mock
+    def test_refuses_to_guess_between_two_generators(self, tmp_home) -> None:
+        patch = _mock_set_voice(_generator_definition(extra_generator=True))
+        result = runner.invoke(app, _ARGV)
+        assert result.exit_code == 1
+        assert "AMBIGUOUS_NODE" in result.output
+        assert "gen-1, gen-2" in result.output
+        assert not patch.called
+
+    @respx.mock
+    def test_node_id_picks_one_of_several(self, tmp_home) -> None:
+        patch = _mock_set_voice(_generator_definition(extra_generator=True))
+        result = runner.invoke(app, [*_ARGV, "--node-id", "gen-2"])
+        assert result.exit_code == 0, result.output
+
+        sent = json.loads(patch.calls[0].request.content)["definition"]
+        by_id = {n["id"]: n for n in sent["graph"]["nodes"]}
+        assert "voice_map" in by_id["gen-2"]["config"]
+        assert by_id["gen-1"]["config"] == {}
+
+    @respx.mock
+    def test_workflow_without_a_generator(self, tmp_home) -> None:
+        definition = {
+            "graph": {
+                "nodes": [{"id": "src-1", "type": "source_script", "position": {"x": 0, "y": 0}, "config": {}}],
+                "edges": [],
+            },
+            "execution": {},
+        }
+        patch = _mock_set_voice(definition)
+        result = runner.invoke(app, _ARGV)
+        assert result.exit_code == 1
+        assert "no operator_generator node" in result.output
+        assert not patch.called
+
+
 # === workflows duplicate =================================================================
 
 

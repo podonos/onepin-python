@@ -121,10 +121,13 @@ with no key at all.
   | `model` | one of `supported_models` — check `model_capabilities[]` lists the locale you are wiring |
   | `voice_name` | `name` (display only) |
 
-  Changing a workflow's voice means editing that map and calling `workflows update` — there is no
-  set-voice command, and no `--voice` on `workflows run` either, so there is no run-scoped way to
-  swap a voice. The edit is permanent; `workflows duplicate` first if the original must survive.
-  Both paths need the user's yes (SKILL.md → *Changing a voice is not run-scoped*).
+  `workflows set-voice <id> --locale <locale> --voice <catalog_voice_id>` writes one entry of that
+  map for you — it resolves both id fields from the catalog row, refuses a voice or model that does
+  not cover the locale, refuses to guess between two generators (`--node-id`), and prints the
+  assignment it replaced. Reach for `workflows update --definition` only for what it cannot express.
+  There is no `--voice` on `workflows run`, so there is no run-scoped way to swap a voice: either
+  path is permanent, and `workflows duplicate --name` first if the original must survive. Both need
+  the user's yes (SKILL.md → *Changing a voice is not run-scoped*).
 - **That validator defaults are not uniform.** They differ per validator and are clamped to
   different ranges, so read the `threshold` default from `config_schema` and quote *that* number to
   the user rather than saying "the default".

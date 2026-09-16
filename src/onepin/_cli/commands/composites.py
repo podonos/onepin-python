@@ -209,6 +209,167 @@ def upload_create(
             typer.echo(f"Uploaded {path.name} as upload {upload_id}. Run `onepin uploads confirm {upload_id}`.")
 
 
+# === workflows set-voice =================================================================
+
+_GENERATOR_TYPE = "operator_generator"
+
+
+def workflow_set_voice(
+    workflow_id: str = typer.Argument(..., help="Workflow UUID."),
+    locale: str = typer.Option(..., "--locale", help="BCP-47 locale slot to assign (e.g. ko-kr)."),
+    voice: str = typer.Option(..., "--voice", help="Catalog voice UUID (the `id` column of `voices list`)."),
+    model: Optional[str] = typer.Option(None, "--model", help="TTS model; defaults to one that supports the locale."),
+    node_id: Optional[str] = typer.Option(None, "--node-id", help="Generator node, when the graph has several."),
+    json_output_local: bool = typer.Option(False, "--json", help="Emit JSON instead of text."),
+) -> None:
+    """Point one locale of a workflow's generator at a different voice.
+
+    This is a **permanent edit to the saved workflow** — every future run uses the new voice,
+    and there is no run-scoped voice override to reach for instead. Duplicate the workflow
+    first if the original has to survive.
+
+    It exists so that changing a voice does not require reading the whole definition out,
+    editing a nested map by hand and writing all of it back: that path rewrites every node on
+    every edit, and a single mistake in it costs the user their graph. Here only the one
+    `voice_map` entry moves. The previous assignment is printed, so the change is visible and
+    can be put back.
+    """
+    json_on = output_json(json_output_local)
+    with api_errors(json_on):
+        client = get_client()
+        current = client.workflows.get(workflow_id, **_maybe_workspace(client.workflows.get))
+        workflow = to_jsonable(getattr(current, "data", current)) or {}
+        definition = workflow.get("definition") or {}
+        node = _generator_node(definition, node_id)
+
+        voice_row = to_jsonable(getattr(client.voices.get(voice, **_maybe_workspace(client.voices.get)), "data", None))
+        assignment = _voice_assignment(voice_row, locale, model)
+
+        config = node.setdefault("config", {}) or {}
+        node["config"] = config
+        voice_map = dict(config.get("voice_map") or {})
+        previous = voice_map.get(locale)
+        voice_map[locale] = [assignment]
+        config["voice_map"] = voice_map
+
+        updated = client.workflows.patch_workflow(
+            workflow_id, definition=definition, **_maybe_workspace(client.workflows.patch_workflow)
+        )
+        result = to_jsonable(getattr(updated, "data", updated))
+
+        if json_on:
+            render_json(
+                {
+                    "workflow": result,
+                    "node_id": node.get("id"),
+                    "locale": locale,
+                    "voice": assignment,
+                    "previous": previous,
+                }
+            )
+            return
+        typer.echo(
+            f"Set {locale} to {assignment['voice_name']} "
+            f"({assignment['provider']}/{assignment['model']}) on node {node.get('id')}."
+        )
+        typer.echo(f"Previous: {_describe_assignment(previous)}")
+        typer.echo("This changed the saved workflow; every future run uses the new voice.")
+
+
+def _generator_node(definition: dict[str, Any], node_id: Optional[str]) -> dict[str, Any]:
+    """Locate the generator node to edit, refusing to guess when the graph has more than one."""
+    nodes = ((definition.get("graph") or {}).get("nodes")) or []
+    generators = [node for node in nodes if node.get("type") == _GENERATOR_TYPE]
+    if node_id is not None:
+        for node in generators:
+            if node.get("id") == node_id:
+                return node
+        known = ", ".join(str(node.get("id")) for node in generators) or "none"
+        raise CliError("NOT_FOUND", f"No {_GENERATOR_TYPE} node {node_id} in this workflow. Present: {known}.")
+    if not generators:
+        raise CliError("NOT_FOUND", f"This workflow has no {_GENERATOR_TYPE} node, so it has no voice to set.")
+    if len(generators) > 1:
+        ids = ", ".join(str(node.get("id")) for node in generators)
+        raise CliError("AMBIGUOUS_NODE", f"This workflow has {len(generators)} generators; pass --node-id ({ids}).")
+    return generators[0]
+
+
+def _voice_assignment(voice_row: Optional[dict[str, Any]], locale: str, model: Optional[str]) -> dict[str, Any]:
+    """Build a VoiceAssignment from a catalog row, checking it can actually speak the locale.
+
+    The two id fields are not interchangeable and getting them backwards is the classic way to
+    write a definition that saves and then fails at run time: ``voice_id`` is the provider's own
+    id, ``catalog_voice_id`` is the catalog UUID the caller passed.
+    """
+    if not voice_row:
+        raise CliError("NOT_FOUND", "Voice not found.")
+    if voice_row.get("is_active") is False:
+        raise CliError("VALIDATION_ERROR", f"Voice {voice_row.get('name')} is not active and cannot be assigned.")
+
+    supported = voice_row.get("supported_languages") or []
+    if supported and locale not in supported:
+        raise CliError(
+            "VALIDATION_ERROR",
+            f"{voice_row.get('name')} does not support {locale}. It supports: {', '.join(supported)}.",
+        )
+
+    capabilities = voice_row.get("model_capabilities") or []
+    chosen = model or _default_model(capabilities, voice_row, locale)
+    _check_model(capabilities, chosen, locale, voice_row)
+
+    return {
+        "voice_id": voice_row["provider_voice_id"],
+        "catalog_voice_id": voice_row["id"],
+        "provider": voice_row["provider"],
+        "model": chosen,
+        "voice_name": voice_row.get("name"),
+    }
+
+
+def _default_model(capabilities: list[dict[str, Any]], voice_row: dict[str, Any], locale: str) -> str:
+    """First model that covers the locale; a model with unknown coverage is a last resort."""
+    for capability in capabilities:
+        if locale in (capability.get("supported_languages") or []):
+            return str(capability["model"])
+    for capability in capabilities:
+        if not capability.get("languages_known"):
+            return str(capability["model"])
+    models = voice_row.get("supported_models") or []
+    if models:
+        return str(models[0])
+    raise CliError("VALIDATION_ERROR", f"{voice_row.get('name')} lists no usable model for {locale}.")
+
+
+def _check_model(capabilities: list[dict[str, Any]], model: str, locale: str, voice_row: dict[str, Any]) -> None:
+    """Reject a model that is known not to cover the locale; stay quiet when coverage is unknown."""
+    for capability in capabilities:
+        if capability.get("model") != model:
+            continue
+        languages = capability.get("supported_languages") or []
+        # languages_known=False means the API cannot enumerate coverage — not that there is none.
+        if capability.get("languages_known") and locale not in languages:
+            raise CliError(
+                "VALIDATION_ERROR",
+                f"Model {model} does not cover {locale} for {voice_row.get('name')}"
+                + (f" (it covers: {', '.join(languages)})." if languages else "."),
+            )
+        return
+    known = ", ".join(str(capability.get("model")) for capability in capabilities)
+    if known:
+        raise CliError("VALIDATION_ERROR", f"{voice_row.get('name')} has no model {model}. It has: {known}.")
+
+
+def _describe_assignment(previous: Any) -> str:
+    """One-line description of the assignment being replaced, so it can be restored."""
+    if not previous:
+        return "nothing (this locale had no voice assigned)."
+    entry = previous[0] if isinstance(previous, list) and previous else previous
+    if not isinstance(entry, dict):
+        return json.dumps(previous, default=str)
+    name = entry.get("voice_name") or entry.get("catalog_voice_id") or entry.get("voice_id")
+    return f"{name} ({entry.get('provider')}/{entry.get('model')}), catalog id {entry.get('catalog_voice_id')}."
+
+
 # === workflows duplicate =================================================================
 
 
