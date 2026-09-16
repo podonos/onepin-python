@@ -817,7 +817,11 @@ TABLE: list[Cmd] = [
     Cmd(
         "nodes",
         "show",
-        "nodes.get_node_detail",
+        # v2, not v1: the v1 node-detail endpoint rejects API-key auth (401 for a key that
+        # works everywhere else), and inlines the whole TTS model catalog under
+        # options.models_by_provider. v2 takes the same arguments and replaces that tree
+        # with a `providers` href.
+        "nodes.get_node_detail_v2",
         "Show a node type's detail (runtime options).",
         args=[("node_type", "Node type identifier.")],
         options=[_JSON],
