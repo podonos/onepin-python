@@ -912,7 +912,6 @@ class TestWorkflowDuplicate:
         # Usage error, not an API failure: exit 2 is what the documented contract reserves for
         # a bad flag, and an agent branching on the code must not retry this as a server blip.
         assert result.exit_code == 2
-        assert "--name must not be blank" in result.output
         assert not duplicate.called
 
 
@@ -1006,15 +1005,18 @@ class TestVoicesSampleDestinations:
         assert result.exit_code == 0, result.output
         assert [path.name for path in out_dir.iterdir()] == ["Ara-ko-kr.mp3"]
 
+    @respx.mock
     def test_model_without_language_is_a_usage_error(self, tmp_home) -> None:
         """--model only reaches the wire on the locale-keyed preview call.
 
         Without --language it was dropped silently, so the caller compared audio from a
-        model they did not choose.
+        model they did not choose. Refused before any request, which is what `not called`
+        pins — the exit code alone would not distinguish "refused" from "failed later".
         """
+        preview = respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview")
         result = runner.invoke(app, ["--api-key", "op_live_x", "voices", "sample", "v-1", "--model", "sonic-2"])
         assert result.exit_code == 2
-        assert "--model requires --language" in result.output
+        assert not preview.called
 
 
 class TestVoicesSample:
@@ -1119,8 +1121,10 @@ class TestVoicesSample:
             app,
             ["--api-key", "op_live_x", "voices", "sample", "v-1", "v-2", "--out", str(tmp_path / "x.mp3")],
         )
+        # Exit code only: Typer renders a BadParameter inside a rich box that elides the
+        # message at narrow terminal widths, so asserting the text passes locally and fails
+        # in CI. `TestLimitValidation` and the --offset check assert the same way.
         assert result.exit_code == 2
-        assert "--out names a single file but 2 voices were given" in result.output
 
     @respx.mock
     def test_no_sample_anywhere_is_an_error(self, tmp_home) -> None:
@@ -1267,7 +1271,6 @@ class TestVoicesSample:
             ],
         )
         assert result.exit_code == 2
-        assert "Pass either --out or --out-dir, not both." in result.output
 
     @respx.mock
     def test_out_dir_must_already_exist(self, tmp_home, tmp_path) -> None:
