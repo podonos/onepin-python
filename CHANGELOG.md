@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0](https://github.com/podonos/onepin-python/compare/v0.14.0...v0.15.0) (2026-09-16)
+
+
+### Features
+
+* rebuild the agent skill around the speech flow, and repair nodes show ([#107](https://github.com/podonos/onepin-python/issues/107)) ([574df13](https://github.com/podonos/onepin-python/commit/574df131e13dbe54860b1422c96b56de862fa168))
+
 ## [0.14.0](https://github.com/podonos/onepin-python/compare/v0.13.0...v0.14.0) (2026-09-15)
 
 
