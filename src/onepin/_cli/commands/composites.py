@@ -294,6 +294,28 @@ def _generator_node(definition: dict[str, Any], node_id: Optional[str]) -> dict[
     return generators[0]
 
 
+def _locale_supported(locale: str, declared: list[str]) -> bool:
+    """True when ``locale`` is covered by a declared locale list, family-aware.
+
+    A declared list carries whatever the voice registered, and a bare family is a legal
+    entry: the API counts ``ko`` as official because ``ko-kr`` is, and ``voices list
+    --language ko-kr`` returns voices that declared only ``ko``. Exact-matching here would
+    reject, with "does not support ko-kr", precisely the voices the discovery command just
+    recommended — and leave the hand-edited ``workflows update --definition`` path as the
+    only way to assign them, which is what this command exists to avoid.
+    """
+    wanted = locale.casefold()
+    family = wanted.split("-", 1)[0]
+    for entry in declared:
+        declared_locale = str(entry).casefold()
+        if declared_locale == wanted or declared_locale == family:
+            return True
+        # A declared region also covers a bare family asked for: `ko` against `ko-kr`.
+        if declared_locale.split("-", 1)[0] == wanted:
+            return True
+    return False
+
+
 def _voice_assignment(voice_row: Optional[dict[str, Any]], locale: str, model: Optional[str]) -> dict[str, Any]:
     """Build a VoiceAssignment from a catalog row, checking it can actually speak the locale.
 
@@ -307,7 +329,7 @@ def _voice_assignment(voice_row: Optional[dict[str, Any]], locale: str, model: O
         raise CliError("VALIDATION_ERROR", f"Voice {voice_row.get('name')} is not active and cannot be assigned.")
 
     supported = voice_row.get("supported_languages") or []
-    if supported and locale not in supported:
+    if supported and not _locale_supported(locale, supported):
         raise CliError(
             "VALIDATION_ERROR",
             f"{voice_row.get('name')} does not support {locale}. It supports: {', '.join(supported)}.",
@@ -329,7 +351,7 @@ def _voice_assignment(voice_row: Optional[dict[str, Any]], locale: str, model: O
 def _default_model(capabilities: list[dict[str, Any]], voice_row: dict[str, Any], locale: str) -> str:
     """First model that covers the locale; a model with unknown coverage is a last resort."""
     for capability in capabilities:
-        if locale in (capability.get("supported_languages") or []):
+        if _locale_supported(locale, capability.get("supported_languages") or []):
             return str(capability["model"])
     for capability in capabilities:
         if not capability.get("languages_known"):
@@ -347,7 +369,7 @@ def _check_model(capabilities: list[dict[str, Any]], model: str, locale: str, vo
             continue
         languages = capability.get("supported_languages") or []
         # languages_known=False means the API cannot enumerate coverage — not that there is none.
-        if capability.get("languages_known") and locale not in languages:
+        if capability.get("languages_known") and not _locale_supported(locale, languages):
             raise CliError(
                 "VALIDATION_ERROR",
                 f"Model {model} does not cover {locale} for {voice_row.get('name')}"

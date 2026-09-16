@@ -501,6 +501,44 @@ _ARGV = [
 ]
 
 
+class TestWorkflowSetVoiceLocaleFamilies:
+    """A declared bare family covers its regions, and vice versa.
+
+    `supported_languages` legitimately carries a bare family — the API counts `ko` as
+    official because `ko-kr` is, and `voices list --language ko-kr` returns voices that
+    declared only `ko`. Exact matching rejected exactly the voices discovery recommends.
+    """
+
+    @respx.mock
+    def test_declared_family_covers_a_regioned_locale(self, tmp_home) -> None:
+        voice = _voice_row(
+            supported_languages=["ko"],
+            model_capabilities=[{"model": "clova", "languages_known": True, "supported_languages": ["ko"]}],
+        )
+        patch = _mock_set_voice(_generator_definition(), voice=voice)
+        result = runner.invoke(app, _ARGV)
+        assert result.exit_code == 0, result.output
+        assert patch.called
+        sent = json.loads(patch.calls[0].request.content)
+        assigned = sent["definition"]["graph"]["nodes"][1]["config"]["voice_map"]["ko-kr"]
+        assert assigned[0]["model"] == "clova"
+
+    @respx.mock
+    def test_declared_region_covers_a_bare_family_request(self, tmp_home) -> None:
+        patch = _mock_set_voice(_generator_definition())
+        result = runner.invoke(app, [*_ARGV[:6], "--locale", "ko", "--voice", "v-ara"])
+        assert result.exit_code == 0, result.output
+        assert patch.called
+
+    @respx.mock
+    def test_a_genuinely_unsupported_locale_is_still_rejected(self, tmp_home) -> None:
+        patch = _mock_set_voice(_generator_definition())
+        result = runner.invoke(app, [*_ARGV[:6], "--locale", "ja-jp", "--voice", "v-ara"])
+        assert result.exit_code == 1
+        assert "does not support ja-jp" in result.output
+        assert not patch.called
+
+
 class TestWorkflowSetVoice:
     @respx.mock
     def test_writes_the_assignment_with_the_right_id_fields(self, tmp_home) -> None:
