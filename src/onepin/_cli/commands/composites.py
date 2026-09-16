@@ -417,14 +417,15 @@ def workflow_duplicate(
     them indistinguishable. ``--name`` is applied as a follow-up patch because the duplicate
     endpoint takes no name.
     """
+    if name is not None and not name.strip():
+        # Validate before duplicating, not after: a blank name that surfaced later would leave
+        # a stray copy behind. Distinguishing "not passed" from "passed empty" also keeps
+        # --name "" from silently reporting a rename that never happened. BadParameter rather
+        # than CliError so a usage mistake exits 2, not the 1 that means "the API failed".
+        raise typer.BadParameter("--name must not be blank.")
+
     json_on = output_json(json_output_local)
     with api_errors(json_on):
-        if name is not None and not name.strip():
-            # Validate before duplicating, not after: a blank name that surfaced later would
-            # leave a stray copy behind. Distinguishing "not passed" from "passed empty" also
-            # keeps --name "" from silently reporting a rename that never happened.
-            raise CliError("INVALID_ARGUMENTS", "--name must not be blank.")
-
         client = get_client()
         created = client.workflows.duplicate_workflow(
             workflow_id, **_maybe_workspace(client.workflows.duplicate_workflow)
@@ -496,15 +497,23 @@ def voices_sample(
     locale actually served, the model, and the URL — which is also the shape to hand to a user
     when there is no audio device.
     """
+    # Flag conflicts are usage errors, so they exit 2 like every other bad-parameter case
+    # (see `_validate_offset`). Raising CliError here would exit 1, which the documented
+    # contract reserves for API/runtime failures — an agent branching on the code would
+    # retry a mistyped command as though the server had blipped.
+    if out and out_dir:
+        raise typer.BadParameter("Pass either --out or --out-dir, not both.")
+    if out and len(voice_ids) > 1:
+        raise typer.BadParameter(f"--out names a single file but {len(voice_ids)} voices were given; use --out-dir.")
+    if model is not None and language is None:
+        # `--model` only reaches the wire on the preview call, which is keyed by locale.
+        # Without --language the run silently falls back to the voice's default clip and
+        # the model is dropped — so the caller would compare audio from a model they did
+        # not pick, then wire that model into a voice_map.
+        raise typer.BadParameter("--model requires --language.")
+
     json_on = output_json(json_output_local)
     with api_errors(json_on):
-        if out and out_dir:
-            raise CliError("INVALID_ARGUMENTS", "Pass either --out or --out-dir, not both.")
-        if out and len(voice_ids) > 1:
-            raise CliError(
-                "INVALID_ARGUMENTS",
-                f"--out names a single file but {len(voice_ids)} voices were given; use --out-dir.",
-            )
         if out_dir and not Path(out_dir).is_dir():
             raise CliError("DIRECTORY_NOT_FOUND", f"Directory does not exist: {out_dir}")
 
