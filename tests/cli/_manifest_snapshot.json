@@ -845,6 +845,71 @@
     {
       "args": [
         {
+          "name": "voice_ids"
+        }
+      ],
+      "destructive": false,
+      "group": "voices",
+      "name": "sample",
+      "options": [
+        {
+          "default": null,
+          "flag": "--language",
+          "help": "BCP-47 locale to hear the voice in (e.g. ko-kr). Falls back to its default sample.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--model",
+          "help": "Prefer a specific TTS model (e.g. sonic-2).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--out",
+          "help": "Write a single sample to this file path.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--out-dir",
+          "help": "Write one file per voice into this directory.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--play",
+          "help": "Play each sample with the OS audio player.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--force",
+          "help": "Overwrite existing files.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "voices",
+        "sample"
+      ]
+    },
+    {
+      "args": [
+        {
           "name": "voice_id"
         }
       ],

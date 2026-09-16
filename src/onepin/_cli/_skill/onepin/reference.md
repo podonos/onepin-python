@@ -231,6 +231,7 @@ payload for nothing. `runs summary <workflow_id> --from <iso> --to <iso>` aggreg
 |---|---|---|
 | a voice's sample **in a given language** | `voices list --language <code> [--search "<description>"]` | `language_sample_url` (+ `language_sample_locale` — the region actually served) |
 | a voice's default sample | `voices list` · `voices show <voice_id>` | `sample_url` — does **not** follow `--language`, so it may be another language |
+| a **fresh, playable** sample for one or many voices | `voices sample <id>... --language <code> [--play] [--out-dir DIR]` | `sample_url` per row, minted on the call (so never expired), plus the `locale` actually served |
 | a run's **per-line** audio | `workflows runs data <workflow_id> <run_id>` | `rows[].cards[].audio.playback_url` |
 | files on disk | `workflows runs download` · `runs download-node` | the written file |
 
@@ -241,9 +242,14 @@ than caching it. Read the statuses before claiming delivery: `audio.status` is `
 `card.status` is `delivered` / `generated` / `not_delivered` / `dropped`; envelope-level
 `partial.status` (with `reason`, `source`) and `dropped_truncated` mean the page is incomplete.
 
-**Not on the CLI:** the SDK additionally has `client.voices.preview(voice_id, language=…, model=…)`
-and `client.workflows.get_run_audio_url(workflow_id, run_id, audio_id)`, but no `onepin` command
-maps to either — use the table above instead of inventing a flag.
+`voices sample` is `client.voices.preview` per voice, with the per-locale 404 handled: that status
+means *no preview recorded in that locale*, not a voice that cannot speak it (`supported_languages`
+is the ability claim, `preview_locales` is what the endpoint will serve), so the command degrades to
+the voice's own `sample_url` and flags the row as a fallback. `--out`/`--out-dir` write atomically
+and refuse to clobber without `--force`, like `runs download`.
+
+**Not on the CLI:** `client.workflows.get_run_audio_url(workflow_id, run_id, audio_id)` has no
+`onepin` command — use the table above instead of inventing a flag.
 
 ## Recipe: shortlist a voice
 

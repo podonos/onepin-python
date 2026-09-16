@@ -40,9 +40,9 @@ the user, not to you. Walk it in order and stop at each question.
 2. **Show it before it costs anything.** `workflows show <workflow_id>` → render the pipeline, the
    voice per language, and the quality gates. → *Show the workflow before you run it*
 3. **The voice — keep it, hear it, or change it?** Ask; don't assume the saved one is wanted.
-   - *hear it*: `voices list --language <locale> --search <name>` → announce → play
-     `language_sample_url` — for **every** candidate, not just the one whose name you liked. →
-     *Audio: the part you must not skip*
+   - *hear it*: `voices list --language <locale> --search <name>` to build the shortlist, then
+     announce it and `voices sample <id>... --language <locale> --play` — **every** candidate in
+     one call, not just the one whose name you liked. → *Audio: the part you must not skip*
    - *change it*: ask what they want it to sound like, then hand that description to the server —
      `voices list --language <locale> --search "<their words>"` comes back ranked and already
      narrowed. → *Let the server pick the shortlist*. Then stop: a voice change is **not**
@@ -183,6 +183,11 @@ see below) and the workflow you are about to run (show its shape before it costs
   the point of the filters is to make the first page the right one.
 - `onepin --json voices show <voice_id>` · `onepin --json voices similar <voice_id>` ·
   `voices favorite` / `unfavorite <voice_id>` (and `voices list --favorites-only`).
+- **Audition them:** `onepin voices sample <voice_id>... --language <locale>` takes as many ids as
+  you have candidates and mints a fresh sample URL for each. Add `--play` to hear them in order,
+  `--out-dir <dir>` to write files, or pass neither to get name / locale / model / URL to hand
+  over. Sample URLs expire after about an hour — re-run the command to re-sign rather than reusing
+  an old link.
 - **Voices are chosen by ear.** Don't stop at the names — see *Audio: the part you must not skip*
   for which sample URL to play and how to announce it.
 
@@ -244,11 +249,23 @@ so it may be the wrong language; use it only as a fallback when `language_sample
 
 **Tags are a filter, not an audition.** `bright`, `clear`, `friendly` are how you *got* the
 shortlist; they are not how anyone picks a voice. One locale can carry dozens of voices whose tags
-are near-identical — a user reading that list is choosing adjectives, not sound. So hand over the
-whole shortlist by ear: announce it, then play the rows in order, or give one titled
-`language_sample_url` link per candidate for them to click through. Asking "which of these names do
-you want?" while you are holding all of their samples turns a decision the user could have made in
+are near-identical — a user reading that list is choosing adjectives, not sound. Hand over the whole
+shortlist by ear instead, in one call:
+
+```bash
+onepin voices sample <id-1> <id-2> <id-3> --language ko-kr --play   # announce first, then play
+onepin voices sample <id-1> <id-2> <id-3> --language ko-kr          # name / locale / model / URL
+```
+
+Announce whose voice is coming before `--play` makes noise on someone's desk. Where you cannot play
+sound, the bare form prints one row per candidate to turn into titled links. Asking "which of these
+names do you want?" while holding all of their samples turns a decision the user could have made in
 thirty seconds into a guess.
+
+**Report the locale you were served, not the one you asked for.** `voices sample` prints it per row,
+and says so explicitly when a voice had no preview in the locale you requested and it fell back to
+that voice's default sample — which may be another language entirely. Pass that on; a user
+comparing Korean voices needs to know when one of them spoke English.
 
 **Hearing a run.** `onepin --json workflows runs data <workflow_id> <run_id>` → `rows[].cards[]`,
 one card per line per locale, each carrying `script`, `locale_code`, `voice`, `validations[]`,
@@ -258,8 +275,10 @@ say so instead of reporting that line as delivered, and the same for `dropped` /
 If you narrowed with `--limit` / `--offset`, tell the user the page is partial. For files on disk
 instead of URLs: `runs download` (whole run) or `runs download-node` (one node).
 
-**Playing it.** Every one of these URLs is a plain audio file with no auth header, valid for about
-an hour — re-run the command to re-sign rather than caching it.
+**Playing it.** For voices, `voices sample <id>... --play` does the whole thing — fetch, write,
+play, in the right order for the platform. For a run's lines you still hold a URL, and every one of
+these URLs is a plain audio file with no auth header valid for about an hour — re-run the command to
+re-sign rather than caching it.
 
 ```bash
 curl -fsSL "<url>" -o /tmp/onepin-clip.mp3 && afplay /tmp/onepin-clip.mp3   # macOS
@@ -269,7 +288,7 @@ ffplay -nodisp -autoexit "<url>"                                           # tak
 
 `afplay` takes a *file*, not a URL — hence the `curl` — and it **blocks for the clip's whole
 duration**, so it is for samples and single lines, never a whole export (that is what
-`runs download` is for). Three things this cannot tell you:
+`runs download` is for). Three things playback cannot tell you:
 
 - **Exit `0` does not mean they heard it.** The player returns success whether the output device is
   headphones, a muted monitor, or something else entirely. Say what you just played, and offer the

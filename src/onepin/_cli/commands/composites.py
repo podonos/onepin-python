@@ -209,6 +209,226 @@ def upload_create(
             typer.echo(f"Uploaded {path.name} as upload {upload_id}. Run `onepin uploads confirm {upload_id}`.")
 
 
+# === voices sample =======================================================================
+
+# Extensions for the content types the preview endpoint reports. Anything else falls back to
+# the URL's own suffix, then to .mp3 — the sample is still written, just named conservatively.
+_AUDIO_EXTENSIONS = {
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/wave": ".wav",
+    "audio/ogg": ".ogg",
+    "audio/webm": ".webm",
+    "audio/flac": ".flac",
+    "audio/aac": ".aac",
+}
+
+
+def voices_sample(
+    voice_ids: list[str] = typer.Argument(..., help="One or more voice UUIDs to audition."),
+    language: Optional[str] = typer.Option(
+        None, "--language", help="BCP-47 locale to hear the voice in (e.g. ko-kr). Falls back to its default sample."
+    ),
+    model: Optional[str] = typer.Option(None, "--model", help="Prefer a specific TTS model (e.g. sonic-2)."),
+    out: Optional[str] = typer.Option(None, "--out", help="Write a single sample to this file path."),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Write one file per voice into this directory."),
+    play: bool = typer.Option(False, "--play", help="Play each sample with the OS audio player."),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing files."),
+    json_output_local: bool = typer.Option(False, "--json", help="Emit JSON instead of text."),
+) -> None:
+    """Fetch (and optionally play) voice preview audio, for several voices in one call.
+
+    A voice is chosen by ear, and a tag list is not an audition: passing every shortlisted id
+    at once is what makes comparing them practical. Each sample URL is minted fresh by this
+    command and is valid for about an hour, so an expired link is re-signed by running it
+    again rather than by hunting for a refresh flag.
+
+    With neither ``--out``/``--out-dir`` nor ``--play`` it prints what it found — name, the
+    locale actually served, the model, and the URL — which is also the shape to hand to a user
+    when there is no audio device.
+    """
+    json_on = output_json(json_output_local)
+    with api_errors(json_on):
+        if out and out_dir:
+            raise CliError("INVALID_ARGUMENTS", "Pass either --out or --out-dir, not both.")
+        if out and len(voice_ids) > 1:
+            raise CliError(
+                "INVALID_ARGUMENTS",
+                f"--out names a single file but {len(voice_ids)} voices were given; use --out-dir.",
+            )
+        if out_dir and not Path(out_dir).is_dir():
+            raise CliError("DIRECTORY_NOT_FOUND", f"Directory does not exist: {out_dir}")
+
+        client = get_client()
+        rows = [_voice_sample_row(client, voice_id, language, model) for voice_id in voice_ids]
+
+        for row in rows:
+            destination = _sample_destination(row, out, out_dir, play)
+            if destination is not None:
+                row["path"] = str(_write_sample(row["sample_url"], destination, force=force))
+
+        if play:
+            for row in rows:
+                _play_audio(Path(row["path"]), json_on)
+
+        _emit_samples(rows, json_on, played=play)
+
+
+def _voice_sample_row(client: Any, voice_id: str, language: Optional[str], model: Optional[str]) -> dict[str, Any]:
+    """Resolve one voice to a playable sample, falling back to its default sample.
+
+    ``voices.preview`` is per-locale and 404s when a voice has no preview recorded *in that
+    locale* — which is not the same claim as "this voice cannot speak it" (``supported_languages``
+    is the claim about ability; ``preview_locales`` is what this endpoint will serve). So a 404
+    degrades to the voice's own ``sample_url``, in whatever language that happens to be, and the
+    row records the substitution so the caller can say so rather than mislabel what was heard.
+    """
+    from onepin._cli._dispatch import _is_not_found
+
+    if language is not None:
+        preview_kwargs = _maybe_workspace(client.voices.preview)
+        try:
+            resp = client.voices.preview(voice_id, language=language, model=model, **preview_kwargs)
+        except Exception as exc:  # noqa: BLE001 - only a 404 degrades; everything else propagates
+            # The endpoint declares 422 only, so Fern raises a bare ApiError for 404 rather than
+            # NotFoundError — match on the status, not the class.
+            if not _is_not_found(exc):
+                raise
+        else:
+            data = to_jsonable(getattr(resp, "data", resp))
+            return {
+                "voice_id": voice_id,
+                "name": data.get("name"),
+                "locale": data.get("locale"),
+                "model": data.get("model"),
+                "sample_url": data.get("sample_url"),
+                "content_type": data.get("content_type"),
+                "fallback": False,
+            }
+
+    get_kwargs = _maybe_workspace(client.voices.get)
+    data = to_jsonable(getattr(client.voices.get(voice_id, **get_kwargs), "data", None))
+    sample_url = (data or {}).get("sample_url")
+    if not sample_url:
+        raise CliError(
+            "NO_SAMPLE",
+            f"No preview audio for voice {voice_id}"
+            + (f" in {language}, and it has no default sample either." if language else "."),
+        )
+    return {
+        "voice_id": voice_id,
+        "name": (data or {}).get("name"),
+        # The default sample does not follow --language; report what it is, not what was asked.
+        "locale": (data or {}).get("language_sample_locale"),
+        "model": None,
+        "sample_url": sample_url,
+        "content_type": None,
+        "fallback": language is not None,
+    }
+
+
+def _sample_destination(row: dict[str, Any], out: Optional[str], out_dir: Optional[str], play: bool) -> Optional[Path]:
+    """Where this row's audio should land, or ``None`` when nothing is written."""
+    if out:
+        return Path(out)
+    extension = _audio_extension(row)
+    if out_dir:
+        return Path(out_dir) / f"{_sample_stem(row)}{extension}"
+    if play:
+        # Play-only: a throwaway file, because the macOS player takes a path and not a URL.
+        import tempfile
+
+        return Path(tempfile.mkdtemp(prefix="onepin-sample-")) / f"{_sample_stem(row)}{extension}"
+    return None
+
+
+def _sample_stem(row: dict[str, Any]) -> str:
+    """A filesystem-safe stem from the voice name + locale, falling back to the id.
+
+    The name is server-supplied and can carry separators or spaces, so it is filtered down to
+    a conservative character set rather than trusted into a path.
+    """
+    parts = [str(row.get("name") or ""), str(row.get("locale") or "")]
+    raw = "-".join(part for part in parts if part)
+    safe = "".join(char if char.isalnum() or char in "._-" else "-" for char in raw).strip("-.")
+    return safe or str(row["voice_id"])
+
+
+def _audio_extension(row: dict[str, Any]) -> str:
+    content_type = (row.get("content_type") or "").split(";")[0].strip().lower()
+    if content_type in _AUDIO_EXTENSIONS:
+        return _AUDIO_EXTENSIONS[content_type]
+    suffix = Path(str(row["sample_url"]).split("?", 1)[0]).suffix.lower()
+    return suffix if suffix in set(_AUDIO_EXTENSIONS.values()) else ".mp3"
+
+
+def _write_sample(url: str, dest: Path, *, force: bool) -> Path:
+    import httpx
+
+    if dest.exists() and not force:
+        raise CliError("FILE_EXISTS", f"{dest} already exists. Pass --force to overwrite.")
+    try:
+        response = httpx.get(url, timeout=60.0, follow_redirects=True)
+    except (httpx.ConnectError, httpx.TimeoutException) as exc:
+        raise CliError("DOWNLOAD_FAILED", f"Could not download sample: {exc}") from exc
+    if response.status_code >= 400:
+        raise CliError(
+            "DOWNLOAD_FAILED",
+            f"Sample download failed (HTTP {response.status_code}). The presigned URL may have expired.",
+        )
+    _atomic_write(dest, response.content, force=force)
+    return dest
+
+
+def _play_audio(path: Path, json_on: bool) -> None:
+    """Play ``path`` with the platform's audio player; warn (never fail) when there is none.
+
+    A missing player is not a failed command: the bytes are on disk and the caller was told
+    where. Exiting non-zero here would also throw away the file the user just paid to fetch.
+    """
+    import shutil
+    import subprocess
+    import sys
+
+    from onepin._cli.render import echo_warning
+
+    if sys.platform == "darwin":
+        candidates = [["afplay"], ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"]]
+    elif sys.platform == "win32":
+        candidates = [["powershell", "-NoProfile", "-Command", "(New-Object Media.SoundPlayer $args[0]).PlaySync()"]]
+    else:
+        candidates = [["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"], ["aplay"], ["mpg123", "-q"]]
+
+    for command in candidates:
+        if shutil.which(command[0]) is None:
+            continue
+        try:
+            subprocess.run([*command, str(path)], check=True)
+        except (subprocess.CalledProcessError, OSError) as exc:
+            echo_warning(f"Could not play {path}: {exc}")
+        return
+    if not json_on:
+        echo_warning(f"No audio player found; the sample is at {path}.")
+
+
+def _emit_samples(rows: list[dict[str, Any]], json_on: bool, *, played: bool) -> None:
+    if json_on:
+        render_json(rows)
+        return
+    for row in rows:
+        locale = row.get("locale") or "unknown locale"
+        label = f"{row.get('name') or row['voice_id']} ({locale})"
+        if row.get("fallback"):
+            # The caller asked for a locale they did not get; saying so is the whole point.
+            label += " — no preview in the requested locale, played its default sample"
+        if row.get("path"):
+            typer.echo(f"{'Played' if played else 'Wrote'} {label}: {row['path']}")
+        else:
+            typer.echo(f"{label}: {row['sample_url']}")
+
+
 # === workflows runs download / download-node =============================================
 
 

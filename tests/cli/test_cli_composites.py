@@ -437,6 +437,223 @@ class TestUploadCreateJson:
         assert "UPLOAD_FAILED" in result.output
 
 
+# === voices sample =======================================================================
+
+
+_VOICE_JSON = {
+    "id": "v-1",
+    "name": "Ara",
+    "provider": "naver",
+    "provider_voice_id": "vara",
+    "is_active": True,
+    "sample_url": "https://cdn.example/ara-default.mp3?Signature=abc",
+    "language_sample_url": None,
+    "language_sample_locale": "en-us",
+    "supported_languages": ["ko-kr"],
+    "supported_models": ["clova"],
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z",
+}
+
+
+def _preview_json(name="Ara", locale="ko-kr", url="https://cdn.example/ara-ko.mp3?Signature=abc"):
+    return {"name": name, "locale": locale, "model": "clova", "sample_url": url, "content_type": "audio/mpeg"}
+
+
+class TestVoicesSample:
+    @respx.mock
+    def test_prints_url_when_no_destination(self, tmp_home) -> None:
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        result = runner.invoke(
+            app, ["--api-key", "op_live_x", "--no-color", "voices", "sample", "v-1", "--language", "ko-kr"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Ara (ko-kr)" in result.output
+        assert "https://cdn.example/ara-ko.mp3" in result.output
+
+    @respx.mock
+    def test_writes_one_file_per_voice(self, tmp_home, tmp_path) -> None:
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        respx.get("https://api.onepin.ai/api/v1/voices/v-2/preview").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "data": _preview_json("Daeseong", url="https://cdn.example/ds-ko.mp3?Signature=x"),
+                    "meta": _META_JSON,
+                },
+            )
+        )
+        respx.get("https://cdn.example/ara-ko.mp3").mock(return_value=httpx.Response(200, content=b"ID3ara"))
+        respx.get("https://cdn.example/ds-ko.mp3").mock(return_value=httpx.Response(200, content=b"ID3ds"))
+
+        result = runner.invoke(
+            app,
+            [
+                "--api-key",
+                "op_live_x",
+                "--no-color",
+                "voices",
+                "sample",
+                "v-1",
+                "v-2",
+                "--language",
+                "ko-kr",
+                "--out-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "Ara-ko-kr.mp3").read_bytes() == b"ID3ara"
+        assert (tmp_path / "Daeseong-ko-kr.mp3").read_bytes() == b"ID3ds"
+
+    @respx.mock
+    def test_falls_back_to_default_sample_and_says_so(self, tmp_home) -> None:
+        """A 404 means no preview *in that locale*, not a voice that cannot speak it."""
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(404, json={"error": {"code": "NOT_FOUND", "message": "no preview"}})
+        )
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1").mock(
+            return_value=httpx.Response(200, json={"data": _VOICE_JSON, "meta": _META_JSON})
+        )
+        result = runner.invoke(
+            app, ["--api-key", "op_live_x", "--no-color", "voices", "sample", "v-1", "--language", "ko-kr"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "no preview in the requested locale" in result.output
+        assert "ara-default.mp3" in result.output
+
+    @respx.mock
+    def test_no_language_uses_the_default_sample(self, tmp_home) -> None:
+        preview = respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview")
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1").mock(
+            return_value=httpx.Response(200, json={"data": _VOICE_JSON, "meta": _META_JSON})
+        )
+        result = runner.invoke(app, ["--api-key", "op_live_x", "--no-color", "voices", "sample", "v-1"])
+        assert result.exit_code == 0, result.output
+        assert not preview.called
+        assert "ara-default.mp3" in result.output
+
+    @respx.mock
+    def test_refuses_to_clobber_without_force(self, tmp_home, tmp_path) -> None:
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        respx.get("https://cdn.example/ara-ko.mp3").mock(return_value=httpx.Response(200, content=b"new"))
+        dest = tmp_path / "keep.mp3"
+        dest.write_bytes(b"original")
+
+        argv = ["--api-key", "op_live_x", "voices", "sample", "v-1", "--language", "ko-kr", "--out", str(dest)]
+        blocked = runner.invoke(app, argv)
+        assert blocked.exit_code == 1
+        assert "FILE_EXISTS" in blocked.output
+        assert dest.read_bytes() == b"original"
+
+        forced = runner.invoke(app, [*argv, "--force"])
+        assert forced.exit_code == 0, forced.output
+        assert dest.read_bytes() == b"new"
+
+    @respx.mock
+    def test_out_rejects_multiple_voices(self, tmp_home, tmp_path) -> None:
+        result = runner.invoke(
+            app,
+            ["--api-key", "op_live_x", "voices", "sample", "v-1", "v-2", "--out", str(tmp_path / "x.mp3")],
+        )
+        assert result.exit_code == 1
+        assert "INVALID_ARGUMENTS" in result.output
+
+    @respx.mock
+    def test_no_sample_anywhere_is_an_error(self, tmp_home) -> None:
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1").mock(
+            return_value=httpx.Response(200, json={"data": {**_VOICE_JSON, "sample_url": None}, "meta": _META_JSON})
+        )
+        result = runner.invoke(app, ["--api-key", "op_live_x", "voices", "sample", "v-1"])
+        assert result.exit_code == 1
+        assert "NO_SAMPLE" in result.output
+
+    @respx.mock
+    def test_json_rows_carry_the_fallback_flag(self, tmp_home) -> None:
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        result = runner.invoke(
+            app, ["--api-key", "op_live_x", "voices", "sample", "v-1", "--language", "ko-kr", "--json"]
+        )
+        assert result.exit_code == 0, result.output
+        rows = json.loads(result.output)
+        assert rows[0]["locale"] == "ko-kr"
+        assert rows[0]["fallback"] is False
+
+    @respx.mock
+    def test_play_hands_a_real_file_to_the_player(self, tmp_home, monkeypatch) -> None:
+        """afplay takes a path, not a URL — the bytes must be on disk before it is called."""
+        import shutil
+        import subprocess
+
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        respx.get("https://cdn.example/ara-ko.mp3").mock(return_value=httpx.Response(200, content=b"ID3ara"))
+
+        calls: list[list[str]] = []
+
+        def _fake_run(command, **kwargs):
+            calls.append(command)
+            assert Path(command[-1]).read_bytes() == b"ID3ara"
+            return subprocess.CompletedProcess(command, 0)
+
+        monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
+        monkeypatch.setattr(subprocess, "run", _fake_run)
+
+        result = runner.invoke(
+            app,
+            ["--api-key", "op_live_x", "--no-color", "voices", "sample", "v-1", "--language", "ko-kr", "--play"],
+        )
+        assert result.exit_code == 0, result.output
+        assert len(calls) == 1
+        assert "Played Ara (ko-kr)" in result.output
+
+    @respx.mock
+    def test_missing_player_warns_but_keeps_the_file(self, tmp_home, tmp_path, monkeypatch) -> None:
+        """No audio device is not a failed command — the bytes were still fetched and written."""
+        import shutil
+
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        respx.get("https://cdn.example/ara-ko.mp3").mock(return_value=httpx.Response(200, content=b"ID3ara"))
+        monkeypatch.setattr(shutil, "which", lambda name: None)
+
+        dest = tmp_path / "ara.mp3"
+        result = runner.invoke(
+            app,
+            [
+                "--api-key",
+                "op_live_x",
+                "--no-color",
+                "voices",
+                "sample",
+                "v-1",
+                "--language",
+                "ko-kr",
+                "--play",
+                "--out",
+                str(dest),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "No audio player found" in result.output
+        assert dest.read_bytes() == b"ID3ara"
+
+    def test_name_is_not_trusted_into_a_path(self, tmp_path) -> None:
+        """A server-supplied name carrying separators must not escape --out-dir."""
+        stem = composites._sample_stem({"name": "../../etc/passwd", "locale": "ko-kr", "voice_id": "v-1"})
+        assert "/" not in stem and ".." not in stem
+
+
 # === local schema commands ===============================================================
 
 

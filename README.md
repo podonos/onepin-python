@@ -145,6 +145,7 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 
 - `onepin voices favorite <voice_id>` — Favorite a voice.
 - `onepin voices list` — List available voices.
+- `onepin voices sample <voice_ids>` — Fetch or play preview audio for one or more voices.
 - `onepin voices show <voice_id>` — Show a single voice.
 - `onepin voices similar <voice_id>` — List voices similar to a voice.
 - `onepin voices unfavorite <voice_id>` — Unfavorite a voice.
