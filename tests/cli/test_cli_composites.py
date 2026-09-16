@@ -11,6 +11,7 @@ import pytest
 import respx
 from typer.testing import CliRunner
 
+from onepin._cli._ctx import CliError
 from onepin._cli.commands import composites
 from onepin._cli.main import app
 
@@ -628,6 +629,86 @@ class TestWorkflowSetVoice:
         assert "no operator_generator node" in result.output
         assert not patch.called
 
+    @respx.mock
+    def test_json_output_carries_the_previous_assignment(self, tmp_home) -> None:
+        existing = {"ko-kr": [{"voice_id": "vds", "catalog_voice_id": "v-ds", "provider": "naver", "model": "clova"}]}
+        _mock_set_voice(_generator_definition(voice_map=existing))
+        result = runner.invoke(app, [*_ARGV, "--json"])
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload["locale"] == "ko-kr"
+        assert payload["node_id"] == "gen-1"
+        assert payload["voice"]["catalog_voice_id"] == "v-ara"
+        assert payload["previous"] == existing["ko-kr"]
+
+    @respx.mock
+    def test_unknown_node_id_names_the_ones_that_exist(self, tmp_home) -> None:
+        """Refusing is only useful if it says what to pass instead."""
+        patch = _mock_set_voice(_generator_definition(extra_generator=True))
+        result = runner.invoke(app, [*_ARGV, "--node-id", "gen-9"])
+
+        assert result.exit_code == 1
+        assert "No operator_generator node gen-9" in result.output
+        assert "gen-1, gen-2" in result.output
+        assert not patch.called
+
+    def test_an_empty_catalog_row_is_refused_before_the_patch(self) -> None:
+        """Defensive: `data` is non-optional on the generated model, so a real 200 always carries
+        a row. Asserted here rather than through the CLI because a `"data": null` body fails SDK
+        validation first, which would exercise the error mapper instead of this branch."""
+        with pytest.raises(CliError) as excinfo:
+            composites._voice_assignment(None, "ko-kr", None)
+        assert "Voice not found" in str(excinfo.value)
+
+
+class TestSetVoiceModelChoice:
+    """`--model` is optional, so the default has to be defensible and a bad one has to be caught."""
+
+    def test_default_prefers_a_model_that_covers_the_locale(self) -> None:
+        capabilities = [
+            {"model": "wrong", "languages_known": True, "supported_languages": ["en-us"]},
+            {"model": "right", "languages_known": True, "supported_languages": ["ko-kr"]},
+        ]
+        assert composites._default_model(capabilities, _voice_row(), "ko-kr") == "right"
+
+    def test_default_falls_back_to_a_model_whose_coverage_is_unknown(self) -> None:
+        """`languages_known=False` means the API cannot enumerate coverage, not that there is none."""
+        capabilities = [
+            {"model": "known-bad", "languages_known": True, "supported_languages": ["en-us"]},
+            {"model": "maybe", "languages_known": False, "supported_languages": []},
+        ]
+        assert composites._default_model(capabilities, _voice_row(), "ko-kr") == "maybe"
+
+    def test_default_falls_back_to_supported_models(self) -> None:
+        row = _voice_row(supported_models=["only-one"])
+        assert composites._default_model([], row, "ko-kr") == "only-one"
+
+    def test_default_gives_up_when_nothing_is_usable(self) -> None:
+        row = _voice_row(supported_models=[])
+        with pytest.raises(CliError) as excinfo:
+            composites._default_model([], row, "ko-kr")
+        assert "lists no usable model" in str(excinfo.value)
+
+    def test_check_rejects_a_model_the_voice_does_not_have(self) -> None:
+        capabilities = [{"model": "clova", "languages_known": True, "supported_languages": ["ko-kr"]}]
+        with pytest.raises(CliError) as excinfo:
+            composites._check_model(capabilities, "sonic-2", "ko-kr", _voice_row())
+        assert "has no model sonic-2" in str(excinfo.value)
+        assert "It has: clova" in str(excinfo.value)
+
+    def test_check_is_quiet_when_coverage_is_unknown(self) -> None:
+        capabilities = [{"model": "clova", "languages_known": False, "supported_languages": []}]
+        composites._check_model(capabilities, "clova", "ko-kr", _voice_row())
+
+    def test_check_is_quiet_when_the_voice_lists_no_capabilities(self) -> None:
+        composites._check_model([], "clova", "ko-kr", _voice_row())
+
+    def test_previous_assignment_that_is_not_a_dict_is_still_reported(self) -> None:
+        """The map is server-shaped; an entry we cannot read must still be printable to restore."""
+        assert composites._describe_assignment(["just-an-id"]) == '["just-an-id"]'
+        assert composites._describe_assignment(None) == "nothing (this locale had no voice assigned)."
+
 
 # === workflows duplicate =================================================================
 
@@ -953,6 +1034,189 @@ class TestVoicesSample:
         """A server-supplied name carrying separators must not escape --out-dir."""
         stem = composites._sample_stem({"name": "../../etc/passwd", "locale": "ko-kr", "voice_id": "v-1"})
         assert "/" not in stem and ".." not in stem
+
+    @respx.mock
+    def test_out_and_out_dir_are_mutually_exclusive(self, tmp_home, tmp_path) -> None:
+        result = runner.invoke(
+            app,
+            ["--api-key", "op_live_x", "voices", "sample", "v-1", "--out", "a.mp3", "--out-dir", str(tmp_path)],
+        )
+        assert result.exit_code == 1
+        assert "not both" in result.output
+
+    @respx.mock
+    def test_out_dir_must_already_exist(self, tmp_home, tmp_path) -> None:
+        result = runner.invoke(
+            app,
+            ["--api-key", "op_live_x", "voices", "sample", "v-1", "--out-dir", str(tmp_path / "nope")],
+        )
+        assert result.exit_code == 1
+        assert "DIRECTORY_NOT_FOUND" in result.output
+
+    @respx.mock
+    def test_model_without_language_is_rejected(self, tmp_home) -> None:
+        """--model only reaches the SDK through the per-locale preview, whose language is required.
+
+        Accepting it bare would silently hand back the voice's default sample -- synthesized with
+        some other model -- and report nothing, so the user believes they auditioned the model
+        they named.
+        """
+        preview = respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview")
+        result = runner.invoke(app, ["--api-key", "op_live_x", "voices", "sample", "v-1", "--model", "sonic-2"])
+
+        assert result.exit_code == 1
+        assert "INVALID_ARGUMENTS" in result.output
+        assert "pass --language too" in result.output
+        assert not preview.called
+
+    @respx.mock
+    def test_play_with_json_still_emits_the_rows(self, tmp_home, monkeypatch) -> None:
+        import shutil
+        import subprocess
+
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        respx.get("https://cdn.example/ara-ko.mp3").mock(return_value=httpx.Response(200, content=b"ID3ara"))
+        monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
+        monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0))
+
+        result = runner.invoke(
+            app,
+            ["--api-key", "op_live_x", "voices", "sample", "v-1", "--language", "ko-kr", "--play", "--json"],
+        )
+        assert result.exit_code == 0, result.output
+        rows = json.loads(result.output)
+        assert rows[0]["locale"] == "ko-kr"
+        assert rows[0]["path"].endswith("Ara-ko-kr.mp3")
+
+    @respx.mock
+    def test_a_non_404_from_preview_is_not_degraded(self, tmp_home) -> None:
+        """Only a 404 means "no preview in this locale"; anything else is a real failure."""
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(500, json={"error": {"code": "SERVER_ERROR", "message": "boom"}})
+        )
+        fallback = respx.get("https://api.onepin.ai/api/v1/voices/v-1")
+        result = runner.invoke(app, ["--api-key", "op_live_x", "voices", "sample", "v-1", "--language", "ko-kr"])
+
+        assert result.exit_code == 1
+        assert not fallback.called
+
+    @respx.mock
+    def test_download_connection_failure_is_reported(self, tmp_home, tmp_path) -> None:
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        respx.get("https://cdn.example/ara-ko.mp3").mock(side_effect=httpx.ConnectError("no route"))
+
+        result = runner.invoke(
+            app,
+            [
+                "--api-key",
+                "op_live_x",
+                "voices",
+                "sample",
+                "v-1",
+                "--language",
+                "ko-kr",
+                "--out",
+                str(tmp_path / "a.mp3"),
+            ],
+        )
+        assert result.exit_code == 1
+        assert "DOWNLOAD_FAILED" in result.output
+        assert "Could not download sample" in result.output
+
+    @respx.mock
+    def test_expired_presigned_url_says_so(self, tmp_home, tmp_path) -> None:
+        """A sample URL lives about an hour; a 403 on it is the expiry, not a missing voice."""
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        respx.get("https://cdn.example/ara-ko.mp3").mock(return_value=httpx.Response(403, content=b"expired"))
+
+        result = runner.invoke(
+            app,
+            [
+                "--api-key",
+                "op_live_x",
+                "voices",
+                "sample",
+                "v-1",
+                "--language",
+                "ko-kr",
+                "--out",
+                str(tmp_path / "a.mp3"),
+            ],
+        )
+        assert result.exit_code == 1
+        assert "HTTP 403" in result.output
+        assert "may have expired" in result.output
+
+    @respx.mock
+    def test_a_player_that_fails_warns_but_keeps_the_exit_code(self, tmp_home, tmp_path, monkeypatch) -> None:
+        """The bytes are on disk and were paid for; a dead player must not throw them away."""
+        import shutil
+        import subprocess
+
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        respx.get("https://cdn.example/ara-ko.mp3").mock(return_value=httpx.Response(200, content=b"ID3ara"))
+        monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
+
+        def _boom(command, **kwargs):
+            raise subprocess.CalledProcessError(1, command)
+
+        monkeypatch.setattr(subprocess, "run", _boom)
+
+        dest = tmp_path / "ara.mp3"
+        result = runner.invoke(
+            app,
+            [
+                "--api-key",
+                "op_live_x",
+                "--no-color",
+                "voices",
+                "sample",
+                "v-1",
+                "--language",
+                "ko-kr",
+                "--play",
+                "--out",
+                str(dest),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "Could not play" in result.output
+        assert dest.read_bytes() == b"ID3ara"
+
+    @pytest.mark.parametrize("platform", ["darwin", "win32", "linux"])
+    def test_every_platform_hands_the_player_a_positional_path(self, platform, tmp_path, monkeypatch) -> None:
+        """The Windows branch used to shell out to `powershell -Command "<script>"`, where the
+        appended path joins the script string instead of binding to $args -- and Media.SoundPlayer
+        is WAV-only besides, so it could not have played an .mp3 sample even when it did bind."""
+        import shutil
+        import subprocess
+        import sys
+
+        monkeypatch.setattr(sys, "platform", platform)
+        monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
+        calls: list[list[str]] = []
+
+        def _record(command, **kwargs):
+            calls.append(command)
+            return subprocess.CompletedProcess(command, 0)
+
+        monkeypatch.setattr(subprocess, "run", _record)
+
+        path = tmp_path / "sample.mp3"
+        path.write_bytes(b"ID3")
+        composites._play_audio(path, json_on=False)
+
+        assert len(calls) == 1
+        assert calls[0][0] in {"afplay", "ffplay", "aplay", "mpg123"}
+        assert calls[0][-1] == str(path)
 
 
 # === local schema commands ===============================================================

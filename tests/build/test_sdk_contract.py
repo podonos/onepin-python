@@ -21,6 +21,9 @@ half is hand-written, so it lands nowhere. Nothing was red while ``GET /voices``
 for months -- the discovery path was a user saying the agent behaved oddly, not a test. Since
 ``.github/workflows/regen.yml`` already runs ``tests/build`` on every generated PR, asserting
 the reverse direction here turns that silence into a failing check on the regen PR itself.
+
+Both directions are then repeated for the hand-written composites, which are not TABLE rows and
+which every parametrized check above therefore skips. See :data:`_COMPOSITE_CALLS`.
 """
 
 from __future__ import annotations
@@ -155,15 +158,14 @@ def _exposed_dests(cmd: Cmd) -> set[str]:
     return exposed
 
 
-def _unexposed_params(cmd: Cmd) -> set[str]:
-    """SDK params this command accepts but offers no way to set.
+def _accepted_params(method) -> set[str]:
+    """Every param of ``method`` a CLI flag could plausibly fill.
 
     ``workspace_id`` is excluded when the method takes it *keyword-only*, which is the SDK's
     workspace-scoping convention: the dispatcher fills that from the global ``--workspace`` /
     ``ONEPIN_WORKSPACE_ID``, so it is reachable without a per-command flag. A method whose
     ``workspace_id`` is positional is a path parameter instead and gets no such pass.
     """
-    method = _resolve_cmd_method(cmd)
     sig = inspect.signature(method)
     accepted = {
         name
@@ -172,7 +174,12 @@ def _unexposed_params(cmd: Cmd) -> set[str]:
     } - _NEVER_A_FLAG
     if _accepts_workspace_kwarg(method):
         accepted.discard("workspace_id")
-    return accepted - _exposed_dests(cmd)
+    return accepted
+
+
+def _unexposed_params(cmd: Cmd) -> set[str]:
+    """SDK params this command accepts but offers no way to set."""
+    return _accepted_params(_resolve_cmd_method(cmd)) - _exposed_dests(cmd)
 
 
 @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))
@@ -212,3 +219,142 @@ def test_allowlist_has_no_stale_entries() -> None:
         )
         for param, reason in reasons.items():
             assert reason.strip(), f"{'.'.join(path)}.{param}: allowlisted with no reason"
+
+
+# === hand-written composites =============================================================
+#
+# The checks above are parametrized over TABLE, so they see only the spec-driven commands.
+# The composites in `onepin._cli.commands.composites` call the SDK directly and are invisible
+# to every one of them -- including `workflows duplicate` and `workflows preview-run`, which
+# were TABLE rows until they grew flags the table cannot express. `regen.yml` runs `tests/build`
+# and nothing else, so without the checks below a regen that renames `duplicate_workflow`
+# leaves the generated PR green and surfaces as an AttributeError in a user's terminal.
+#
+# Keyed by dotted SDK path, valued by the params the composite actually passes.
+_COMPOSITE_CALLS: dict[str, frozenset[str]] = {
+    "uploads.create": frozenset({"filename", "category", "workspace_id"}),
+    "voices.get": frozenset({"voice_id", "workspace_id"}),
+    "voices.preview": frozenset({"voice_id", "language", "model", "workspace_id"}),
+    "workflows.download_run": frozenset({"workflow_id", "run_id", "workspace_id"}),
+    "workflows.download_run_node": frozenset({"workflow_id", "run_id", "node_id", "workspace_id"}),
+    "workflows.duplicate_workflow": frozenset({"workflow_id", "workspace_id"}),
+    "workflows.get": frozenset({"workflow_id", "workspace_id"}),
+    "workflows.patch_workflow": frozenset({"workflow_id", "workspace_id", "name", "definition"}),
+    "workflows.preview_run": frozenset({"workflow_id", "workspace_id", "request_options"}),
+    "workflows.runs.start": frozenset({"workflow_id", "workspace_id", "request_options"}),
+    "workflows.runs.status": frozenset({"workflow_id", "run_id", "workspace_id"}),
+}
+
+# Same contract as _INTENTIONALLY_UNEXPOSED, keyed by dotted SDK path.
+_COMPOSITE_UNEXPOSED: dict[str, dict[str, str]] = {
+    "workflows.runs.start": {
+        "request": (
+            "Run-scoped overrides ride as request_options.additional_body_parameters instead: "
+            "the generated WorkflowRunStartIn defaults both fields to None, so Fern would "
+            "serialize the unset one as an explicit null (see composites._run_scoped_body)."
+        ),
+    },
+    "workflows.preview_run": {
+        "request": (
+            "Built by the same composites._run_scoped_body as workflows.runs.start, so the "
+            "estimate prices the byte-identical body the run will send."
+        ),
+    },
+}
+
+
+def _resolve_composite_method(dotted: str):
+    return _resolve_method(OnePinClient(token="op_live_test"), dotted)
+
+
+def _cli_reachable(dotted: str) -> set[str]:
+    """Params of one SDK method reachable from anywhere in the CLI.
+
+    A method can be shared: ``workflows.patch_workflow`` backs both the ``workflows update``
+    TABLE row and two composites, so ``description`` is reachable even though no composite
+    passes it. The union is the question the drift check actually asks -- "can a user set
+    this at all" -- not "does this one call site set it".
+    """
+    reachable = set(_COMPOSITE_CALLS.get(dotted, frozenset()))
+    for cmd in TABLE:
+        paths = cmd.method_paths if isinstance(cmd.method_paths, tuple) else (cmd.method_paths,)
+        if dotted in paths:
+            reachable |= _exposed_dests(cmd)
+    return reachable
+
+
+@pytest.mark.parametrize("dotted", sorted(_COMPOSITE_CALLS), ids=lambda d: d)
+def test_composite_method_resolves(dotted: str) -> None:
+    """Every SDK method a composite calls still exists on a built client.
+
+    This is `test_method_resolves` for the commands that are not TABLE rows. A rename in a
+    regen fails here instead of at the moment a user runs the command.
+    """
+    assert callable(_resolve_composite_method(dotted)), f"{dotted} resolved to something not callable"
+
+
+@pytest.mark.parametrize("dotted", sorted(_COMPOSITE_CALLS), ids=lambda d: d)
+def test_composite_passed_params_are_accepted(dotted: str) -> None:
+    """Every param a composite passes is one the SDK method still takes."""
+    accepted = set(inspect.signature(_resolve_composite_method(dotted)).parameters)
+    unknown = _COMPOSITE_CALLS[dotted] - accepted
+    assert not unknown, (
+        f"{dotted}: composites.py passes {sorted(unknown)}, which the method no longer accepts — "
+        f"update the call site in composites.py and the entry in _COMPOSITE_CALLS"
+    )
+
+
+@pytest.mark.parametrize("dotted", sorted(_COMPOSITE_CALLS), ids=lambda d: d)
+def test_no_unexposed_composite_sdk_params(dotted: str) -> None:
+    """Reverse drift for the composites: a param the SDK gains must reach the CLI or be excused."""
+    missing = _accepted_params(_resolve_composite_method(dotted)) - _cli_reachable(dotted)
+    missing -= set(_COMPOSITE_UNEXPOSED.get(dotted, {}))
+
+    assert not missing, (
+        f"{dotted}: accepts {sorted(missing)} but no CLI flag reaches it. Either add the option "
+        f"to the composite in commands/composites.py (and to _COMPOSITE_CALLS), or record the "
+        f"decision in _COMPOSITE_UNEXPOSED with the reason."
+    )
+
+
+def test_composite_allowlist_has_no_stale_entries() -> None:
+    """The composite allowlist may only name gaps that are still gaps."""
+    for dotted, reasons in _COMPOSITE_UNEXPOSED.items():
+        assert dotted in _COMPOSITE_CALLS, f"_COMPOSITE_UNEXPOSED names {dotted}, which is not in _COMPOSITE_CALLS"
+        assert reasons, f"{dotted}: allowlist entry is empty — drop the key instead"
+        gaps = _accepted_params(_resolve_composite_method(dotted)) - _cli_reachable(dotted)
+        stale = set(reasons) - gaps
+        assert not stale, (
+            f"{dotted}: allowlist still excuses {sorted(stale)}, which the CLI now reaches or the "
+            f"SDK no longer accepts — delete those entries"
+        )
+        for param, reason in reasons.items():
+            assert reason.strip(), f"{dotted}.{param}: allowlisted with no reason"
+
+
+def test_composite_calls_covers_every_sdk_call_site() -> None:
+    """_COMPOSITE_CALLS must name every SDK method composites.py actually calls.
+
+    A hand-maintained list silently stops covering the code it was written for. Reading the
+    call sites out of the source keeps a newly added composite from slipping past the three
+    checks above the same way `duplicate`/`preview-run` slipped past the TABLE ones.
+    """
+    import re
+    from pathlib import Path
+
+    import onepin._cli.commands.composites as composites_module
+
+    source = Path(composites_module.__file__).read_text(encoding="utf-8")
+    # `client.workflows.runs.start(` / `client.voices.get(`, and the bare-attribute form
+    # `method = client.workflows.download_run` used where the method is picked then called.
+    called = {match.group(1) for match in re.finditer(r"\bclient\.((?:[a-z_]+\.)+[a-z_]+)\b", source)}
+    called = {path for path in called if not path.startswith("_")}
+
+    missing = called - set(_COMPOSITE_CALLS)
+    assert not missing, (
+        f"composites.py calls {sorted(missing)} but _COMPOSITE_CALLS does not list it — add an "
+        f"entry so the drift checks cover the new call site"
+    )
+
+    unused = set(_COMPOSITE_CALLS) - called
+    assert not unused, f"_COMPOSITE_CALLS lists {sorted(unused)}, which composites.py no longer calls — drop it"
