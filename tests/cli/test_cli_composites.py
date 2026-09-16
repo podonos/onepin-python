@@ -48,6 +48,28 @@ def _run_out(status: str, run_id: str = "run-1"):
     return ApiResponseWorkflowRunOut(data=run, meta=_meta())
 
 
+_META_JSON = {"request_id": "01JTEST00000000000000000000", "timestamp": "2025-01-01T00:00:00Z"}
+
+_RUN_JSON = {
+    "id": "run-1",
+    "workflow_id": "wf-1",
+    "status": "running",
+    "run_number": 1,
+    "total_nodes": 1,
+    "total_steps": 1,
+    "finished_steps": 0,
+    "token_cost": 0,
+    "usage_summary": None,
+    "started_at": "2025-01-01T00:00:00Z",
+    "completed_at": None,
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z",
+    "error": None,
+    "has_export": False,
+    "triggered_by": None,
+}
+
+
 # === workflows run [--watch] =============================================================
 
 
@@ -147,6 +169,80 @@ class TestWorkflowRun:
         result = runner.invoke(app, ["--api-key", "op_live_x", "workflows", "run", "wf-1"])
         assert result.exit_code == 0, result.output
         assert "request_options" not in client.workflows.runs.start_kwargs
+
+
+# === workflows preview-run ===============================================================
+
+
+_ESTIMATE = {
+    "min_credits": 107,
+    "expected_credits": 107,
+    "max_credits": 214,
+    "breakdown": [],
+    "current_balance": 5000,
+    "deficit_at_max": 0,
+    "can_run": True,
+}
+
+
+class TestWorkflowPreviewRun:
+    """The estimate must price the body the run will actually send (see _run_scoped_body)."""
+
+    @respx.mock
+    def test_script_rides_in_the_body(self, tmp_home) -> None:
+        route = respx.post("https://api.onepin.ai/api/v1/workflows/wf-1/runs/preview").mock(
+            return_value=httpx.Response(200, json={"data": _ESTIMATE, "meta": _META_JSON})
+        )
+        result = runner.invoke(
+            app,
+            ["--api-key", "op_live_x", "workflows", "preview-run", "wf-1", "--script", "Hi", "--json"],
+        )
+        assert result.exit_code == 0, result.output
+        assert json.loads(route.calls[0].request.content) == {"script_text": "Hi"}
+        assert '"expected_credits": 107' in result.output
+
+    @respx.mock
+    def test_body_matches_the_run_byte_for_byte(self, tmp_home) -> None:
+        """A cost quoted from a different body than the one charged is the bug being prevented."""
+        preview = respx.post("https://api.onepin.ai/api/v1/workflows/wf-1/runs/preview").mock(
+            return_value=httpx.Response(200, json={"data": _ESTIMATE, "meta": _META_JSON})
+        )
+        run = respx.post("https://api.onepin.ai/api/v1/workflows/wf-1/runs").mock(
+            return_value=httpx.Response(202, json={"data": _RUN_JSON, "meta": _META_JSON})
+        )
+        argv = ["--script", "Hello world!", "--source-language", "en-us"]
+        assert runner.invoke(app, ["--api-key", "op_live_x", "workflows", "preview-run", "wf-1", *argv]).exit_code == 0
+        assert runner.invoke(app, ["--api-key", "op_live_x", "workflows", "run", "wf-1", *argv]).exit_code == 0
+        assert preview.calls[0].request.content == run.calls[0].request.content
+
+    @respx.mock
+    def test_no_overrides_sends_no_body(self, tmp_home) -> None:
+        route = respx.post("https://api.onepin.ai/api/v1/workflows/wf-1/runs/preview").mock(
+            return_value=httpx.Response(200, json={"data": _ESTIMATE, "meta": _META_JSON})
+        )
+        result = runner.invoke(app, ["--api-key", "op_live_x", "workflows", "preview-run", "wf-1", "--json"])
+        assert result.exit_code == 0, result.output
+        assert route.calls[0].request.content == b""
+
+    @respx.mock
+    def test_text_output_renders_the_credits(self, tmp_home) -> None:
+        respx.post("https://api.onepin.ai/api/v1/workflows/wf-1/runs/preview").mock(
+            return_value=httpx.Response(200, json={"data": _ESTIMATE, "meta": _META_JSON})
+        )
+        result = runner.invoke(app, ["--api-key", "op_live_x", "--no-color", "workflows", "preview-run", "wf-1"])
+        assert result.exit_code == 0, result.output
+        assert "expected_credits: 107" in result.output
+
+    @respx.mock
+    def test_validation_error_exits_1(self, tmp_home) -> None:
+        respx.post("https://api.onepin.ai/api/v1/workflows/wf-1/runs/preview").mock(
+            return_value=httpx.Response(
+                422, json={"error": {"code": "VALIDATION_ERROR", "message": "needs a few fixes"}}
+            )
+        )
+        result = runner.invoke(app, ["--api-key", "op_live_x", "workflows", "preview-run", "wf-1"])
+        assert result.exit_code == 1
+        assert "VALIDATION_ERROR" in result.output
 
 
 # === uploads create ======================================================================

@@ -50,9 +50,10 @@ the user, not to you. Walk it in order and stop at each question.
      anything. → *Changing a voice is not run-scoped*
 4. **The script.** Their exact text on `workflows run --script`, with `--source-language` when it
    isn't the saved one. → *The script is the user's*
-5. **Price, then permission.** `workflows preview-run <workflow_id>` → show the expected credits →
-   get an explicit yes → `workflows run`. Poll `runs status`, or run with `--watch --timeout 300`.
-   Every run, however small; if `preview-run` fails, estimate rather than skip the number. →
+5. **Price, then permission.** `workflows preview-run <workflow_id>` **with the same
+   `--script`/`--source-language` you are about to run** → show the expected credits → get an
+   explicit yes → `workflows run`. Poll `runs status`, or run with `--watch --timeout 300`.
+   Every run, however small; if `preview-run` still fails, estimate rather than skip the number. →
    *Running a workflow*
 6. **Hand over the audio.** `runs data` → announce → play or link every line. A run that finished
    and was only described in text is not finished. → *Audio: the part you must not skip*
@@ -136,7 +137,9 @@ see below) and the workflow you are about to run (show its shape before it costs
   still beat paging: narrow with `--search` first and page only when the user genuinely wants the
   whole set.
 - Inspect: `onepin --json workflows show <workflow_id>`
-- Estimate cost before running: `onepin --json workflows preview-run <workflow_id>`
+- Estimate cost before running: `onepin --json workflows preview-run <workflow_id>` — takes the
+  same `--script` / `--source-language` as `run`, and pass them whenever the run will, because the
+  estimate prices the body it is given, not the one you intend to send. No run, no credits.
 - **Run (starts a real, billable execution):** `onepin --json workflows run <workflow_id>`. A run
   consumes credits and acts on the live workspace. It is *not* `--yes`-gated — confirm with the user
   first, every time, by the procedure in *Running a workflow*.
@@ -371,11 +374,14 @@ of a comparison included.
 1. **Resolve the exact target.** `workflows show <workflow_id>`, rendered — pipeline, voice per
    language, quality gates (see *Show the workflow before you run it*). If several workflows could
    plausibly be the one they meant, list the others with their languages and voices too.
-2. **Price it — and if pricing fails, estimate instead of going quiet.**
-   `onepin --json workflows preview-run <workflow_id>` gives `min_credits` / `expected_credits` /
-   `max_credits` per node. It can fail on a graph that is valid but not yet filled in (an empty
-   script node returns `VALIDATION_ERROR`). That is **not** permission to proceed without a number —
-   fall back, in this order:
+2. **Price the exact run — and if pricing fails, estimate instead of going quiet.**
+   `onepin --json workflows preview-run <workflow_id> --script "<the text>"` gives `min_credits` /
+   `expected_credits` / `max_credits` per node. **Pass every run-scoped override you are going to
+   run with.** Priced without them it prices the saved definition, which is a different operation
+   than the one being charged — and on a workflow whose script node is empty (the normal shape when
+   the text arrives per-run) pricing without `--script` fails outright with `VALIDATION_ERROR`,
+   because there is no text to count. A failure that survives passing the real script is **not**
+   permission to proceed without a number — fall back, in this order:
    - **A past run of the same workflow.** `onepin --json workflows runs list <workflow_id>` rows
      carry `credits` (the debit for that run). Scale it by script length. This is the best anchor
      because it already contains this workflow's real node mix.

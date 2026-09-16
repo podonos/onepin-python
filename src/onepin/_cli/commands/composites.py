@@ -47,16 +47,9 @@ def workflow_run(
     with api_errors(json_on):
         client = get_client()
         kwargs = _maybe_workspace(client.workflows.runs.start)
-        # Run-scoped inputs ride as additional body parameters until the generated
-        # start() gains script_text/source_language on the next spec regen — the wire
-        # format is identical either way, so this keeps working after the regen too.
-        overrides = {
-            key: value
-            for key, value in (("script_text", script), ("source_language", source_language))
-            if value is not None
-        }
-        if overrides:
-            kwargs["request_options"] = {"additional_body_parameters": overrides}
+        overrides = _run_scoped_body(script, source_language)
+        if overrides is not None:
+            kwargs["request_options"] = overrides
         started = client.workflows.runs.start(workflow_id, **kwargs)
         run = to_jsonable(getattr(started, "data", started))
         run_id = run.get("id") if isinstance(run, dict) else None
@@ -117,6 +110,47 @@ def _emit_run(run: Any, json_on: bool, template: str) -> None:
         return
     context = run if isinstance(run, dict) else {}
     typer.echo(template.format(id=context.get("id", ""), status=context.get("status", "")))
+
+
+# === workflows preview-run ===============================================================
+
+
+def workflow_preview_run(
+    workflow_id: str = typer.Argument(..., help="Workflow UUID."),
+    script: Optional[str] = typer.Option(
+        None, "--script", help="Price this script text instead of the saved one (same as `run --script`)."
+    ),
+    source_language: Optional[str] = typer.Option(
+        None, "--source-language", help="BCP-47 language of --script (e.g. en-us); defaults to the saved language."
+    ),
+    json_output_local: bool = typer.Option(False, "--json", help="Emit JSON instead of text."),
+) -> None:
+    """Estimate the credit cost of a run without executing it.
+
+    Takes the same run-scoped overrides as ``workflows run``, and for the same reason: a
+    workflow whose script node is empty is *valid to run* with ``--script`` but cannot be
+    priced without it (the estimate has no text to count, so the server answers
+    ``VALIDATION_ERROR``). Passing the same ``--script``/``--source-language`` you intend to
+    run prices the operation that will actually be charged, rather than the saved definition
+    that will not.
+
+    No run is created and no credits are consumed.
+    """
+    from onepin._cli._dispatch import _render_keyvalue
+
+    json_on = output_json(json_output_local)
+    with api_errors(json_on):
+        client = get_client()
+        kwargs = _maybe_workspace(client.workflows.preview_run)
+        overrides = _run_scoped_body(script, source_language)
+        if overrides is not None:
+            kwargs["request_options"] = overrides
+        resp = client.workflows.preview_run(workflow_id, **kwargs)
+        payload = to_jsonable(getattr(resp, "data", resp))
+        if json_on:
+            render_json(payload)
+            return
+        _render_keyvalue(payload)
 
 
 # === uploads create ======================================================================
@@ -284,6 +318,26 @@ def definition_schema(
 
 
 # === Shared helpers ======================================================================
+
+
+def _run_scoped_body(script: Optional[str], source_language: Optional[str]) -> Optional[dict[str, Any]]:
+    """Build ``request_options`` carrying the run-scoped overrides, or ``None`` for neither.
+
+    ``workflows run`` and ``workflows preview-run`` share this so an estimate prices the exact
+    body the run will send — two builders could drift, and a cost quoted from a different body
+    than the one charged is precisely the failure these overrides exist to prevent.
+
+    Sent as additional body parameters rather than a ``WorkflowRunStartIn``: the generated model
+    defaults both fields to ``None``, so Fern serializes the unset one as an explicit
+    ``"source_language": null`` instead of omitting it. Building the dict keeps only the keys the
+    user actually passed, which is the wire format this endpoint has always been called with.
+    """
+    overrides = {
+        key: value
+        for key, value in (("script_text", script), ("source_language", source_language))
+        if value is not None
+    }
+    return {"additional_body_parameters": overrides} if overrides else None
 
 
 def _maybe_workspace(method: Any) -> dict[str, Any]:

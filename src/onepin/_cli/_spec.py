@@ -243,15 +243,6 @@ TABLE: list[Cmd] = [
         unwrap="list",
         columns=_COLS_UPLOAD,
     ),
-    Cmd(
-        "workflows",
-        "preview-run",
-        "workflows.preview_run",
-        "Estimate cost of a run without executing.",
-        args=[("workflow_id", "Workflow UUID.")],
-        options=[_JSON],
-        unwrap="data",
-    ),
     # --- workflows runs (subgroup) ------------------------------------------------------
     Cmd(
         "workflows",

@@ -96,6 +96,9 @@ def _wire_composites(groups: dict[str, typer.Typer]) -> None:
     workflows.command(name="run", help="Start a workflow run, optionally watching to completion.")(
         composites.workflow_run
     )
+    workflows.command(name="preview-run", help="Estimate cost of a run without executing.")(
+        composites.workflow_preview_run
+    )
     workflows.command(name="definition-schema", help="Print the JSON Schema for a workflow definition.")(
         composites.definition_schema
     )

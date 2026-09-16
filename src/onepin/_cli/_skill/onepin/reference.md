@@ -180,7 +180,7 @@ onepin --json uploads confirm <upload_id> --workflow-id <workflow_id>
 ## Recipe: run and collect outputs
 
 ```bash
-onepin --json workflows preview-run <workflow_id>                       # estimate cost
+onepin --json workflows preview-run <workflow_id> --script "<text>"     # estimate cost (no run)
 onepin --json workflows run <workflow_id> --watch --timeout 300         # run + wait (billable)
 onepin --json workflows runs data <workflow_id> <run_id>                # output rows
 onepin workflows runs download <workflow_id> <run_id> --out export.zip  # full export (atomic; --force to overwrite)
@@ -189,8 +189,11 @@ onepin workflows runs download-node <workflow_id> <run_id> <node_id> --out node.
 
 `workflows run` is **not** `--yes`-gated even though it spends credits — confirm with the user
 first, every time, by the procedure in SKILL.md → *Running a workflow*. `preview-run` returns
-`min_credits` / `expected_credits` / `max_credits` per node; when it fails (an unfilled script node
-returns `VALIDATION_ERROR`), don't drop the cost — fall back to a past run's `credits` field on
+`min_credits` / `expected_credits` / `max_credits` per node, and takes the same
+`--script` / `--source-language` as `run` — pass them, or you price the saved definition instead of
+the run being charged (and an unfilled script node priced without `--script` returns
+`VALIDATION_ERROR`, since there is no text to count). If it still fails, don't drop the cost — fall
+back to a past run's `credits` field on
 `onepin --json workflows runs list <workflow_id>`, or failing that to the script's character count
 (~1 credit/character for one Latin-script locale — a floor: extra locales multiply, CJK on a
 byte-priced model runs ~3×, a translator adds a language multiplier). Label the number an estimate.
@@ -203,7 +206,8 @@ estimate above is a floor and must be presented as one.
 `workflows run` also takes **run-scoped script inputs**: `--script "<text>"` replaces the saved
 script for that one run (the workflow is not modified), and `--source-language <bcp-47>` (e.g.
 `en-us`) declares the language of that text when it differs from the saved one. Use this for
-one-off lines instead of `workflows update`. Which of the two you are doing is one of the four
+one-off lines instead of `workflows update`. `preview-run` accepts the identical pair and sends a
+byte-identical body, so an estimate taken with the same flags prices the run that will be charged. Which of the two you are doing is one of the four
 things the run confirmation has to state. Note what is *not* on that list: there is no `--voice`, so
 a voice swap is always an edit to the saved definition, never a property of one run.
 

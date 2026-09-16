@@ -1119,9 +1119,23 @@
       "name": "preview-run",
       "options": [
         {
+          "default": null,
+          "flag": "--script",
+          "help": "Price this script text instead of the saved one (same as `run --script`).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--source-language",
+          "help": "BCP-47 language of --script (e.g. en-us); defaults to the saved language.",
+          "required": false,
+          "type": "text"
+        },
+        {
           "default": false,
           "flag": "--json",
-          "help": "Emit JSON instead of a table.",
+          "help": "Emit JSON instead of text.",
           "required": false,
           "type": "bool"
         }
