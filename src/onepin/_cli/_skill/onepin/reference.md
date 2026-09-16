@@ -65,11 +65,11 @@ choice is the user's. If `workflows list` / `templates list` fails (a write-only
 
 ## Nodes: ask the catalog, don't read a table
 
-Everything about a node — the slug, the label, the ports, the config keys and their defaults and
-ranges — comes back from one call, so this file does not keep a copy. Copies rot: the labels here
-were wrong within a week of being written (`Phoneme Injector` is now `Phonemizer`), and the catalog
-is edited by staff without a deploy and gated per workspace plan, so a frozen table can be wrong in
-a way that is invisible until a graph is rejected.
+Node knowledge comes from the API, not from a table in this file. Copies rot: the labels here were
+wrong within a week of being written (`Phoneme Injector` is now `Phonemizer`), the catalog is edited
+by staff without a deploy, and it is gated per workspace plan — so a frozen table can be wrong in a
+way that is invisible until a graph is rejected. It takes **two** calls, and a third command that
+does not currently work:
 
 ```bash
 # the whole catalog, one row per node
@@ -83,12 +83,22 @@ onepin --json nodes list \
 onepin --json nodes list | jq '.[] | select(.node_type == "validator_error_rate") | .config_schema'
 ```
 
-Per node `nodes list` returns `node_type`, `display_name`, `description`, `version`, `beta`, the
-`inputs` / `outputs` ports, `input_schema`, and `config_schema` — note `config_schema` is a bare
-`name → schema` map, not a JSON-Schema object with a `properties` key. `nodes show <node_type>` adds
-`category` and `options`: the runtime values (available target languages, provider/model choices, a
-voice-picker link). **Never author with a slug `nodes list` did not return** — it may exist in the
+**1. `nodes list`** — per node: `node_type`, `display_name`, `description`, `version`, `beta`, the
+`inputs` / `outputs` port names, `input_schema` (including the locale enum the generator accepts) and
+`config_schema`. Note `config_schema` is a bare `name → schema` map, *not* a JSON-Schema object with
+a `properties` key. **Never author with a slug `nodes list` did not return** — it may exist in the
 enum and still be unavailable to this workspace.
+
+**2. `workflows definition-schema`** — how nodes are *wired*, which `nodes list` says nothing about:
+`graph.nodes[]` (`id`, `type`, `position`, `config`, `config_version`, `name`) and `graph.edges[]`
+(`id`, `source`, `sourcePort`, `target`, `targetPort`, all required). The port names in an edge are
+the ones `nodes list` gave you — `lines` for the line-carrying ports, `pass` / `fail` on validators.
+
+**3. `nodes show <node_type>` — currently broken with an API key.** It is the call that would carry
+`category` plus `options` (the workspace's available voices and providers), but the CLI maps it to
+the deprecated v1 endpoint, which rejects API-key auth: it returns `UNAUTHORIZED` even for a key that
+works on every other command. Don't build a flow that depends on it; get what you need from
+`voices list` instead (below).
 
 One caveat on when you can call it: the *endpoint* needs no valid credential, but the *CLI* refuses
 to run any command without one, so `nodes list` works with an expired or even nonsense key but not
@@ -96,10 +106,21 @@ with no key at all.
 
 ### What the catalog does not tell you
 
-- **Where a voice lives.** `operator_generator.config.voice_map` is a map of locale → list of
-  `VoiceAssignment` (each needs at least `voice_id`, `provider`, `model`; optionally
-  `catalog_voice_id`, `voice_name`, `provider_config`, `canonical_controls`). Changing a workflow's
-  voice means editing that map and calling `workflows update` — there is no set-voice command.
+- **Where a voice lives, and how to fill it in.** `operator_generator.config.voice_map` is a map of
+  locale → list of `VoiceAssignment` (required: `voice_id`, `provider`, `model`; optional:
+  `catalog_voice_id`, `voice_name`, `provider_config`, `canonical_controls`). Every field comes from
+  a `voices list` row, and the two id fields are **not** interchangeable:
+
+  | `VoiceAssignment` | `voices list` row |
+  |---|---|
+  | `voice_id` | `provider_voice_id` (the provider's own id, e.g. `"vdaeseong"`) |
+  | `catalog_voice_id` | `id` (the catalog UUID) |
+  | `provider` | `provider` |
+  | `model` | one of `supported_models` — check `model_capabilities[]` lists the locale you are wiring |
+  | `voice_name` | `name` (display only) |
+
+  Changing a workflow's voice means editing that map and calling `workflows update` — there is no
+  set-voice command.
 - **That validator defaults are not uniform.** They differ per validator and are clamped to
   different ranges, so read the `threshold` default from `config_schema` and quote *that* number to
   the user rather than saying "the default".

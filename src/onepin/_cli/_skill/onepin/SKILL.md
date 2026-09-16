@@ -59,7 +59,8 @@ them, and confirm every slug against `nodes list` first:
 - **Operators** — a `operator_normalizer` (numbers, dates, abbreviations → spoken form)? an
   `operator_translator` (`target_languages`) if they want other languages? an
   `operator_phoneme_injector` if pronunciation matters?
-- **Generator** — `operator_generator`, one `voice_map` entry per locale.
+- **Generator** — `operator_generator`, one `voice_map` entry per locale. Build each entry from a
+  `voices list` row (`voice_id` is the row's `provider_voice_id`, not its `id` — see reference.md).
 - **Validators** — which checks, and at what bar: word accuracy, naturalness, clarity,
   pronunciation. Each has a `threshold` and `max_retries`, and **the defaults differ per validator**
   — read the real one out of `nodes list` (`.config_schema.threshold.default`) and quote that number
