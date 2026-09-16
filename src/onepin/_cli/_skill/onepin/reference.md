@@ -246,7 +246,7 @@ payload for nothing. `runs summary <workflow_id> --from <iso> --to <iso>` aggreg
 |---|---|---|
 | a voice's sample **in a given language** | `voices list --language <code> [--search "<description>"]` | `language_sample_url` (+ `language_sample_locale` — the region actually served) |
 | a voice's default sample | `voices list` · `voices show <voice_id>` | `sample_url` — does **not** follow `--language`, so it may be another language |
-| a **fresh, playable** sample for one or many voices | `voices sample <id>... --language <code> --play` (or `[--out-dir DIR]`, or neither) | `sample_url` per row, minted on the call (so never expired), plus the `locale` actually served; `--play` prints `Playing i/N <name> (<locale>)` before each clip |
+| a **fresh, playable** sample for one or many voices | `voices sample <id>... --language <code> --play` (or `[--out-dir DIR]`, or neither) | `sample_url` per row, minted on the call (so never expired), plus the `locale` and `model` actually served; `--play` prints `Playing i/N <name> (<locale>, <model>)` before each clip. On a row that fell back to the voice's default clip — and on any call without `--language` — the served locale is not reported by the API, so the row says `unknown locale` and `fallback` is `true`: say so rather than naming a language you were not told |
 | a run's **per-line** audio | `workflows runs data <workflow_id> <run_id>` | `rows[].cards[].audio.playback_url` |
 | files on disk | `workflows runs download` · `runs download-node` | the written file |
 

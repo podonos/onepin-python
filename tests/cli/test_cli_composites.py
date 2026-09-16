@@ -967,7 +967,7 @@ class TestVoicesSample:
             app, ["--api-key", "op_live_x", "--no-color", "voices", "sample", "v-1", "--language", "ko-kr"]
         )
         assert result.exit_code == 0, result.output
-        assert "Ara (ko-kr)" in result.output
+        assert "Ara (ko-kr, clova)" in result.output
         assert "https://cdn.example/ara-ko.mp3" in result.output
 
     @respx.mock
@@ -1111,7 +1111,7 @@ class TestVoicesSample:
         )
         assert result.exit_code == 0, result.output
         assert len(calls) == 1
-        assert "Playing 1/1 Ara (ko-kr)" in result.output
+        assert "Playing 1/1 Ara (ko-kr, clova)" in result.output
 
     @respx.mock
     def test_play_names_each_voice_before_its_clip(self, tmp_home, monkeypatch) -> None:
@@ -1148,9 +1148,9 @@ class TestVoicesSample:
         )
         assert result.exit_code == 0, result.output
         lines = [line for line in result.output.splitlines() if line.strip()]
-        assert lines[0].startswith("Playing 1/2 Ara (ko-kr)")
+        assert lines[0].startswith("Playing 1/2 Ara (ko-kr, clova)")
         assert lines[1] == "<audio Ara-ko-kr.mp3>"
-        assert lines[2].startswith("Playing 2/2 Daeseong (ko-kr)")
+        assert lines[2].startswith("Playing 2/2 Daeseong (ko-kr, clova)")
         assert lines[3] == "<audio Daeseong-ko-kr.mp3>"
 
     @respx.mock

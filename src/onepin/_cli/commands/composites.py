@@ -575,8 +575,13 @@ def _voice_sample_row(client: Any, voice_id: str, language: Optional[str], model
     return {
         "voice_id": voice_id,
         "name": (data or {}).get("name"),
-        # The default sample does not follow --language; report what it is, not what was asked.
-        "locale": (data or {}).get("language_sample_locale"),
+        # Unknown, and said so rather than guessed. `sample_url` is the voice's default clip,
+        # "whose spoken language is not guaranteed" (VoiceOut.sample_url), and the field that
+        # would name a served locale — `language_sample_locale` — is null unless the request
+        # carried `language=`, which `voices.get` has no parameter for. Reporting it here
+        # would label every default clip with `None`; labelling it as unknown is the honest
+        # claim, and `fallback` is what tells the caller the request was not met.
+        "locale": None,
         "model": None,
         "sample_url": sample_url,
         "content_type": None,
@@ -710,9 +715,14 @@ def _play_audio(path: Path, json_on: bool) -> None:
 
 
 def _sample_label(row: dict[str, Any]) -> str:
-    """Name / locale for one row, carrying the locale substitution when there was one."""
+    """Name / locale / model for one row, carrying the locale substitution when there was one.
+
+    The model belongs in the label because the same voice sounds different across models, so
+    a shortlist compared by ear is only reproducible if the row says which one was heard.
+    """
     locale = row.get("locale") or "unknown locale"
-    label = f"{row.get('name') or row['voice_id']} ({locale})"
+    descriptor = f"{locale}, {row['model']}" if row.get("model") else locale
+    label = f"{row.get('name') or row['voice_id']} ({descriptor})"
     if row.get("fallback"):
         # The caller asked for a locale they did not get; saying so is the whole point, and it
         # has to be said before the clip plays rather than after it is already misheard.
