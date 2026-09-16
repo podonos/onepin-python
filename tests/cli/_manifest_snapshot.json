@@ -1293,6 +1293,34 @@
         },
         {
           "default": null,
+          "flag": "--has-failed-run",
+          "help": "Filter by failure history anywhere in the run log, not just the latest run (--no-has-failed-run returns only workflows that have never failed).",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": null,
+          "flag": "--last-run-after",
+          "help": "Only workflows whose last run was at or after this ISO 8601 datetime.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--last-run-before",
+          "help": "Only workflows whose last run was at or before this ISO 8601 datetime.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--include-definition",
+          "help": "Include each workflow's full definition graph (off by default: the graphs dominate the payload and the table does not render them).",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": null,
           "flag": "--sort",
           "help": "Sort field.",
           "required": false,
@@ -1466,6 +1494,13 @@
           "help": "Filter by language.",
           "required": false,
           "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--include-dropped",
+          "help": "Include validator-rejected cards. Off by default, so without it a line the user never received is simply absent rather than reported as dropped.",
+          "required": false,
+          "type": "bool"
         },
         {
           "default": null,
@@ -1942,6 +1977,20 @@
       "name": "uploads",
       "options": [
         {
+          "default": 50,
+          "flag": "--limit",
+          "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
+          "required": false,
+          "type": "integer"
+        },
+        {
           "default": false,
           "flag": "--json",
           "help": "Emit JSON instead of a table.",
@@ -2034,6 +2083,13 @@
           "default": 50,
           "flag": "--limit",
           "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
           "required": false,
           "type": "integer"
         },
@@ -2348,6 +2404,20 @@
           "help": "New color index.",
           "required": false,
           "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--routing-price-sensitivity",
+          "help": "Automatic voice selection's price/quality balance (0.0 = pure quality, 1.0 = pure price, 0.5 = balanced).",
+          "required": false,
+          "type": "float"
+        },
+        {
+          "default": null,
+          "flag": "--routing-llm-fit",
+          "help": "Whether automatic voice selection also weighs how the voice fits the content.",
+          "required": false,
+          "type": "bool"
         },
         {
           "default": false,

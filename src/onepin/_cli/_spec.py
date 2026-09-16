@@ -29,9 +29,15 @@ class Opt:
 
     Attributes:
         flag: The CLI flag, e.g. ``--status`` (extra aliases space-separated, e.g. ``-l --limit``).
-        type: One of ``"str"``, ``"int"``, ``"bool"``, ``"datetime"``, or a tuple of literal
-            choices ``("a", "b", ...)`` which renders as a Typer Choice.
-        default: Default value passed to ``typer.Option``.
+            A boolean may declare its off-switch with a slash (``--x/--no-x``), which makes it
+            tri-state: on, off, or absent.
+        type: One of ``"str"``, ``"int"``, ``"float"``, ``"bool"``, ``"datetime"``, or a tuple of
+            literal choices ``("a", "b", ...)`` which renders as a Typer Choice.
+        default: Default value passed to ``typer.Option``. A ``"bool"`` defaulting to ``False`` is
+            a switch the SDK only ever sees as ``True`` (the dispatcher drops it at its default);
+            one defaulting to ``None`` is tri-state and forwards an explicit ``False`` too, which
+            is what an SDK param whose ``False`` means something (a filter, a stored setting)
+            needs. Pair that default with a ``--x/--no-x`` flag so the off side is reachable.
         dest: SDK keyword the value is forwarded as (defaults to the flag name de-dashed).
         transform: Optional value transform applied before forwarding. One of
             ``"wrap_list"``, ``"comma_list"``, ``"datetime"``, ``"provider_key_request"``.
@@ -51,10 +57,14 @@ class Opt:
 
     @property
     def dest_name(self) -> str:
-        """The SDK keyword this option forwards as."""
+        """The SDK keyword this option forwards as.
+
+        Derived from the first flag, minus any ``/--no-x`` off-switch: ``--has-failed-run/
+        --no-has-failed-run`` forwards as ``has_failed_run``.
+        """
         if self.dest is not None:
             return self.dest
-        primary = self.flag.split()[0]
+        primary = self.flag.split()[0].split("/")[0]
         return primary.lstrip("-").replace("-", "_")
 
 
@@ -163,6 +173,34 @@ TABLE: list[Cmd] = [
             _OFFSET,
             Opt("--status", _RUN_STATUS, None, help="Filter by workflow status."),
             Opt("--search", "str", None, help="Substring search over names."),
+            Opt(
+                "--has-failed-run/--no-has-failed-run",
+                "bool",
+                None,
+                help="Filter by failure history anywhere in the run log, not just the latest run "
+                "(--no-has-failed-run returns only workflows that have never failed).",
+            ),
+            Opt(
+                "--last-run-after",
+                "datetime",
+                None,
+                transform="datetime",
+                help="Only workflows whose last run was at or after this ISO 8601 datetime.",
+            ),
+            Opt(
+                "--last-run-before",
+                "datetime",
+                None,
+                transform="datetime",
+                help="Only workflows whose last run was at or before this ISO 8601 datetime.",
+            ),
+            Opt(
+                "--include-definition",
+                "bool",
+                False,
+                help="Include each workflow's full definition graph (off by default: the graphs "
+                "dominate the payload and the table does not render them).",
+            ),
             Opt("--sort", ("name", "updated_at", "runs_count"), None, transform="wrap_list", help="Sort field."),
             Opt("--order", ("asc", "desc"), None, transform="wrap_list", help="Sort direction."),
         ),
@@ -240,8 +278,8 @@ TABLE: list[Cmd] = [
         "workflows.list_workflow_uploads",
         "List a workflow's uploads.",
         args=[("workflow_id", "Workflow UUID.")],
-        options=[_JSON],
-        unwrap="list",
+        options=_list_opts(_OFFSET),
+        unwrap="pager",
         columns=_COLS_UPLOAD,
     ),
     # --- workflows runs (subgroup) ------------------------------------------------------
@@ -331,6 +369,13 @@ TABLE: list[Cmd] = [
         options=[
             Opt("--search", "str", None, help="Substring search over output rows."),
             Opt("--language", "str", None, help="Filter by language."),
+            Opt(
+                "--include-dropped",
+                "bool",
+                False,
+                help="Include validator-rejected cards. Off by default, so without it a line the "
+                "user never received is simply absent rather than reported as dropped.",
+            ),
             Opt("--limit", "int", None, help="Max rows."),
             Opt("--offset", "int", None, help="Row offset."),
             _JSON,
@@ -698,8 +743,8 @@ TABLE: list[Cmd] = [
         "list",
         "workspaces.list_workspaces",
         "List workspaces.",
-        options=_list_opts(),
-        unwrap="list",
+        options=_list_opts(_OFFSET),
+        unwrap="pager",
         columns=_COLS_WORKSPACE,
     ),
     Cmd(
@@ -735,6 +780,19 @@ TABLE: list[Cmd] = [
             Opt("--name", "str", None, help="New name."),
             Opt("--slug", "str", None, help="New slug."),
             Opt("--color-idx", "int", None, dest="color_idx", help="New color index."),
+            Opt(
+                "--routing-price-sensitivity",
+                "float",
+                None,
+                help="Automatic voice selection's price/quality balance "
+                "(0.0 = pure quality, 1.0 = pure price, 0.5 = balanced).",
+            ),
+            Opt(
+                "--routing-llm-fit/--no-routing-llm-fit",
+                "bool",
+                None,
+                help="Whether automatic voice selection also weighs how the voice fits the content.",
+            ),
             _JSON,
         ],
         unwrap="data",

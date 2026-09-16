@@ -85,6 +85,34 @@ def _meta():
     return Meta(request_id="req-1", timestamp=NOW)
 
 
+def _uncounted(rows: list, *, limit: int = 50):
+    """The real ``workflows uploads`` envelope: ``PaginationMeta``, which carries no ``total``.
+
+    Built from the generated model on purpose. A hand-rolled ``SimpleNamespace`` with a ``total``
+    on it passes assertions the API can never satisfy -- which is how a footer that cannot print
+    for this endpoint was covered by a green test.
+    """
+    from onepin.types import ApiListResponseUploadOut
+    from onepin.types.pagination_meta import PaginationMeta
+    from onepin.types.upload_out import UploadOut
+
+    uploads = [
+        UploadOut(
+            id=row["id"],
+            user_id="u-1",
+            workflow_id="wf-1",
+            filename=row["filename"],
+            category="script",
+            content_type="text/plain",
+            status="confirmed",
+            created_at=NOW,
+            updated_at=NOW,
+        )
+        for row in rows
+    ]
+    return ApiListResponseUploadOut(data=uploads, meta=_meta(), pagination=PaginationMeta(limit=limit))
+
+
 class FakeRuns:
     raise_404 = False
 
@@ -109,6 +137,8 @@ class FakeWorkflows:
     def __init__(self) -> None:
         self.runs = FakeRuns()
         self.list_kwargs: dict[str, object] = {}
+        self.uploads_kwargs: dict[str, object] = {}
+        self.run_data_kwargs: dict[str, object] = {}
 
     def list(self, **kw):
         self.list_kwargs = kw
@@ -121,6 +151,17 @@ class FakeWorkflows:
             return _counted(self.counted_total, rows)
         return _pager([_workflow_item()])
 
+    upload_count = 1
+
+    def list_workflow_uploads(self, workflow_id, **kw):
+        self.uploads_kwargs = {"workflow_id": workflow_id, **kw}
+        rows = [{"id": f"up-{i}", "filename": f"script-{i}.txt"} for i in range(self.upload_count)]
+        return _uncounted(rows, limit=kw.get("limit") or 50)
+
+    def get_run_data(self, workflow_id, run_id, **kw):
+        self.run_data_kwargs = {"workflow_id": workflow_id, "run_id": run_id, **kw}
+        return _dict_response(rows=[])
+
     def get(self, workflow_id, **kw):
         if self.raise_404:
             raise NotFoundError(body={"error": {"code": "NOT_FOUND", "message": "gone"}})
@@ -132,9 +173,19 @@ class FakeWorkflows:
         return _dict_response(deleted=True, id=workflow_id)
 
 
+class FakeWorkspaces:
+    def __init__(self) -> None:
+        self.update_kwargs: dict[str, object] = {}
+
+    def update_workspace(self, workspace_id, **kw):
+        self.update_kwargs = {"workspace_id": workspace_id, **kw}
+        return _dict_response(id=workspace_id)
+
+
 class FakeClient:
     def __init__(self) -> None:
         self.workflows = FakeWorkflows()
+        self.workspaces = FakeWorkspaces()
 
 
 @pytest.fixture
@@ -391,3 +442,123 @@ class TestApiErrorMapping:
         result = _invoke(["workflows", "show", "wf-1"])
         assert result.exit_code == 1
         assert "SERVER_ERROR" in result.output
+
+
+class TestTriStateBooleanFlags:
+    """A boolean whose ``False`` means something must be able to send it.
+
+    ``has_failed_run=false`` is its own filter (workflows that have *never* failed), and
+    ``routing_llm_fit=false`` is a stored setting being turned off. A plain on-switch cannot
+    express either -- it collapses "off" into "not asked" -- so these flags declare an
+    off-switch and default to None.
+    """
+
+    def test_on_forwards_true(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["workflows", "list", "--has-failed-run", "--json"])
+        assert result.exit_code == 0, result.output
+        assert fake_client.workflows.list_kwargs["has_failed_run"] is True
+
+    def test_off_forwards_false(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["workflows", "list", "--no-has-failed-run", "--json"])
+        assert result.exit_code == 0, result.output
+        assert fake_client.workflows.list_kwargs["has_failed_run"] is False
+
+    def test_absent_is_not_forwarded(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["workflows", "list", "--json"])
+        assert result.exit_code == 0, result.output
+        assert "has_failed_run" not in fake_client.workflows.list_kwargs
+
+    def test_plain_switch_still_omits_its_default(self, fake_client: FakeClient, tmp_home) -> None:
+        """--include-definition has no meaningful False, so it stays a plain on-switch."""
+        result = _invoke(["workflows", "list", "--json"])
+        assert result.exit_code == 0, result.output
+        assert "include_definition" not in fake_client.workflows.list_kwargs
+
+    def test_plain_switch_forwards_true(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["workflows", "list", "--include-definition", "--json"])
+        assert result.exit_code == 0, result.output
+        assert fake_client.workflows.list_kwargs["include_definition"] is True
+
+
+class TestWorkflowListDateFilters:
+    def test_last_run_window_is_parsed_and_forwarded(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(
+            [
+                "workflows",
+                "list",
+                "--last-run-after",
+                "2025-01-01T00:00:00Z",
+                "--last-run-before",
+                "2025-02-01T00:00:00Z",
+                "--json",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert fake_client.workflows.list_kwargs["last_run_after"] == dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc)
+        assert fake_client.workflows.list_kwargs["last_run_before"] == dt.datetime(2025, 2, 1, tzinfo=dt.timezone.utc)
+
+    def test_unparseable_datetime_is_an_error(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["workflows", "list", "--last-run-after", "last tuesday", "--json"])
+
+        assert result.exit_code == 1
+        assert "INVALID_DATETIME" in result.output
+
+
+class TestWorkflowUploadsPaging:
+    def test_limit_and_offset_are_forwarded(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["--no-color", "workflows", "uploads", "wf-1", "--limit", "10", "--offset", "20"])
+
+        assert result.exit_code == 0, result.output
+        assert fake_client.workflows.uploads_kwargs == {"workflow_id": "wf-1", "limit": 10, "offset": 20}
+
+    def test_partial_page_says_nothing(self, fake_client: FakeClient, tmp_home) -> None:
+        """Fewer rows than --limit is the whole result set; there is nothing to warn about."""
+        fake_client.workflows.upload_count = 3
+        result = _invoke(["--no-color", "workflows", "uploads", "wf-1", "--limit", "10"])
+
+        assert result.exit_code == 0, result.output
+        assert "Showing" not in result.output
+
+    def test_full_page_warns_that_there_may_be_more(self, fake_client: FakeClient, tmp_home) -> None:
+        """``ApiListResponseUploadOut`` carries no ``pagination.total``, so an exact-fit page is
+        indistinguishable from the end of the list — and silence there reads as completeness."""
+        fake_client.workflows.upload_count = 10
+        result = _invoke(["--no-color", "workflows", "uploads", "wf-1", "--limit", "10"])
+
+        assert result.exit_code == 0, result.output
+        assert "Showing 10 rows — a full page, so there may be more." in result.output
+        assert "--offset" in result.output
+
+
+class TestRunDataIncludeDropped:
+    def test_omitted_by_default(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["workflows", "runs", "data", "wf-1", "run-1", "--json"])
+
+        assert result.exit_code == 0, result.output
+        assert "include_dropped" not in fake_client.workflows.run_data_kwargs
+
+    def test_forwarded_when_asked(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["workflows", "runs", "data", "wf-1", "run-1", "--include-dropped", "--json"])
+
+        assert result.exit_code == 0, result.output
+        assert fake_client.workflows.run_data_kwargs["include_dropped"] is True
+
+
+class TestWorkspaceRoutingSettings:
+    def test_float_and_tristate_bool_are_forwarded(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["workspace", "update", "ws-1", "--routing-price-sensitivity", "0.25", "--no-routing-llm-fit"])
+
+        assert result.exit_code == 0, result.output
+        assert fake_client.workspaces.update_kwargs == {
+            "workspace_id": "ws-1",
+            "routing_price_sensitivity": 0.25,
+            "routing_llm_fit": False,
+        }
+
+    def test_untouched_settings_are_not_sent(self, fake_client: FakeClient, tmp_home) -> None:
+        """A partial patch must not restate fields the user did not name."""
+        result = _invoke(["workspace", "update", "ws-1", "--name", "Renamed"])
+
+        assert result.exit_code == 0, result.output
+        assert fake_client.workspaces.update_kwargs == {"workspace_id": "ws-1", "name": "Renamed"}

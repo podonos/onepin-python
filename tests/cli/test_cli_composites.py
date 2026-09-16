@@ -797,6 +797,54 @@ class TestWorkflowSetVoice:
         assert 'Previous: ["legacy-voice-id"]' in result.output
 
 
+class TestSetVoiceModelChoice:
+    """`--model` is optional, so the default has to be defensible and a bad one has to be caught."""
+
+    def test_default_prefers_a_model_that_covers_the_locale(self) -> None:
+        capabilities = [
+            {"model": "wrong", "languages_known": True, "supported_languages": ["en-us"]},
+            {"model": "right", "languages_known": True, "supported_languages": ["ko-kr"]},
+        ]
+        assert composites._default_model(capabilities, _voice_row(), "ko-kr") == "right"
+
+    def test_default_falls_back_to_a_model_whose_coverage_is_unknown(self) -> None:
+        """`languages_known=False` means the API cannot enumerate coverage, not that there is none."""
+        capabilities = [
+            {"model": "known-bad", "languages_known": True, "supported_languages": ["en-us"]},
+            {"model": "maybe", "languages_known": False, "supported_languages": []},
+        ]
+        assert composites._default_model(capabilities, _voice_row(), "ko-kr") == "maybe"
+
+    def test_default_falls_back_to_supported_models(self) -> None:
+        row = _voice_row(supported_models=["only-one"])
+        assert composites._default_model([], row, "ko-kr") == "only-one"
+
+    def test_default_gives_up_when_nothing_is_usable(self) -> None:
+        row = _voice_row(supported_models=[])
+        with pytest.raises(CliError) as excinfo:
+            composites._default_model([], row, "ko-kr")
+        assert "lists no usable model" in str(excinfo.value)
+
+    def test_check_rejects_a_model_the_voice_does_not_have(self) -> None:
+        capabilities = [{"model": "clova", "languages_known": True, "supported_languages": ["ko-kr"]}]
+        with pytest.raises(CliError) as excinfo:
+            composites._check_model(capabilities, "sonic-2", "ko-kr", _voice_row())
+        assert "has no model sonic-2" in str(excinfo.value)
+        assert "It has: clova" in str(excinfo.value)
+
+    def test_check_is_quiet_when_coverage_is_unknown(self) -> None:
+        capabilities = [{"model": "clova", "languages_known": False, "supported_languages": []}]
+        composites._check_model(capabilities, "clova", "ko-kr", _voice_row())
+
+    def test_check_is_quiet_when_the_voice_lists_no_capabilities(self) -> None:
+        composites._check_model([], "clova", "ko-kr", _voice_row())
+
+    def test_previous_assignment_that_is_not_a_dict_is_still_reported(self) -> None:
+        """The map is server-shaped; an entry we cannot read must still be printable to restore."""
+        assert composites._describe_assignment(["just-an-id"]) == '["just-an-id"]'
+        assert composites._describe_assignment(None) == "nothing (this locale had no voice assigned)."
+
+
 # === workflows duplicate =================================================================
 
 
@@ -1411,7 +1459,9 @@ class TestVoicesSample:
             return subprocess.CompletedProcess(command, 0)
 
         monkeypatch.setattr(sys, "platform", "win32")
-        monkeypatch.setattr(shutil, "which", lambda name: None if name == "ffplay" else f"C:\\{name}.exe")
+        # Neither decoder installed, which is the case the built-in player exists to cover.
+        installed = {"ffplay", "mpg123"}
+        monkeypatch.setattr(shutil, "which", lambda name: None if name in installed else f"C:\\{name}.exe")
         monkeypatch.setattr(subprocess, "run", _record)
 
         hostile = tmp_path / "a;calc" / "ara.wav"

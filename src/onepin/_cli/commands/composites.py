@@ -516,6 +516,12 @@ def voices_sample(
     with api_errors(json_on):
         if out_dir and not Path(out_dir).is_dir():
             raise CliError("DIRECTORY_NOT_FOUND", f"Directory does not exist: {out_dir}")
+        if model and language is None:
+            # --model only reaches the SDK through voices.preview, whose `language` is a
+            # required keyword. Without --language the command falls back to the voice's
+            # default sample, which was synthesized with whatever model it was synthesized
+            # with -- so accepting --model here would report a model the user never heard.
+            raise CliError("INVALID_ARGUMENTS", "--model only applies to a per-locale preview; pass --language too.")
 
         client = get_client()
         rows = [_voice_sample_row(client, voice_id, language, model) for voice_id in voice_ids]
@@ -686,13 +692,15 @@ def _play_audio(path: Path, json_on: bool) -> None:
     if sys.platform == "darwin":
         candidates = [["afplay"], ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"]]
     elif sys.platform == "win32":
-        # ffplay first: the samples default to .mp3 and `Media.SoundPlayer` loads WAV only.
+        # ffplay and mpg123 first: the samples default to .mp3 and `Media.SoundPlayer` loads
+        # WAV only, so the built-in player is the last resort rather than the choice.
         # The path is bound through `param($p)` rather than appended to the command text —
         # `powershell -Command "<text>"` parses trailing argv as *more command text* and
         # never populates `$args`, so appending it both fails to play and makes any `;` or
         # `$(...)` in the caller's --out path execute as PowerShell.
         candidates = [
             ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"],
+            ["mpg123", "-q"],
             [
                 "powershell",
                 "-NoProfile",

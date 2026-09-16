@@ -7,6 +7,7 @@ import enum
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Optional
 
 import pytest
 
@@ -317,3 +318,44 @@ class TestSynthesizedCommandValidity:
 
         result = CliRunner().invoke(app, argv)
         assert result.exit_code == 0, result.output
+
+
+class TestTriStateBool:
+    """A bool defaulting to None keeps "off" apart from "not asked".
+
+    `has_failed_run=false` and `routing_llm_fit=false` are each a distinct request, not the
+    absence of one, so the flag has to be able to send False. A bare on-switch cannot.
+    """
+
+    @staticmethod
+    def _cmd() -> Cmd:
+        return Cmd(
+            "workflows",
+            "list",
+            "workflows.list",
+            "x",
+            options=[Opt("--has-failed-run/--no-has-failed-run", "bool", None)],
+        )
+
+    def test_dest_name_drops_the_off_switch(self) -> None:
+        assert self._cmd().options[0].dest_name == "has_failed_run"
+
+    def test_annotation_is_optional_bool(self) -> None:
+        assert _dispatch._annotation_for(self._cmd().options[0]) == Optional[bool]
+
+    def test_explicit_false_is_forwarded(self) -> None:
+        _, kwargs = _dispatch._build_kwargs(self._cmd(), {"has_failed_run": False})
+        assert kwargs["has_failed_run"] is False
+
+    def test_absent_is_dropped(self) -> None:
+        _, kwargs = _dispatch._build_kwargs(self._cmd(), {"has_failed_run": None})
+        assert "has_failed_run" not in kwargs
+
+    def test_plain_switch_stays_a_bare_bool(self) -> None:
+        """A bool with a False default is still an on-switch; nothing about that changes."""
+        assert _dispatch._annotation_for(Opt("--favorites-only", "bool", False)) is bool
+
+
+class TestFloatOption:
+    def test_annotation_is_optional_float(self) -> None:
+        assert _dispatch._annotation_for(Opt("--routing-price-sensitivity", "float", None)) == Optional[float]

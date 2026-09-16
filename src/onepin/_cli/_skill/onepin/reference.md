@@ -20,7 +20,7 @@ position.
 
 | Group | What it covers |
 |-------|----------------|
-| `workflows` | CRUD + `run`, `preview-run`, `duplicate`, `definition-schema`, `uploads`; subgroup `runs` |
+| `workflows` | CRUD + `run`, `preview-run`, `duplicate`, `set-voice`, `definition-schema`, `uploads`; subgroup `runs` |
 | `workflows runs` | `list`, `show`, `status`, `steps`, `overview`, `data`, `summary`, `cancel`, `download`, `download-node` |
 | `templates` | `list`, `show`, `create`, `update`, `delete`, `clone`, `favorite`, `unfavorite` |
 | `voices` | `list`, `facets`, `show`, `similar`, `sample`, `favorite`, `unfavorite` |
@@ -256,6 +256,9 @@ than caching it. Read the statuses before claiming delivery: `audio.status` is `
 (treat a missing one as a line the user did not get, whatever the status says);
 `card.status` is `delivered` / `generated` / `not_delivered` / `dropped`; envelope-level
 `partial.status` (with `reason`, `source`) and `dropped_truncated` mean the page is incomplete.
+Cards the validator rejected outright are **not in the default response** — pass
+`workflows runs data … --include-dropped` to see them. Without it a rejected line is simply
+absent, which reads as a shorter script rather than as output the user did not get.
 
 `voices sample` is `client.voices.preview` per voice, with the per-locale 404 handled: that status
 means *no preview recorded in that locale*, not a voice that cannot speak it (`supported_languages`
@@ -313,16 +316,23 @@ get — say so rather than letting a short list read as the whole run.
 
 List commands take `--limit` (default 50, **max ~100** — larger values return `422`), `--search`,
 and where shown `--sort`/`--order`/`--status`/`--category`. `workflows list`, `workflows runs list`,
-`templates list`, `voices list` and `workflows runs data` also take `--offset`, so a set larger than
-one page is walked by stepping `--offset` **by the `--limit` you passed** — `--limit 100
---offset 100`, `--limit 100 --offset 200`, … A stride wider than the page skips the rows in between,
-silently. (`usage activity` pages with `--cursor` instead; `nodes list` and `workspace members list`
-are unpaged.) On `workflows list`, `workflows runs list` and `voices list` — the endpoints that
-return a match count — text output ends with `Showing X of N`, where `N` is the unpaginated match
-count and the remainder already accounts for `--offset`; use it to decide whether another page
-exists rather than guessing from a full one. `templates list` and `workflows runs data` return no
-count and print no footer, so for those two a full page is the only signal that more may exist.
-`--json` returns the rows alone.
+`templates list`, `voices list`, `workflows uploads`, `workspace list` and `workflows runs data`
+also take `--offset`, so a set larger than one page is walked by stepping `--offset` **by the
+`--limit` you passed** — `--limit 100 --offset 100`, `--limit 100 --offset 200`, … A stride wider
+than the page skips the rows in between, silently. (`usage activity` pages with `--cursor` instead;
+`nodes list` and `workspace members list` are unpaged.)
+
+Text output says where the page sits, in one of three ways:
+
+- `workflows list`, `workflows runs list` and `voices list` report the match count —
+  `Showing X of N`, where `N` is how many matched and the remainder already accounts for
+  `--offset`. Page until it says no more.
+- `workflows uploads`, `workspace list` and `templates list` do not compute a total; a full page
+  ends with `Showing X rows — a full page, so there may be more`, and only `--offset` settles it.
+- `workflows runs data` is not a pager at all and prints no footer, so a full page is the only
+  hint that more may exist.
+
+`--json` returns the rows alone in every case.
 
 **Every filter is evaluated server-side.** The CLI forwards them as query parameters and renders
 what comes back, so filtering is the only thing that makes a list mean anything. Under `--json` the
