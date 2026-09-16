@@ -314,10 +314,15 @@ get — say so rather than letting a short list read as the whole run.
 List commands take `--limit` (default 50, **max ~100** — larger values return `422`), `--search`,
 and where shown `--sort`/`--order`/`--status`/`--category`. `workflows list`, `workflows runs list`,
 `templates list`, `voices list` and `workflows runs data` also take `--offset`, so a set larger than
-one page is walked with `--offset 100`, `--offset 200`, … (`usage activity` pages with `--cursor`
-instead; `nodes list` and `workspace members list` are unpaged.) Text output ends with
-`Showing X of N`, where `N` is the unpaginated match count — use it to decide whether another page
-exists rather than guessing from a full one. `--json` returns the rows alone.
+one page is walked by stepping `--offset` **by the `--limit` you passed** — `--limit 100
+--offset 100`, `--limit 100 --offset 200`, … A stride wider than the page skips the rows in between,
+silently. (`usage activity` pages with `--cursor` instead; `nodes list` and `workspace members list`
+are unpaged.) On `workflows list`, `workflows runs list` and `voices list` — the endpoints that
+return a match count — text output ends with `Showing X of N`, where `N` is the unpaginated match
+count and the remainder already accounts for `--offset`; use it to decide whether another page
+exists rather than guessing from a full one. `templates list` and `workflows runs data` return no
+count and print no footer, so for those two a full page is the only signal that more may exist.
+`--json` returns the rows alone.
 
 **Every filter is evaluated server-side.** The CLI forwards them as query parameters and renders
 what comes back, so filtering is the only thing that makes a list mean anything. Under `--json` the

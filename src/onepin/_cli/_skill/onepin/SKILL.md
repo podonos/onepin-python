@@ -143,9 +143,11 @@ see below) and the workflow you are about to run (show its shape before it costs
 ### Workflows
 - List: `onepin --json workflows list` — filters `--status`, `--search`, `--sort`, `--order`,
   `--limit`, `--offset`. **One page is not the result set:** default `--limit` is 50 and the max page
-  is ~100 (larger values return `422 VALIDATION_ERROR`), so walk a bigger set with
-  `--offset 100`, `--offset 200`, … Without `--json` the footer prints `Showing X of N` — `N` is how
-  many *matched*, so it is the number that tells you whether you are holding all of them. Filters
+  is ~100 (larger values return `422 VALIDATION_ERROR`), so walk a bigger set by stepping `--offset`
+  **by the `--limit` you passed** — `--limit 100 --offset 100`, `--limit 100 --offset 200`, … A
+  stride wider than the page silently skips the rows in between. Without `--json` the footer prints
+  `Showing X of N` — `N` is how many *matched*, so it is the number that tells you whether you are
+  holding all of them; it already accounts for `--offset`, so page until it says no more. Filters
   still beat paging: narrow with `--search` first and page only when the user genuinely wants the
   whole set.
 - Inspect: `onepin --json workflows show <workflow_id>`
@@ -196,7 +198,8 @@ see below) and the workflow you are about to run (show its shape before it costs
 - `--language` accepts only specific comma-separated codes (e.g. `en-us`, `en-gb`, `en`); an
   unsupported code returns `422` — don't guess regions, and note a voice's own
   `supported_languages` may be broader than the filter codes.
-- Same paging as above (`--limit` default 50, ~100 max, `--offset` to walk) — but a voice catalog
+- Same paging as above (`--limit` default 50, ~100 max, `--offset` stepped by that same `--limit`
+  to walk) — but a voice catalog
   is one of the sets you should *not* walk by hand: an unfiltered page is an arbitrary slice, and
   the point of the filters is to make the first page the right one.
 - `onepin --json voices show <voice_id>` · `onepin --json voices similar <voice_id>` ·
