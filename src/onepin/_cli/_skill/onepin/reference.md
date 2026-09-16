@@ -281,10 +281,12 @@ get — say so rather than letting a short list read as the whole run.
 ## Filters & pagination
 
 List commands take `--limit` (default 50, **max ~100** — larger values return `422`), `--search`,
-and where shown `--sort`/`--order`/`--status`/`--category`. Most take **no offset or cursor**, so a
-set larger than one page cannot be fully enumerated — narrow with filters and tell the user when a
-list is partial. Two commands are paged and *can* be walked: `workflows runs data`
-(`--limit` / `--offset`) and `usage activity` (`--limit` / `--cursor`).
+and where shown `--sort`/`--order`/`--status`/`--category`. `workflows list`, `workflows runs list`,
+`templates list`, `voices list` and `workflows runs data` also take `--offset`, so a set larger than
+one page is walked with `--offset 100`, `--offset 200`, … (`usage activity` pages with `--cursor`
+instead; `nodes list` and `workspace members list` are unpaged.) Text output ends with
+`Showing X of N`, where `N` is the unpaginated match count — use it to decide whether another page
+exists rather than guessing from a full one. `--json` returns the rows alone.
 
 **Every filter is evaluated server-side.** The CLI forwards them as query parameters and renders
 what comes back, so filtering is the only thing that makes a list mean anything. It also renders

@@ -25,6 +25,18 @@ def _pager(items: list) -> SyncPager:
     return SyncPager(get_next=None, has_next=False, items=items, response=None)
 
 
+def _counted(total: int, items: list):
+    """A counted-list envelope, the shape the real list endpoints return."""
+    from onepin.types import ApiCountedListResponseWorkflowListItem
+    from onepin.types.counted_pagination_meta import CountedPaginationMeta
+
+    return ApiCountedListResponseWorkflowListItem(
+        data=items,
+        meta=_meta(),
+        pagination=CountedPaginationMeta(limit=len(items), total=total),
+    )
+
+
 def _workflow_item():
     from onepin.types import WorkflowListItem
 
@@ -91,11 +103,16 @@ class FakeRuns:
 
 class FakeWorkflows:
     raise_404 = False
+    counted_total: int | None = None
 
     def __init__(self) -> None:
         self.runs = FakeRuns()
+        self.list_kwargs: dict[str, object] = {}
 
     def list(self, **kw):
+        self.list_kwargs = kw
+        if self.counted_total is not None:
+            return _counted(self.counted_total, [_workflow_item()])
         return _pager([_workflow_item()])
 
     def get(self, workflow_id, **kw):
@@ -289,6 +306,46 @@ class TestLimitValidation:
     def test_limit_zero_is_usage_error(self, fake_client: FakeClient, tmp_home) -> None:
         result = _invoke(["workflows", "list", "--limit", "0"])
         assert result.exit_code == 2
+
+
+class TestOffsetPaging:
+    def test_offset_is_forwarded(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["--no-color", "workflows", "list", "--offset", "50"])
+        assert result.exit_code == 0, result.output
+        assert fake_client.workflows.list_kwargs["offset"] == 50
+
+    def test_offset_omitted_when_not_passed(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["--no-color", "workflows", "list"])
+        assert result.exit_code == 0, result.output
+        assert fake_client.workflows.list_kwargs.get("offset") is None
+
+    def test_negative_offset_is_usage_error(self, fake_client: FakeClient, tmp_home) -> None:
+        result = _invoke(["workflows", "list", "--offset", "-1"])
+        assert result.exit_code == 2
+
+    def test_footer_reports_total_and_remainder(self, fake_client: FakeClient, tmp_home) -> None:
+        fake_client.workflows.counted_total = 42
+        result = _invoke(["--no-color", "workflows", "list"])
+        assert result.exit_code == 0, result.output
+        assert "Showing 1 of 42." in result.output
+        assert "41 more" in result.output
+
+    def test_footer_omits_remainder_when_complete(self, fake_client: FakeClient, tmp_home) -> None:
+        fake_client.workflows.counted_total = 1
+        result = _invoke(["--no-color", "workflows", "list"])
+        assert result.exit_code == 0, result.output
+        assert "Showing 1 of 1." in result.output
+        assert "more" not in result.output
+
+    def test_json_payload_stays_a_bare_array(self, fake_client: FakeClient, tmp_home) -> None:
+        """The --json shape is the agent contract: rows only, no footer, no envelope."""
+        import json as _json
+
+        fake_client.workflows.counted_total = 42
+        result = _invoke(["workflows", "list", "--json"])
+        assert result.exit_code == 0, result.output
+        assert "Showing" not in result.output
+        assert isinstance(_json.loads(result.output), list)
 
 
 class TestApiErrorMapping:

@@ -374,6 +374,13 @@
         },
         {
           "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
           "flag": "--category",
           "help": "Filter by category.",
           "required": false,
@@ -781,6 +788,13 @@
           "type": "integer"
         },
         {
+          "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
+          "required": false,
+          "type": "integer"
+        },
+        {
           "default": false,
           "flag": "--favorites-only",
           "help": "Only favorited voices.",
@@ -1043,6 +1057,13 @@
           "default": 50,
           "flag": "--limit",
           "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
           "required": false,
           "type": "integer"
         },
@@ -1349,6 +1370,13 @@
           "default": 50,
           "flag": "--limit",
           "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
           "required": false,
           "type": "integer"
         },

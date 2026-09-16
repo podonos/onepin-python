@@ -129,11 +129,12 @@ see below) and the workflow you are about to run (show its shape before it costs
 
 ### Workflows
 - List: `onepin --json workflows list` — filters `--status`, `--search`, `--sort`, `--order`,
-  `--limit`. **Lists are paginated and truncated:** default `--limit` is 50, the max page is ~100
-  (larger values return `422 VALIDATION_ERROR`), and most list commands take no offset/cursor — so a
-  large set cannot be fully enumerated. Narrow with `--search`/filters; if results are capped, tell
-  the user the list is partial rather than implying it is complete. (The two commands that *can* be
-  paged through: `workflows runs data --offset` and `usage activity --cursor`.)
+  `--limit`, `--offset`. **One page is not the result set:** default `--limit` is 50 and the max page
+  is ~100 (larger values return `422 VALIDATION_ERROR`), so walk a bigger set with
+  `--offset 100`, `--offset 200`, … Without `--json` the footer prints `Showing X of N` — `N` is how
+  many *matched*, so it is the number that tells you whether you are holding all of them. Filters
+  still beat paging: narrow with `--search` first and page only when the user genuinely wants the
+  whole set.
 - Inspect: `onepin --json workflows show <workflow_id>`
 - Estimate cost before running: `onepin --json workflows preview-run <workflow_id>`
 - **Run (starts a real, billable execution):** `onepin --json workflows run <workflow_id>`. A run
@@ -174,8 +175,9 @@ see below) and the workflow you are about to run (show its shape before it costs
 - `--language` accepts only specific comma-separated codes (e.g. `en-us`, `en-gb`, `en`); an
   unsupported code returns `422` — don't guess regions, and note a voice's own
   `supported_languages` may be broader than the filter codes.
-- Same pagination cap as above (default 50, ~100 max, no offset flag) — which is exactly why the
-  filters matter: an unfiltered page is an arbitrary slice, never "the catalog".
+- Same paging as above (`--limit` default 50, ~100 max, `--offset` to walk) — but a voice catalog
+  is one of the sets you should *not* walk by hand: an unfiltered page is an arbitrary slice, and
+  the point of the filters is to make the first page the right one.
 - `onepin --json voices show <voice_id>` · `onepin --json voices similar <voice_id>` ·
   `voices favorite` / `unfavorite <voice_id>` (and `voices list --favorites-only`).
 - **Voices are chosen by ear.** Don't stop at the names — see *Audio: the part you must not skip*
@@ -187,11 +189,12 @@ see below) and the workflow you are about to run (show its shape before it costs
 
 ## Let the server pick the shortlist
 
-A voice catalog is far bigger than one page, and `voices list` returns at most ~100 rows with no
-offset flag — so "pull the voices and pick a good one" is not a thing you can actually do. Whatever
-you picked came off an arbitrary first page, not out of the catalog. The fix is not to page harder:
-**every filter on `voices list` runs server-side, so state the requirement and let the server hand
-back the shortlist.**
+A voice catalog is far bigger than one page — `voices list` returns at most ~100 rows, and one
+locale can hold several pages of them. `--offset` will walk the whole thing, but reading a few
+hundred rows of near-identical tags is not how anyone picks a voice, and whatever you pick off an
+arbitrary page was not really chosen. The fix is not to page harder: **every filter on
+`voices list` runs server-side, so state the requirement and let the server hand back the
+shortlist.**
 
 1. **Describe the voice — `--search` takes words, not just names.** The server matches the query
    against a voice's meaning as well as its name, tags and descriptor, and returns one
@@ -214,10 +217,11 @@ back the shortlist.**
 nothing. Relax `--search` first (it is the fuzziest constraint), then one filter at a time, and tell
 the user what you dropped. The wrong recovery is an unfiltered `voices list` read by eye.
 
-**Two things the output will not tell you.** There is no total in the response — the CLI prints the
-rows and nothing else — so the number of rows is bounded by `--limit` and is not "how many matched".
-And a row can be listed but unusable: check `is_active` / `availability` before offering a voice,
-and check that the `model` you mean to wire appears in its `model_capabilities[]` *for that locale*.
+**Read the count, and check the row is usable.** The row count is bounded by `--limit` and is never
+"how many matched" — the match count is the `N` in the `Showing X of N` footer (text output; under
+`--json` you get the rows alone, so page to find the end). And a row can be listed but unusable:
+check `is_active` / `availability` before offering a voice, and check that the `model` you mean to
+wire appears in its `model_capabilities[]` *for that locale*.
 
 Then hand the shortlist over by ear, not by name.
 

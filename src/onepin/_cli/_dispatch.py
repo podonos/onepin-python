@@ -242,6 +242,25 @@ def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int) -> None:
         render_json(rows)
         return
     render_table(rows, _columns_for(cmd, rows))
+    _echo_pager_footer(pager, len(rows))
+
+
+def _echo_pager_footer(pager: Any, shown: int) -> None:
+    """Print ``Showing X of N.`` when the response carries an unpaginated total.
+
+    Counted list endpoints return ``pagination.total`` — how many rows match the filters,
+    not how many came back. Without it a full page is indistinguishable from the whole
+    result set, which is how a capped list gets reported to a user as a complete one.
+
+    Human output only. The ``--json`` payload stays a bare array because that shape is the
+    agent contract pinned by the manifest snapshot; agents read the count by paging.
+    """
+    total = getattr(getattr(pager, "pagination", None), "total", None)
+    if not isinstance(total, int):
+        return
+    remaining = total - shown
+    more = f" {remaining} more — page with --offset." if remaining > 0 else ""
+    print(f"Showing {shown} of {total}.{more}")
 
 
 def _emit_list(cmd: Cmd, resp: Any, json_on: bool) -> None:
@@ -419,6 +438,7 @@ def _run(cmd: Cmd, bound: dict[str, Any]) -> None:
     json_on = output_json(bool(bound.get("json_output_local", False)))
 
     limit = _resolve_limit(cmd, bound, json_on)
+    _validate_offset(bound)
 
     with api_errors(json_on):
         if cmd.destructive:
@@ -452,6 +472,13 @@ def _resolve_limit(cmd: Cmd, bound: dict[str, Any], json_on: bool) -> int:
         # Usage error -> exit code 2, matching Typer's parameter-validation contract.
         raise typer.BadParameter("--limit must be >= 1.")
     return int(limit)
+
+
+def _validate_offset(bound: dict[str, Any]) -> None:
+    """Reject a negative ``--offset`` locally (usage exit 2) instead of spending a round trip."""
+    offset = bound.get("offset")
+    if offset is not None and offset < 0:
+        raise typer.BadParameter("--offset must be >= 0.")
 
 
 def _is_idempotent_delete(cmd: Cmd) -> bool:

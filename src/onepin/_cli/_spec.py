@@ -106,6 +106,9 @@ class Cmd:
 # --- Shared option fragments -------------------------------------------------------------
 
 _LIMIT = Opt("--limit", "int", 50, help="Max rows to display (>=1).")
+# Counted list endpoints page with offset/limit. Only added to commands whose SDK method
+# actually accepts it (the contract test in tests/build asserts that per row).
+_OFFSET = Opt("--offset", "int", None, help="Zero-based row offset for paging (>=0).")
 _JSON = Opt("--json", "bool", False, dest="json_output_local", help="Emit JSON instead of a table.")
 
 
@@ -146,6 +149,7 @@ TABLE: list[Cmd] = [
         "workflows.list",
         "List workflows in the workspace.",
         options=_list_opts(
+            _OFFSET,
             Opt("--status", _RUN_STATUS, None, help="Filter by workflow status."),
             Opt("--search", "str", None, help="Substring search over names."),
             Opt("--sort", ("name", "updated_at", "runs_count"), None, transform="wrap_list", help="Sort field."),
@@ -257,6 +261,7 @@ TABLE: list[Cmd] = [
         subgroup="runs",
         args=[("workflow_id", "Workflow UUID.")],
         options=_list_opts(
+            _OFFSET,
             Opt("--status", _RUN_STATUS, None, help="Filter by run status."),
             Opt("--search", "str", None, help="Substring search."),
             Opt("--sort", ("created_at", "started_at", "completed_at", "status"), None, help="Sort field."),
@@ -361,6 +366,7 @@ TABLE: list[Cmd] = [
         "templates.list",
         "List gallery templates.",
         options=_list_opts(
+            _OFFSET,
             Opt(
                 "--category",
                 ("media", "creative", "business", "education", "wellness"),
@@ -482,6 +488,7 @@ TABLE: list[Cmd] = [
         "voices.list",
         "List available voices.",
         options=_list_opts(
+            _OFFSET,
             Opt("--favorites-only", "bool", False, help="Only favorited voices."),
             Opt("--gender", ("male", "female", "neutral"), None, transform="wrap_list", help="Filter by gender."),
             Opt(
