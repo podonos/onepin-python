@@ -1358,7 +1358,9 @@ class TestVoicesSample:
 
     @pytest.mark.parametrize(
         ("platform", "player"),
-        [("darwin", "afplay"), ("win32", "powershell"), ("linux", "ffplay")],
+        # Windows leads with ffplay, not powershell: samples default to .mp3 and
+        # `Media.SoundPlayer` loads WAV only, so powershell is the fallback, not the choice.
+        [("darwin", "afplay"), ("win32", "ffplay"), ("linux", "ffplay")],
     )
     def test_each_platform_reaches_for_its_own_player(self, tmp_path, monkeypatch, platform, player) -> None:
         import shutil
@@ -1378,6 +1380,59 @@ class TestVoicesSample:
         composites._play_audio(tmp_path / "ara.mp3", False)
         assert commands[0][0] == player
         assert commands[0][-1] == str(tmp_path / "ara.mp3")
+
+    def test_windows_binds_the_path_instead_of_pasting_it_into_the_command(self, tmp_path, monkeypatch) -> None:
+        """`powershell -Command "<text>" <path>` parses the path as more command text.
+
+        `-Command` never populates `$args`, so appending the path neither plays the file nor
+        stays inert: a `;` or `$(...)` anywhere in the caller's --out path would execute. The
+        command string must declare `param($p)` so the trailing argument binds as data.
+        """
+        import shutil
+        import subprocess
+        import sys
+
+        commands: list[list[str]] = []
+
+        def _record(command, **kwargs):
+            commands.append(command)
+            return subprocess.CompletedProcess(command, 0)
+
+        monkeypatch.setattr(sys, "platform", "win32")
+        monkeypatch.setattr(shutil, "which", lambda name: None if name == "ffplay" else f"C:\\{name}.exe")
+        monkeypatch.setattr(subprocess, "run", _record)
+
+        hostile = tmp_path / "a;calc" / "ara.wav"
+        composites._play_audio(hostile, False)
+
+        assert commands[0][0] == "powershell"
+        script = commands[0][-2]
+        assert script.startswith("param($p)"), script
+        assert "$args" not in script
+        # The path rides as its own argv element and is never spliced into the script text.
+        assert commands[0][-1] == str(hostile)
+        assert str(hostile) not in script
+
+    def test_a_failing_player_falls_through_to_the_next_candidate(self, tmp_path, monkeypatch) -> None:
+        """aplay handles WAV only, so an .mp3 has to reach mpg123 behind it."""
+        import shutil
+        import subprocess
+        import sys
+
+        attempted: list[str] = []
+
+        def _record(command, **kwargs):
+            attempted.append(command[0])
+            if command[0] == "aplay":
+                raise subprocess.CalledProcessError(1, command)
+            return subprocess.CompletedProcess(command, 0)
+
+        monkeypatch.setattr(sys, "platform", "linux")
+        monkeypatch.setattr(shutil, "which", lambda name: None if name == "ffplay" else f"/usr/bin/{name}")
+        monkeypatch.setattr(subprocess, "run", _record)
+
+        composites._play_audio(tmp_path / "ara.mp3", False)
+        assert attempted == ["aplay", "mpg123"]
 
 
 # === local schema commands ===============================================================

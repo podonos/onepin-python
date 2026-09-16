@@ -658,7 +658,7 @@ def _write_sample(url: str, dest: Path, *, force: bool) -> Path:
 
 
 def _play_audio(path: Path, json_on: bool) -> None:
-    """Play ``path`` with the platform's audio player; warn (never fail) when there is none.
+    """Play ``path`` with the platform's audio player; warn (never fail) when none works.
 
     A missing player is not a failed command: the bytes are on disk and the caller was told
     where. Exiting non-zero here would also throw away the file the user just paid to fetch.
@@ -672,19 +672,40 @@ def _play_audio(path: Path, json_on: bool) -> None:
     if sys.platform == "darwin":
         candidates = [["afplay"], ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"]]
     elif sys.platform == "win32":
-        candidates = [["powershell", "-NoProfile", "-Command", "(New-Object Media.SoundPlayer $args[0]).PlaySync()"]]
+        # ffplay first: the samples default to .mp3 and `Media.SoundPlayer` loads WAV only.
+        # The path is bound through `param($p)` rather than appended to the command text —
+        # `powershell -Command "<text>"` parses trailing argv as *more command text* and
+        # never populates `$args`, so appending it both fails to play and makes any `;` or
+        # `$(...)` in the caller's --out path execute as PowerShell.
+        candidates = [
+            ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"],
+            [
+                "powershell",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "param($p) (New-Object Media.SoundPlayer $p).PlaySync()",
+            ],
+        ]
     else:
         candidates = [["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"], ["aplay"], ["mpg123", "-q"]]
 
+    last_error: Optional[str] = None
     for command in candidates:
         if shutil.which(command[0]) is None:
             continue
         try:
             subprocess.run([*command, str(path)], check=True)
         except (subprocess.CalledProcessError, OSError) as exc:
-            echo_warning(f"Could not play {path}: {exc}")
+            # Keep going: the list is ordered by preference, not by what can decode this
+            # file. `aplay` handles WAV only, so an .mp3 has to reach `mpg123` behind it —
+            # returning here would report "cannot play" on a machine that can.
+            last_error = str(exc)
+            continue
         return
-    if not json_on:
+    if last_error is not None:
+        echo_warning(f"Could not play {path}: {last_error}")
+    elif not json_on:
         echo_warning(f"No audio player found; the sample is at {path}.")
 
 
