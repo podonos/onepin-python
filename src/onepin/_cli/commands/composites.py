@@ -456,6 +456,10 @@ def voices_sample(
     command and is valid for about an hour, so an expired link is re-signed by running it
     again rather than by hunting for a refresh flag.
 
+    ``--play`` names each voice on its own line immediately before its clip starts, because a
+    shortlist played in one call is otherwise a run of anonymous audio; a summary printed once
+    the sound has stopped names them too late to be of any use.
+
     With neither ``--out``/``--out-dir`` nor ``--play`` it prints what it found — name, the
     locale actually served, the model, and the URL — which is also the shape to hand to a user
     when there is no audio device.
@@ -481,10 +485,18 @@ def voices_sample(
                 row["path"] = str(_write_sample(row["sample_url"], destination, force=force))
 
         if play:
-            for row in rows:
+            total = len(rows)
+            for index, row in enumerate(rows, start=1):
+                # Named *before* its clip, not in a summary afterwards: a shortlist played in one
+                # call is only followable by ear if the label lands while that voice is speaking.
+                if not json_on:
+                    typer.echo(f"Playing {index}/{total} {_sample_label(row)}: {row['path']}")
                 _play_audio(Path(row["path"]), json_on)
+            if json_on:
+                render_json(rows)
+            return
 
-        _emit_samples(rows, json_on, played=play)
+        _emit_samples(rows, json_on)
 
 
 def _voice_sample_row(client: Any, voice_id: str, language: Optional[str], model: Optional[str]) -> dict[str, Any]:
@@ -624,18 +636,25 @@ def _play_audio(path: Path, json_on: bool) -> None:
         echo_warning(f"No audio player found; the sample is at {path}.")
 
 
-def _emit_samples(rows: list[dict[str, Any]], json_on: bool, *, played: bool) -> None:
+def _sample_label(row: dict[str, Any]) -> str:
+    """Name / locale for one row, carrying the locale substitution when there was one."""
+    locale = row.get("locale") or "unknown locale"
+    label = f"{row.get('name') or row['voice_id']} ({locale})"
+    if row.get("fallback"):
+        # The caller asked for a locale they did not get; saying so is the whole point, and it
+        # has to be said before the clip plays rather than after it is already misheard.
+        label += " — no preview in the requested locale, using its default sample"
+    return label
+
+
+def _emit_samples(rows: list[dict[str, Any]], json_on: bool) -> None:
     if json_on:
         render_json(rows)
         return
     for row in rows:
-        locale = row.get("locale") or "unknown locale"
-        label = f"{row.get('name') or row['voice_id']} ({locale})"
-        if row.get("fallback"):
-            # The caller asked for a locale they did not get; saying so is the whole point.
-            label += " — no preview in the requested locale, played its default sample"
+        label = _sample_label(row)
         if row.get("path"):
-            typer.echo(f"{'Played' if played else 'Wrote'} {label}: {row['path']}")
+            typer.echo(f"Wrote {label}: {row['path']}")
         else:
             typer.echo(f"{label}: {row['sample_url']}")
 

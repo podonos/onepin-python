@@ -875,7 +875,47 @@ class TestVoicesSample:
         )
         assert result.exit_code == 0, result.output
         assert len(calls) == 1
-        assert "Played Ara (ko-kr)" in result.output
+        assert "Playing 1/1 Ara (ko-kr)" in result.output
+
+    @respx.mock
+    def test_play_names_each_voice_before_its_clip(self, tmp_home, monkeypatch) -> None:
+        """A shortlist played in one call is only followable if the label lands before the audio."""
+        import shutil
+        import subprocess
+
+        respx.get("https://api.onepin.ai/api/v1/voices/v-1/preview").mock(
+            return_value=httpx.Response(200, json={"data": _preview_json(), "meta": _META_JSON})
+        )
+        respx.get("https://api.onepin.ai/api/v1/voices/v-2/preview").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "data": _preview_json("Daeseong", url="https://cdn.example/ds-ko.mp3?Signature=x"),
+                    "meta": _META_JSON,
+                },
+            )
+        )
+        respx.get("https://cdn.example/ara-ko.mp3").mock(return_value=httpx.Response(200, content=b"ID3ara"))
+        respx.get("https://cdn.example/ds-ko.mp3").mock(return_value=httpx.Response(200, content=b"ID3ds"))
+
+        def _fake_run(command, **kwargs):
+            # Stands in for the noise the player makes, so ordering is visible in the output.
+            print(f"<audio {Path(command[-1]).name}>")
+            return subprocess.CompletedProcess(command, 0)
+
+        monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
+        monkeypatch.setattr(subprocess, "run", _fake_run)
+
+        result = runner.invoke(
+            app,
+            ["--api-key", "op_live_x", "--no-color", "voices", "sample", "v-1", "v-2", "--language", "ko-kr", "--play"],
+        )
+        assert result.exit_code == 0, result.output
+        lines = [line for line in result.output.splitlines() if line.strip()]
+        assert lines[0].startswith("Playing 1/2 Ara (ko-kr)")
+        assert lines[1] == "<audio Ara-ko-kr.mp3>"
+        assert lines[2].startswith("Playing 2/2 Daeseong (ko-kr)")
+        assert lines[3] == "<audio Daeseong-ko-kr.mp3>"
 
     @respx.mock
     def test_missing_player_warns_but_keeps_the_file(self, tmp_home, tmp_path, monkeypatch) -> None:
