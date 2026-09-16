@@ -278,7 +278,7 @@ def workflow_set_voice(
 
 def _generator_node(definition: dict[str, Any], node_id: Optional[str]) -> dict[str, Any]:
     """Locate the generator node to edit, refusing to guess when the graph has more than one."""
-    nodes = ((definition.get("graph") or {}).get("nodes")) or []
+    nodes: list[dict[str, Any]] = ((definition.get("graph") or {}).get("nodes")) or []
     generators = [node for node in nodes if node.get("type") == _GENERATOR_TYPE]
     if node_id is not None:
         for node in generators:
