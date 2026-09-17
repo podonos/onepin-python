@@ -577,6 +577,23 @@ TABLE: list[Cmd] = [
                 help="Filter by language code(s), comma-separated (e.g. en-us,ko-kr).",
             ),
             Opt(
+                # Server default is false, so this is a plain switch the SDK only ever sees
+                # as True. It REQUIRES --language (422 otherwise): the measurements behind
+                # the gate are per-locale, so "buildable" has no meaning until you say
+                # buildable for what. `_dispatch._validate_buildable` catches the missing
+                # --language locally rather than spending the round trip on a 422.
+                "--buildable",
+                "bool",
+                False,
+                help=(
+                    "Only voices that can actually be synthesized for --language, which this "
+                    "requires: the voice clears the measured quality floors on a provider and "
+                    "model that are enabled, routable, and billable (or covered by your BYOK "
+                    "key). Without it the list is a raw catalogue browse that can return a "
+                    "voice a run would refuse. Your workspace's own voices are listed either way."
+                ),
+            ),
+            Opt(
                 "--search",
                 "str",
                 None,

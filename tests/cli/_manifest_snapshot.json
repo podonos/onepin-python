@@ -947,6 +947,13 @@
           "type": "text"
         },
         {
+          "default": false,
+          "flag": "--buildable",
+          "help": "Only voices that can actually be synthesized for --language, which this requires: the voice clears the measured quality floors on a provider and model that are enabled, routable, and billable (or covered by your BYOK key). Without it the list is a raw catalogue browse that can return a voice a run would refuse. Your workspace's own voices are listed either way.",
+          "required": false,
+          "type": "bool"
+        },
+        {
           "default": null,
           "flag": "--search",
           "help": "Free-text voice search over meaning plus name/tags/descriptor, returned relevance-ranked \u2014 not a plain substring match. Pass a description (\"warm, unhurried narrator\"), not just a name.",

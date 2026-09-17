@@ -461,6 +461,7 @@ def _run(cmd: Cmd, bound: dict[str, Any]) -> None:
 
     limit = _resolve_limit(cmd, bound, json_on)
     _validate_offset(bound)
+    _validate_buildable(bound)
 
     with api_errors(json_on):
         if cmd.destructive:
@@ -501,6 +502,20 @@ def _validate_offset(bound: dict[str, Any]) -> None:
     offset = bound.get("offset")
     if offset is not None and offset < 0:
         raise typer.BadParameter("--offset must be >= 0.")
+
+
+def _validate_buildable(bound: dict[str, Any]) -> None:
+    """Reject ``--buildable`` without ``--language`` locally (usage exit 2) instead of a 422.
+
+    The gate is defined per-locale — a voice is buildable *for* a language, never in the
+    abstract — so the server rejects the pair outright. Catching it here names the flag that
+    is missing instead of surfacing an API validation error the caller has to decode.
+
+    Reads the pre-transform ``bound`` (``--language`` is still the raw comma string at this
+    point), so an empty or absent value is falsy either way.
+    """
+    if bound.get("buildable") and not bound.get("language"):
+        raise typer.BadParameter("--buildable requires --language (e.g. --language en-us).")
 
 
 def _is_idempotent_delete(cmd: Cmd) -> bool:
