@@ -20,10 +20,10 @@ position.
 
 | Group | What it covers |
 |-------|----------------|
-| `workflows` | CRUD + `run`, `preview-run`, `duplicate`, `definition-schema`, `uploads`; subgroup `runs` |
+| `workflows` | CRUD + `run`, `preview-run`, `duplicate`, `set-voice`, `definition-schema`, `uploads`; subgroup `runs` |
 | `workflows runs` | `list`, `show`, `status`, `steps`, `overview`, `data`, `summary`, `cancel`, `download`, `download-node` |
 | `templates` | `list`, `show`, `create`, `update`, `delete`, `clone`, `favorite`, `unfavorite` |
-| `voices` | `list`, `show`, `similar`, `favorite`, `unfavorite` |
+| `voices` | `list`, `facets`, `show`, `similar`, `sample`, `favorite`, `unfavorite` |
 | `uploads` | `create` (presigned S3), `confirm`, `delete` |
 | `workspace` | `list`, `show`, `create`, `update`, `delete`, `settings`; subgroup `members` |
 | `workspace members` | `list`, `invite`, `set-role`, `remove`, `accept`, `invite-role`, `revoke-invite` |
@@ -121,8 +121,13 @@ with no key at all.
   | `model` | one of `supported_models` — check `model_capabilities[]` lists the locale you are wiring |
   | `voice_name` | `name` (display only) |
 
-  Changing a workflow's voice means editing that map and calling `workflows update` — there is no
-  set-voice command.
+  `workflows set-voice <id> --locale <locale> --voice <catalog_voice_id>` writes one entry of that
+  map for you — it resolves both id fields from the catalog row, refuses a voice or model that does
+  not cover the locale, refuses to guess between two generators (`--node-id`), and prints the
+  assignment it replaced. Reach for `workflows update --definition` only for what it cannot express.
+  There is no `--voice` on `workflows run`, so there is no run-scoped way to swap a voice: either
+  path is permanent, and `workflows duplicate --name` first if the original must survive. Both need
+  the user's yes (SKILL.md → *Changing a voice is not run-scoped*).
 - **That validator defaults are not uniform.** They differ per validator and are clamped to
   different ranges, so read the `threshold` default from `config_schema` and quote *that* number to
   the user rather than saying "the default".
@@ -137,8 +142,13 @@ shape below is the design contract.
 one or more **Sinks**. A graph can have **multiple** sources, processors, generators, and sinks — it
 is not a single linear chain.
 
+**Which of these to build is a question for the user, not a default you pick** — SKILL.md →
+*Designing a new workflow (ask what goes in it)* is the gate: validators, operators and output,
+asked before `create`, with a recommendation leading.
+
 **Example topologies (simple → robust):**
-- **Minimal:** `source → generator → sink`.
+- **Minimal:** `source → generator → sink` — and note what this is: nothing checks the audio, so
+  whatever the first take says is what ships. Only on a user who was told that and chose it.
 - **+ accuracy:** `source → normalizer → generator → sink`.
 - **Higher accuracy:** `source → normalizer → multiple generators → multiple validators → sink(s)`.
 - **Fan-out:** a single source can feed several branches at once — e.g. `source → normalizer →
@@ -150,7 +160,8 @@ TTS).
 
 **Validators:**
 - Can be wired **in series** (chained checks) or **in parallel** (independent checks on the same audio).
-- Each exposes **pass / fail pins** plus a retry counter (default threshold 85, max-retry guard).
+- Each exposes **pass / fail pins** plus a retry counter (a `threshold` — commonly 85, but read the
+  real per-validator default from `nodes list` — and a `max_retries` guard).
 - A **fail pin** can route back to the *same* generator (regenerate) **or** forward to a *different /
   new* generator — failed items don't have to return to where they came from.
 
@@ -178,17 +189,42 @@ onepin --json uploads confirm <upload_id> --workflow-id <workflow_id>
 ## Recipe: run and collect outputs
 
 ```bash
-onepin --json workflows preview-run <workflow_id>                       # estimate cost
+onepin --json workflows preview-run <workflow_id> --script "<text>"     # estimate cost (no run)
 onepin --json workflows run <workflow_id> --watch --timeout 300         # run + wait (billable)
 onepin --json workflows runs data <workflow_id> <run_id>                # output rows
 onepin workflows runs download <workflow_id> <run_id> --out export.zip  # full export (atomic; --force to overwrite)
 onepin workflows runs download-node <workflow_id> <run_id> <node_id> --out node.zip   # one node's output
 ```
 
+`workflows run` is **not** `--yes`-gated even though it spends credits — confirm with the user
+first, every time, by the procedure in SKILL.md → *Running a workflow*. `preview-run` returns
+`min_credits` / `expected_credits` / `max_credits` per node, and takes the same
+`--script` / `--source-language` as `run` — pass them, or you price the saved definition instead of
+the run being charged (and an unfilled script node priced without `--script` returns
+`VALIDATION_ERROR`, since there is no text to count). If it still fails, **make `preview-run` work
+rather than estimating around it**: pass the real `--script`, or — when the text has to live in the
+workflow, as with an upload-backed source — save it there (`uploads confirm --workflow-id`, or
+`workflows update --definition`, a workflow edit with its own yes) and price again. A past run's
+`credits` on `onepin --json workflows runs list <workflow_id>` is context for what this workflow
+charged before, not a price for this run. No number means no run.
+
+**Never turn a character count into a credit figure.** Billing is per-unit and the unit differs per
+node — `character` for the text nodes, `byte` for a TTS model priced in UTF-8 bytes, `word` for the
+pronunciation corrector — each unit carries its own rate, every extra locale adds its own, and a
+settled run carries a per-run 1-credit floor. Nothing survives that as a per-character rule of
+thumb: the API's own pricing guide (`templates estimate`, SDK-only — no CLI command) is expressed in
+credits per `unit_chars` **input characters, default 1,000**, and one measured run billed 1 credit
+for ~107 characters. Quoted only to show how far a per-character guess lands from the truth — not as
+a rate to reuse. Credits are read from `preview-run`'s `expected_credits`, a run record's `credits`
+field, or the change in `current_balance`; a run's `token_cost` is a *unit* count, not credits.
+
 `workflows run` also takes **run-scoped script inputs**: `--script "<text>"` replaces the saved
 script for that one run (the workflow is not modified), and `--source-language <bcp-47>` (e.g.
 `en-us`) declares the language of that text when it differs from the saved one. Use this for
-one-off lines instead of `workflows update`.
+one-off lines instead of `workflows update`. `preview-run` accepts the identical pair and sends a
+byte-identical body, so an estimate taken with the same flags prices the run that will be charged. Which of the two you are doing is one of the four
+things the run confirmation has to state. Note what is *not* on that list: there is no `--voice`, so
+a voice swap is always an edit to the saved definition, never a property of one run.
 
 ## Recipe: diagnose a run
 
@@ -208,8 +244,9 @@ payload for nothing. `runs summary <workflow_id> --from <iso> --to <iso>` aggreg
 
 | What you want | Command | Field that carries it |
 |---|---|---|
-| a voice's sample **in a given language** | `voices list --language <code> [--search <name>]` | `language_sample_url` (+ `language_sample_locale` — the region actually served) |
+| a voice's sample **in a given language** | `voices list --language <code> [--search "<description>"]` | `language_sample_url` (+ `language_sample_locale` — the region actually served) |
 | a voice's default sample | `voices list` · `voices show <voice_id>` | `sample_url` — does **not** follow `--language`, so it may be another language |
+| a **fresh, playable** sample for one or many voices | `voices sample <id>... --language <code> --play` (or `[--out-dir DIR]`, or neither) | `sample_url` per row, minted on the call (so never expired), plus the `locale` and `model` actually served; `--play` prints `Playing i/N <name> (<locale>, <model>)` before each clip. On a row that fell back to the voice's default clip — and on any call without `--language` — the served locale is not reported by the API, so the row says `unknown locale` and `fallback` is `true`: say so rather than naming a language you were not told |
 | a run's **per-line** audio | `workflows runs data <workflow_id> <run_id>` | `rows[].cards[].audio.playback_url` |
 | files on disk | `workflows runs download` · `runs download-node` | the written file |
 
@@ -219,10 +256,41 @@ than caching it. Read the statuses before claiming delivery: `audio.status` is `
 (treat a missing one as a line the user did not get, whatever the status says);
 `card.status` is `delivered` / `generated` / `not_delivered` / `dropped`; envelope-level
 `partial.status` (with `reason`, `source`) and `dropped_truncated` mean the page is incomplete.
+Cards the validator rejected outright are **not in the default response** — pass
+`workflows runs data … --include-dropped` to see them. Without it a rejected line is simply
+absent, which reads as a shorter script rather than as output the user did not get.
 
-**Not on the CLI:** the SDK additionally has `client.voices.preview(voice_id, language=…, model=…)`
-and `client.workflows.get_run_audio_url(workflow_id, run_id, audio_id)`, but no `onepin` command
-maps to either — use the table above instead of inventing a flag.
+`voices sample` is `client.voices.preview` per voice, with the per-locale 404 handled: that status
+means *no preview recorded in that locale*, not a voice that cannot speak it (`supported_languages`
+is the ability claim, `preview_locales` is what the endpoint will serve), so the command degrades to
+the voice's own `sample_url` and flags the row as a fallback. `--out`/`--out-dir` write atomically
+and refuse to clobber without `--force`, like `runs download`.
+
+**Not on the CLI:** `client.workflows.get_run_audio_url(workflow_id, run_id, audio_id)` has no
+`onepin` command — use the table above instead of inventing a flag.
+
+## Recipe: shortlist a voice
+
+Let the server narrow it; don't page the catalog (SKILL.md → *Let the server pick the shortlist*).
+
+```bash
+# What is even available in this locale? (values + match counts, per dimension)
+onepin --json voices facets --language ko-kr
+
+onepin --json voices list --language ko-kr --gender female --category narration \
+  --search "calm, warm audiobook narrator" --limit 10 \
+  | jq -r '.[] | [.name, .provider, (.age // "-"), (.category // "-"), .language_sample_url] | @tsv'
+```
+
+`--search` is a relevance-ranked query over meaning plus name/tags/descriptor, so pass the user's
+own words rather than guessing a name. Put every axis you know into the request — `--gender`,
+`--age`, `--category`, `--accent`, `--source`, `--provider`, `--model` all filter server-side, so
+there is no reason to pull rows you could have excluded. Only `tags`, `description` and
+`uses_count` have no flag; refine on those *after* the server has narrowed, and say so, because it
+only reorders the page you were given. Nothing matched? Re-run `voices facets` with the same
+filters to see which axis is at zero, then drop `--search` first and the rest one at a time. Then
+audition: `language_sample_url` is the clip in the locale you asked for, and
+`voices similar <voice_id> --language <code>` is the server-side "more like this one".
 
 ## Recipe: hand over a run's audio
 
@@ -243,7 +311,7 @@ onepin --json workflows runs data <workflow_id> <run_id> \
            | [.line_index, .audio.playback_url] | @tsv' \
   | sort -n \
   | while IFS=$'\t' read -r idx url; do
-      announce "$idx"; play "$url"      # SKILL.md > Audio: whatever player this machine actually has
+      announce "line $idx"; play "$url"   # SKILL.md > Audio: the player this machine actually has
     done
 ```
 
@@ -257,13 +325,47 @@ get — say so rather than letting a short list read as the whole run.
 
 ## Filters & pagination
 
-List commands take `--limit` (default 50, **max ~100** — larger values return `422`), `--search`
-(substring), and where shown `--sort`/`--order`/`--status`/`--category`. Most take **no offset or
-cursor**, so a set larger than one page cannot be fully enumerated — narrow with filters and tell
-the user when a list is partial. Two commands are paged and *can* be walked: `workflows runs data`
-(`--limit` / `--offset`) and `usage activity` (`--limit` / `--cursor`). `voices list --language`
-accepts only specific codes (e.g. `en-us`, `en-gb`, `en`); unsupported codes (e.g. `en-au`) return
-`422`, even when voices report them in `supported_languages`.
+List commands take `--limit` (default 50, **max ~100** — larger values return `422`), `--search`,
+and where shown `--sort`/`--order`/`--status`/`--category`. `workflows list`, `workflows runs list`,
+`templates list`, `voices list`, `workflows uploads`, `workspace list` and `workflows runs data`
+also take `--offset`, so a set larger than one page is walked by stepping `--offset` **by the
+`--limit` you passed** — `--limit 100 --offset 100`, `--limit 100 --offset 200`, … A stride wider
+than the page skips the rows in between, silently. (`usage activity` pages with `--cursor` instead;
+`nodes list` and `workspace members list` are unpaged.)
+
+Text output says where the page sits, in one of three ways:
+
+- `workflows list`, `workflows runs list` and `voices list` report the match count —
+  `Showing X of N`, where `N` is how many matched and the remainder already accounts for
+  `--offset`. Page until it says no more.
+- `workflows uploads`, `workspace list` and `templates list` do not compute a total; a full page
+  ends with `Showing X rows — a full page, so there may be more`, and only `--offset` settles it.
+- `workflows runs data` is not a pager at all and prints no footer, so a full page is the only
+  hint that more may exist.
+
+`--json` returns the rows alone in every case.
+
+**Every filter is evaluated server-side.** The CLI forwards them as query parameters and renders
+what comes back, so filtering is the only thing that makes a list mean anything. Under `--json` the
+payload is the rows alone, with no total — a short JSON list is "what this page held", never "this
+is all there is".
+
+**`voices list --search` is the one that is easy to underestimate.** It is not a substring match:
+the server matches the query against a voice's meaning as well as its name, tags and descriptor,
+and returns the result relevance-ranked — so a phrase like `"warm, unhurried documentary narrator"`
+is a better query than a guessed name, and `--sort`/`--order` are ignored while it is ranking. See
+SKILL.md → *Let the server pick the shortlist*.
+
+**`voices facets` is the discovery call for the rest of the filters.** `voices list` filters on
+`--gender` / `--age` / `--category` / `--accent` / `--source` / `--provider` / `--model` /
+`--language`, and `facets` returns which values of each actually exist plus a match count for each,
+under whatever filters you already passed. Counts are context-aware — each dimension applies every
+*other* active filter but not its own selection — so it doubles as "which axis is the one making
+this empty?". The `value` it returns is exactly what `voices list` accepts.
+
+`voices list --language` accepts only specific codes (e.g. `en-us`, `en-gb`, `en`); unsupported
+codes (e.g. `en-au`) return `422`, even when voices report them in `supported_languages`. Passing it
+also fills `language_sample_url` / `language_sample_locale` on every row it has a clip for.
 
 ## Errors
 
