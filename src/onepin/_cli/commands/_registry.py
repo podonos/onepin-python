@@ -92,9 +92,17 @@ def _wire_composites(groups: dict[str, typer.Typer]) -> None:
     """Attach hand-written composites to their groups (creating groups if absent)."""
     workflows = groups.setdefault("workflows", typer.Typer(help=_GROUP_HELP["workflows"], no_args_is_help=True))
     uploads = groups.setdefault("uploads", typer.Typer(help=_GROUP_HELP["uploads"], no_args_is_help=True))
+    voices = groups.setdefault("voices", typer.Typer(help=_GROUP_HELP["voices"], no_args_is_help=True))
 
     workflows.command(name="run", help="Start a workflow run, optionally watching to completion.")(
         composites.workflow_run
+    )
+    workflows.command(name="duplicate", help="Duplicate a workflow.")(composites.workflow_duplicate)
+    workflows.command(name="set-voice", help="Assign a voice to one locale of a workflow's generator.")(
+        composites.workflow_set_voice
+    )
+    workflows.command(name="preview-run", help="Estimate cost of a run without executing.")(
+        composites.workflow_preview_run
     )
     workflows.command(name="definition-schema", help="Print the JSON Schema for a workflow definition.")(
         composites.definition_schema
@@ -108,6 +116,8 @@ def _wire_composites(groups: dict[str, typer.Typer]) -> None:
     runs.command(name="download-node", help="Download a single node's output to a file.")(composites.run_download_node)
 
     uploads.command(name="create", help="Upload a file via the presigned-S3 flow.")(composites.upload_create)
+
+    voices.command(name="sample", help="Fetch or play preview audio for one or more voices.")(composites.voices_sample)
 
 
 def _find_subgroup(parent: typer.Typer, name: str) -> typer.Typer | None:

@@ -143,8 +143,10 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 
 ### voices
 
+- `onepin voices facets` — Show the voice filter values that exist and how many voices each one matches.
 - `onepin voices favorite <voice_id>` — Favorite a voice.
 - `onepin voices list` — List available voices.
+- `onepin voices sample <voice_ids>` — Fetch or play preview audio for one or more voices.
 - `onepin voices show <voice_id>` — Show a single voice.
 - `onepin voices similar <voice_id>` — List voices similar to a voice.
 - `onepin voices unfavorite <voice_id>` — Unfavorite a voice.
@@ -162,6 +164,7 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 - `onepin workflows list` — List workflows in the workspace.
 - `onepin workflows preview-run <workflow_id>` — Estimate cost of a run without executing.
 - `onepin workflows run <workflow_id>` — Start a workflow run, optionally watching to completion.
+- `onepin workflows set-voice <workflow_id>` — Assign a voice to one locale of a workflow's generator.
 - `onepin workflows show <workflow_id>` — Show a single workflow.
 - `onepin workflows update <workflow_id>` — Update a workflow (partial patch).
 - `onepin workflows uploads <workflow_id>` — List a workflow's uploads.

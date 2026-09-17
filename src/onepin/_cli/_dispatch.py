@@ -42,14 +42,22 @@ def _choice_enum(name: str, choices: tuple[str, ...]) -> type[enum.Enum]:
 
 
 def _annotation_for(opt: Opt) -> Any:
-    """Map an Opt's declared type to a Python annotation Typer understands."""
+    """Map an Opt's declared type to a Python annotation Typer understands.
+
+    A ``"bool"`` declared with a ``None`` default is annotated ``Optional[bool]`` rather than
+    ``bool``, which is what lets Typer keep the three states apart: passed on, passed off,
+    not passed. A plain ``bool`` collapses the last two, so an SDK param whose ``False`` means
+    something would be unreachable.
+    """
     if isinstance(opt.type, tuple):
         ident = "Choice_" + "_".join(opt.type)
         return Optional[_choice_enum(ident, opt.type)]
     if opt.type == "int":
         return Optional[int]
+    if opt.type == "float":
+        return Optional[float]
     if opt.type == "bool":
-        return bool
+        return Optional[bool] if opt.default is None else bool
     if opt.type == "datetime":
         return Optional[str]
     return Optional[str]
@@ -190,6 +198,8 @@ def _build_kwargs(cmd: Cmd, bound: dict[str, Any]) -> tuple[list[Any], dict[str,
             continue
         # Skip boolean filter flags (e.g. --favorites-only) at their default value so the
         # SDK sees None (its own default) rather than an explicit False, which would filter.
+        # Tri-state booleans default to None and are already dropped by the check above, so
+        # their explicit --no-x False survives to the SDK.
         if opt.type == "bool" and raw == opt.default:
             continue
         if opt.transform == "json_file":
@@ -219,7 +229,7 @@ def _confirm_destructive(cmd: Cmd, assume_yes: bool, *, json_on: bool) -> None:
 def _emit(cmd: Cmd, resp: Any, bound: dict[str, Any], json_on: bool, *, limit: int) -> None:
     """Render an SDK response according to the command's unwrap mode."""
     if cmd.unwrap == "pager":
-        _emit_pager(cmd, resp, json_on, limit=limit)
+        _emit_pager(cmd, resp, json_on, limit=limit, offset=int(bound.get("offset") or 0))
         return
     if cmd.unwrap == "list":
         _emit_list(cmd, resp, json_on)
@@ -231,7 +241,7 @@ def _emit(cmd: Cmd, resp: Any, bound: dict[str, Any], json_on: bool, *, limit: i
     _emit_data(cmd, resp, bound, json_on)
 
 
-def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int) -> None:
+def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int, offset: int = 0) -> None:
     # The SDK returns a SyncPager when generated with pagination enabled, and a
     # list-envelope model (items under .data) otherwise. Iterating a pydantic
     # envelope directly would yield (field, value) tuples — unwrap .data first.
@@ -242,6 +252,37 @@ def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int) -> None:
         render_json(rows)
         return
     render_table(rows, _columns_for(cmd, rows))
+    _echo_pager_footer(pager, len(rows), limit=limit, offset=offset)
+
+
+def _echo_pager_footer(pager: Any, shown: int, *, limit: int, offset: int = 0) -> None:
+    """Say how much of the result set this page is, so a cap never reads as completeness.
+
+    Counted list endpoints return ``pagination.total`` — how many rows match the filters, not
+    how many came back — and those get an exact ``Showing X of N``. The rest answer with a bare
+    ``PaginationMeta`` that carries no total (``workflows uploads``, ``workspace list``,
+    ``templates list``), and there a page filled exactly to ``--limit`` is indistinguishable
+    from the end of the results: only ``--offset`` can tell the two apart. Saying nothing in
+    that case is how a capped list gets handed to a user as a complete one, so it is reported
+    as possibly-truncated rather than not at all.
+
+    The remainder is counted from ``offset + shown``, not from ``shown`` alone: this page
+    is not necessarily the first one. Counting from ``shown`` makes the last page advertise
+    a full result set still to fetch, and an agent told to page until the remainder is zero
+    then never stops. ``CountedPaginationMeta`` carries no offset, so it comes from the
+    bound ``--offset``.
+
+    Human output only. The ``--json`` payload stays a bare array because that shape is the
+    agent contract pinned by the manifest snapshot; agents read the count by paging.
+    """
+    total = getattr(getattr(pager, "pagination", None), "total", None)
+    if isinstance(total, int):
+        remaining = max(total - (offset + shown), 0)
+        more = f" {remaining} more — page with --offset." if remaining > 0 else ""
+        print(f"Showing {shown} of {total}.{more}")
+        return
+    if shown >= limit:
+        print(f"Showing {shown} rows — a full page, so there may be more. Page with --offset.")
 
 
 def _emit_list(cmd: Cmd, resp: Any, json_on: bool) -> None:
@@ -419,6 +460,7 @@ def _run(cmd: Cmd, bound: dict[str, Any]) -> None:
     json_on = output_json(bool(bound.get("json_output_local", False)))
 
     limit = _resolve_limit(cmd, bound, json_on)
+    _validate_offset(bound)
 
     with api_errors(json_on):
         if cmd.destructive:
@@ -452,6 +494,13 @@ def _resolve_limit(cmd: Cmd, bound: dict[str, Any], json_on: bool) -> int:
         # Usage error -> exit code 2, matching Typer's parameter-validation contract.
         raise typer.BadParameter("--limit must be >= 1.")
     return int(limit)
+
+
+def _validate_offset(bound: dict[str, Any]) -> None:
+    """Reject a negative ``--offset`` locally (usage exit 2) instead of spending a round trip."""
+    offset = bound.get("offset")
+    if offset is not None and offset < 0:
+        raise typer.BadParameter("--offset must be >= 0.")
 
 
 def _is_idempotent_delete(cmd: Cmd) -> bool:

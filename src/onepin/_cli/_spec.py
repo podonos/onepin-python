@@ -15,7 +15,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional, get_args
 
-from onepin.types import NodeType
+from onepin.types import NodeType, VoiceAccent, VoiceAge, VoiceCategory, VoiceGender
+from onepin.voices.types import (
+    ListVoicesRequestOrderItem,
+    ListVoicesRequestSortItem,
+    ListVoicesRequestSourceItem,
+)
 
 
 @dataclass(frozen=True)
@@ -24,9 +29,15 @@ class Opt:
 
     Attributes:
         flag: The CLI flag, e.g. ``--status`` (extra aliases space-separated, e.g. ``-l --limit``).
-        type: One of ``"str"``, ``"int"``, ``"bool"``, ``"datetime"``, or a tuple of literal
-            choices ``("a", "b", ...)`` which renders as a Typer Choice.
-        default: Default value passed to ``typer.Option``.
+            A boolean may declare its off-switch with a slash (``--x/--no-x``), which makes it
+            tri-state: on, off, or absent.
+        type: One of ``"str"``, ``"int"``, ``"float"``, ``"bool"``, ``"datetime"``, or a tuple of
+            literal choices ``("a", "b", ...)`` which renders as a Typer Choice.
+        default: Default value passed to ``typer.Option``. A ``"bool"`` defaulting to ``False`` is
+            a switch the SDK only ever sees as ``True`` (the dispatcher drops it at its default);
+            one defaulting to ``None`` is tri-state and forwards an explicit ``False`` too, which
+            is what an SDK param whose ``False`` means something (a filter, a stored setting)
+            needs. Pair that default with a ``--x/--no-x`` flag so the off side is reachable.
         dest: SDK keyword the value is forwarded as (defaults to the flag name de-dashed).
         transform: Optional value transform applied before forwarding. One of
             ``"wrap_list"``, ``"comma_list"``, ``"datetime"``, ``"provider_key_request"``.
@@ -46,10 +57,14 @@ class Opt:
 
     @property
     def dest_name(self) -> str:
-        """The SDK keyword this option forwards as."""
+        """The SDK keyword this option forwards as.
+
+        Derived from the first flag, minus any ``/--no-x`` off-switch: ``--has-failed-run/
+        --no-has-failed-run`` forwards as ``has_failed_run``.
+        """
         if self.dest is not None:
             return self.dest
-        primary = self.flag.split()[0]
+        primary = self.flag.split()[0].split("/")[0]
         return primary.lstrip("-").replace("-", "_")
 
 
@@ -106,6 +121,9 @@ class Cmd:
 # --- Shared option fragments -------------------------------------------------------------
 
 _LIMIT = Opt("--limit", "int", 50, help="Max rows to display (>=1).")
+# Counted list endpoints page with offset/limit. Only added to commands whose SDK method
+# actually accepts it (the contract test in tests/build asserts that per row).
+_OFFSET = Opt("--offset", "int", None, help="Zero-based row offset for paging (>=0).")
 _JSON = Opt("--json", "bool", False, dest="json_output_local", help="Emit JSON instead of a table.")
 
 
@@ -116,13 +134,19 @@ def _list_opts(*extra: Opt) -> list[Opt]:
 # Workflow run status filter / terminal states (SDK exposes run status as raw str; no enum).
 _RUN_STATUS = ("draft", "running", "completed", "failed", "paused", "cancelled", "pending")
 
-# Derived from the generated `NodeType`, never hand-listed: a literal copy silently goes stale
-# every time the API adds a node type, and the contract test that compares the two then fails
-# the regen — blocking the whole SDK sync on an unrelated CLI edit. Deriving keeps them equal
-# by construction. `NodeType` is a Union[Literal[...], Any], so unwrap one level of get_args.
-_NODE_TYPES: tuple[str, ...] = tuple(
-    value for branch in get_args(NodeType) for value in get_args(branch) if isinstance(value, str)
-)
+
+def _literals(alias: Any) -> tuple[str, ...]:
+    """Unwrap a generated ``Union[Literal[...], Any]`` alias into its literal values.
+
+    Choice tuples are derived from the generated types, never hand-listed: a literal copy
+    silently goes stale every time the API adds a value, and the contract test that compares
+    the two then fails the regen — blocking the whole SDK sync on an unrelated CLI edit.
+    Deriving keeps them equal by construction.
+    """
+    return tuple(value for branch in get_args(alias) for value in get_args(branch) if isinstance(value, str))
+
+
+_NODE_TYPES: tuple[str, ...] = _literals(NodeType)
 
 # Column presets keyed by output model.
 _COLS_WORKFLOW = ["id", "name", "runs_count", "last_run_status", "updated_at"]
@@ -146,8 +170,37 @@ TABLE: list[Cmd] = [
         "workflows.list",
         "List workflows in the workspace.",
         options=_list_opts(
+            _OFFSET,
             Opt("--status", _RUN_STATUS, None, help="Filter by workflow status."),
             Opt("--search", "str", None, help="Substring search over names."),
+            Opt(
+                "--has-failed-run/--no-has-failed-run",
+                "bool",
+                None,
+                help="Filter by failure history anywhere in the run log, not just the latest run "
+                "(--no-has-failed-run returns only workflows that have never failed).",
+            ),
+            Opt(
+                "--last-run-after",
+                "datetime",
+                None,
+                transform="datetime",
+                help="Only workflows whose last run was at or after this ISO 8601 datetime.",
+            ),
+            Opt(
+                "--last-run-before",
+                "datetime",
+                None,
+                transform="datetime",
+                help="Only workflows whose last run was at or before this ISO 8601 datetime.",
+            ),
+            Opt(
+                "--include-definition",
+                "bool",
+                False,
+                help="Include each workflow's full definition graph (off by default: the graphs "
+                "dominate the payload and the table does not render them).",
+            ),
             Opt("--sort", ("name", "updated_at", "runs_count"), None, transform="wrap_list", help="Sort field."),
             Opt("--order", ("asc", "desc"), None, transform="wrap_list", help="Sort direction."),
         ),
@@ -221,32 +274,13 @@ TABLE: list[Cmd] = [
     ),
     Cmd(
         "workflows",
-        "duplicate",
-        "workflows.duplicate_workflow",
-        "Duplicate a workflow.",
-        args=[("workflow_id", "Workflow UUID.")],
-        options=[_JSON],
-        unwrap="data",
-        success_msg="Duplicated workflow into {id}.",
-    ),
-    Cmd(
-        "workflows",
         "uploads",
         "workflows.list_workflow_uploads",
         "List a workflow's uploads.",
         args=[("workflow_id", "Workflow UUID.")],
-        options=[_JSON],
-        unwrap="list",
+        options=_list_opts(_OFFSET),
+        unwrap="pager",
         columns=_COLS_UPLOAD,
-    ),
-    Cmd(
-        "workflows",
-        "preview-run",
-        "workflows.preview_run",
-        "Estimate cost of a run without executing.",
-        args=[("workflow_id", "Workflow UUID.")],
-        options=[_JSON],
-        unwrap="data",
     ),
     # --- workflows runs (subgroup) ------------------------------------------------------
     Cmd(
@@ -257,6 +291,7 @@ TABLE: list[Cmd] = [
         subgroup="runs",
         args=[("workflow_id", "Workflow UUID.")],
         options=_list_opts(
+            _OFFSET,
             Opt("--status", _RUN_STATUS, None, help="Filter by run status."),
             Opt("--search", "str", None, help="Substring search."),
             Opt("--sort", ("created_at", "started_at", "completed_at", "status"), None, help="Sort field."),
@@ -334,6 +369,13 @@ TABLE: list[Cmd] = [
         options=[
             Opt("--search", "str", None, help="Substring search over output rows."),
             Opt("--language", "str", None, help="Filter by language."),
+            Opt(
+                "--include-dropped",
+                "bool",
+                False,
+                help="Include validator-rejected cards. Off by default, so without it a line the "
+                "user never received is simply absent rather than reported as dropped.",
+            ),
             Opt("--limit", "int", None, help="Max rows."),
             Opt("--offset", "int", None, help="Row offset."),
             _JSON,
@@ -361,6 +403,7 @@ TABLE: list[Cmd] = [
         "templates.list",
         "List gallery templates.",
         options=_list_opts(
+            _OFFSET,
             Opt(
                 "--category",
                 ("media", "creative", "business", "education", "wellness"),
@@ -482,8 +525,25 @@ TABLE: list[Cmd] = [
         "voices.list",
         "List available voices.",
         options=_list_opts(
+            _OFFSET,
             Opt("--favorites-only", "bool", False, help="Only favorited voices."),
-            Opt("--gender", ("male", "female", "neutral"), None, transform="wrap_list", help="Filter by gender."),
+            Opt("--gender", _literals(VoiceGender), None, transform="wrap_list", help="Filter by gender."),
+            Opt("--age", _literals(VoiceAge), None, transform="wrap_list", help="Filter by age band."),
+            Opt(
+                "--category",
+                _literals(VoiceCategory),
+                None,
+                transform="wrap_list",
+                help="Filter by delivery style (news, narration, podcast, ...).",
+            ),
+            Opt("--accent", _literals(VoiceAccent), None, transform="wrap_list", help="Filter by accent."),
+            Opt(
+                "--source",
+                _literals(ListVoicesRequestSourceItem),
+                None,
+                transform="wrap_list",
+                help="Filter by where the voice came from (platform, or this workspace's own).",
+            ),
             Opt(
                 # Free-form on purpose: the provider catalog grows server-side (fish_audio,
                 # inworld, ...) and a hardcoded choice list goes stale. The server filters
@@ -496,6 +556,19 @@ TABLE: list[Cmd] = [
                 help="Filter by provider(s), comma-separated (e.g. elevenlabs,fish_audio).",
             ),
             Opt(
+                # Free-form for the same reason as --provider: models are per provider and
+                # the catalog grows server-side.
+                "--model",
+                "str",
+                None,
+                transform="comma_list",
+                multiple=False,
+                help="Filter by TTS model(s), comma-separated (e.g. arcana,sonic-2).",
+            ),
+            Opt(
+                # Free-form rather than a Choice: the generated language enum carries only
+                # regioned locales, but a bare family (`ko`, `en`) is accepted too, so a
+                # Choice would reject codes the server honors.
                 "--language",
                 "str",
                 None,
@@ -503,10 +576,90 @@ TABLE: list[Cmd] = [
                 multiple=False,
                 help="Filter by language code(s), comma-separated (e.g. en-us,ko-kr).",
             ),
-            Opt("--search", "str", None, help="Substring search."),
+            Opt(
+                "--search",
+                "str",
+                None,
+                help=(
+                    "Free-text voice search over meaning plus name/tags/descriptor, returned "
+                    'relevance-ranked — not a plain substring match. Pass a description ("warm, '
+                    'unhurried narrator"), not just a name.'
+                ),
+            ),
+            Opt(
+                "--sort",
+                _literals(ListVoicesRequestSortItem),
+                None,
+                transform="wrap_list",
+                help="Sort field. Ignored while --search is ranking by relevance.",
+            ),
+            Opt(
+                "--order",
+                _literals(ListVoicesRequestOrderItem),
+                None,
+                transform="wrap_list",
+                help="Sort direction.",
+            ),
         ),
         unwrap="pager",
         columns=_COLS_VOICE,
+    ),
+    Cmd(
+        "voices",
+        "facets",
+        "voices.get_voice_facets",
+        "Show the voice filter values that exist and how many voices each one matches.",
+        # Counts are context-aware: each dimension applies every OTHER active filter but not
+        # its own selection, so one call answers "what can I still narrow by, and how much is
+        # left". The values returned are exactly what `voices list` accepts, which is how a
+        # caller stops discovering invalid locale codes by 422.
+        options=[
+            Opt("--favorites-only", "bool", False, help="Scope the counts to favorited voices."),
+            Opt("--gender", _literals(VoiceGender), None, transform="wrap_list", help="Filter by gender."),
+            Opt("--age", _literals(VoiceAge), None, transform="wrap_list", help="Filter by age band."),
+            Opt(
+                "--category",
+                _literals(VoiceCategory),
+                None,
+                transform="wrap_list",
+                help="Filter by delivery style (news, narration, podcast, ...).",
+            ),
+            Opt("--accent", _literals(VoiceAccent), None, transform="wrap_list", help="Filter by accent."),
+            Opt(
+                "--source",
+                _literals(ListVoicesRequestSourceItem),
+                None,
+                transform="wrap_list",
+                help="Filter by where the voice came from (platform, or this workspace's own).",
+            ),
+            Opt(
+                "--provider",
+                "str",
+                None,
+                transform="comma_list",
+                multiple=False,
+                help="Filter by provider(s), comma-separated (e.g. elevenlabs,fish_audio).",
+            ),
+            Opt(
+                "--model",
+                "str",
+                None,
+                transform="comma_list",
+                multiple=False,
+                help="Filter by TTS model(s), comma-separated (e.g. arcana,sonic-2).",
+            ),
+            Opt(
+                "--language",
+                "str",
+                None,
+                transform="comma_list",
+                multiple=False,
+                help="Filter by language code(s), comma-separated (e.g. en-us,ko-kr).",
+            ),
+            Opt("--search", "str", None, help="Scope the counts to a free-text voice search."),
+            _JSON,
+        ],
+        unwrap="data",
     ),
     Cmd(
         "voices",
@@ -590,8 +743,8 @@ TABLE: list[Cmd] = [
         "list",
         "workspaces.list_workspaces",
         "List workspaces.",
-        options=_list_opts(),
-        unwrap="list",
+        options=_list_opts(_OFFSET),
+        unwrap="pager",
         columns=_COLS_WORKSPACE,
     ),
     Cmd(
@@ -627,6 +780,19 @@ TABLE: list[Cmd] = [
             Opt("--name", "str", None, help="New name."),
             Opt("--slug", "str", None, help="New slug."),
             Opt("--color-idx", "int", None, dest="color_idx", help="New color index."),
+            Opt(
+                "--routing-price-sensitivity",
+                "float",
+                None,
+                help="Automatic voice selection's price/quality balance "
+                "(0.0 = pure quality, 1.0 = pure price, 0.5 = balanced).",
+            ),
+            Opt(
+                "--routing-llm-fit/--no-routing-llm-fit",
+                "bool",
+                None,
+                help="Whether automatic voice selection also weighs how the voice fits the content.",
+            ),
             _JSON,
         ],
         unwrap="data",

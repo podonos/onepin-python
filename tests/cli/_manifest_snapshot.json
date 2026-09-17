@@ -374,6 +374,13 @@
         },
         {
           "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
           "flag": "--category",
           "help": "Filter by category.",
           "required": false,
@@ -745,6 +752,95 @@
       ]
     },
     {
+      "args": [],
+      "destructive": false,
+      "group": "voices",
+      "name": "facets",
+      "options": [
+        {
+          "default": false,
+          "flag": "--favorites-only",
+          "help": "Scope the counts to favorited voices.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": null,
+          "flag": "--gender",
+          "help": "Filter by gender.",
+          "required": false,
+          "type": "choice[male,female,neutral]"
+        },
+        {
+          "default": null,
+          "flag": "--age",
+          "help": "Filter by age band.",
+          "required": false,
+          "type": "choice[young,middle_aged,old]"
+        },
+        {
+          "default": null,
+          "flag": "--category",
+          "help": "Filter by delivery style (news, narration, podcast, ...).",
+          "required": false,
+          "type": "choice[news,narration,story,podcast,conversational,social_media,educational,business]"
+        },
+        {
+          "default": null,
+          "flag": "--accent",
+          "help": "Filter by accent.",
+          "required": false,
+          "type": "choice[american,british,australian,indian,canadian,irish,african,european,east_asian,southeast_asian,latin_american,middle_eastern,slavic,spanish,french,german,italian,portuguese,japanese,korean,chinese,thai,vietnamese,other]"
+        },
+        {
+          "default": null,
+          "flag": "--source",
+          "help": "Filter by where the voice came from (platform, or this workspace's own).",
+          "required": false,
+          "type": "choice[platform,recorded,uploaded,workspace]"
+        },
+        {
+          "default": null,
+          "flag": "--provider",
+          "help": "Filter by provider(s), comma-separated (e.g. elevenlabs,fish_audio).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--model",
+          "help": "Filter by TTS model(s), comma-separated (e.g. arcana,sonic-2).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--language",
+          "help": "Filter by language code(s), comma-separated (e.g. en-us,ko-kr).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--search",
+          "help": "Scope the counts to a free-text voice search.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "voices",
+        "facets"
+      ]
+    },
+    {
       "args": [
         {
           "name": "voice_id"
@@ -781,6 +877,13 @@
           "type": "integer"
         },
         {
+          "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
+          "required": false,
+          "type": "integer"
+        },
+        {
           "default": false,
           "flag": "--favorites-only",
           "help": "Only favorited voices.",
@@ -796,8 +899,43 @@
         },
         {
           "default": null,
+          "flag": "--age",
+          "help": "Filter by age band.",
+          "required": false,
+          "type": "choice[young,middle_aged,old]"
+        },
+        {
+          "default": null,
+          "flag": "--category",
+          "help": "Filter by delivery style (news, narration, podcast, ...).",
+          "required": false,
+          "type": "choice[news,narration,story,podcast,conversational,social_media,educational,business]"
+        },
+        {
+          "default": null,
+          "flag": "--accent",
+          "help": "Filter by accent.",
+          "required": false,
+          "type": "choice[american,british,australian,indian,canadian,irish,african,european,east_asian,southeast_asian,latin_american,middle_eastern,slavic,spanish,french,german,italian,portuguese,japanese,korean,chinese,thai,vietnamese,other]"
+        },
+        {
+          "default": null,
+          "flag": "--source",
+          "help": "Filter by where the voice came from (platform, or this workspace's own).",
+          "required": false,
+          "type": "choice[platform,recorded,uploaded,workspace]"
+        },
+        {
+          "default": null,
           "flag": "--provider",
           "help": "Filter by provider(s), comma-separated (e.g. elevenlabs,fish_audio).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--model",
+          "help": "Filter by TTS model(s), comma-separated (e.g. arcana,sonic-2).",
           "required": false,
           "type": "text"
         },
@@ -811,9 +949,23 @@
         {
           "default": null,
           "flag": "--search",
-          "help": "Substring search.",
+          "help": "Free-text voice search over meaning plus name/tags/descriptor, returned relevance-ranked \u2014 not a plain substring match. Pass a description (\"warm, unhurried narrator\"), not just a name.",
           "required": false,
           "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--sort",
+          "help": "Sort field. Ignored while --search is ranking by relevance.",
+          "required": false,
+          "type": "choice[name,created_at,uses_count]"
+        },
+        {
+          "default": null,
+          "flag": "--order",
+          "help": "Sort direction.",
+          "required": false,
+          "type": "choice[asc,desc]"
         },
         {
           "default": false,
@@ -826,6 +978,71 @@
       "path": [
         "voices",
         "list"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "voice_ids"
+        }
+      ],
+      "destructive": false,
+      "group": "voices",
+      "name": "sample",
+      "options": [
+        {
+          "default": null,
+          "flag": "--language",
+          "help": "BCP-47 locale to hear the voice in (e.g. ko-kr). Falls back to its default sample.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--model",
+          "help": "Prefer a specific TTS model (e.g. sonic-2).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--out",
+          "help": "Write a single sample to this file path.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--out-dir",
+          "help": "Write one file per voice into this directory.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--play",
+          "help": "Play each sample with the OS audio player.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--force",
+          "help": "Overwrite existing files.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "voices",
+        "sample"
       ]
     },
     {
@@ -1021,9 +1238,16 @@
       "name": "duplicate",
       "options": [
         {
+          "default": null,
+          "flag": "--name",
+          "help": "Name for the copy (default: the original + ' (Copy)').",
+          "required": false,
+          "type": "text"
+        },
+        {
           "default": false,
           "flag": "--json",
-          "help": "Emit JSON instead of a table.",
+          "help": "Emit JSON instead of text.",
           "required": false,
           "type": "bool"
         }
@@ -1048,6 +1272,13 @@
         },
         {
           "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
           "flag": "--status",
           "help": "Filter by workflow status.",
           "required": false,
@@ -1059,6 +1290,34 @@
           "help": "Substring search over names.",
           "required": false,
           "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--has-failed-run",
+          "help": "Filter by failure history anywhere in the run log, not just the latest run (--no-has-failed-run returns only workflows that have never failed).",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": null,
+          "flag": "--last-run-after",
+          "help": "Only workflows whose last run was at or after this ISO 8601 datetime.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--last-run-before",
+          "help": "Only workflows whose last run was at or before this ISO 8601 datetime.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--include-definition",
+          "help": "Include each workflow's full definition graph (off by default: the graphs dominate the payload and the table does not render them).",
+          "required": false,
+          "type": "bool"
         },
         {
           "default": null,
@@ -1098,9 +1357,23 @@
       "name": "preview-run",
       "options": [
         {
+          "default": null,
+          "flag": "--script",
+          "help": "Price this script text instead of the saved one (same as `run --script`).",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--source-language",
+          "help": "BCP-47 language of --script (e.g. en-us); defaults to the saved language.",
+          "required": false,
+          "type": "text"
+        },
+        {
           "default": false,
           "flag": "--json",
-          "help": "Emit JSON instead of a table.",
+          "help": "Emit JSON instead of text.",
           "required": false,
           "type": "bool"
         }
@@ -1221,6 +1494,13 @@
           "help": "Filter by language.",
           "required": false,
           "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--include-dropped",
+          "help": "Include validator-rejected cards. Off by default, so without it a line the user never received is simply absent rather than reported as dropped.",
+          "required": false,
+          "type": "bool"
         },
         {
           "default": null,
@@ -1349,6 +1629,13 @@
           "default": 50,
           "flag": "--limit",
           "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
           "required": false,
           "type": "integer"
         },
@@ -1569,6 +1856,57 @@
       ],
       "destructive": false,
       "group": "workflows",
+      "name": "set-voice",
+      "options": [
+        {
+          "default": null,
+          "flag": "--locale",
+          "help": "BCP-47 locale slot to assign (e.g. ko-kr).",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--voice",
+          "help": "Catalog voice UUID (the `id` column of `voices list`).",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--model",
+          "help": "TTS model; defaults to one that supports the locale.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--node-id",
+          "help": "Generator node, when the graph has several.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of text.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "set-voice"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
       "name": "show",
       "options": [
         {
@@ -1638,6 +1976,20 @@
       "group": "workflows",
       "name": "uploads",
       "options": [
+        {
+          "default": 50,
+          "flag": "--limit",
+          "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
+          "required": false,
+          "type": "integer"
+        },
         {
           "default": false,
           "flag": "--json",
@@ -1731,6 +2083,13 @@
           "default": 50,
           "flag": "--limit",
           "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
           "required": false,
           "type": "integer"
         },
@@ -2045,6 +2404,20 @@
           "help": "New color index.",
           "required": false,
           "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--routing-price-sensitivity",
+          "help": "Automatic voice selection's price/quality balance (0.0 = pure quality, 1.0 = pure price, 0.5 = balanced).",
+          "required": false,
+          "type": "float"
+        },
+        {
+          "default": null,
+          "flag": "--routing-llm-fit",
+          "help": "Whether automatic voice selection also weighs how the voice fits the content.",
+          "required": false,
+          "type": "bool"
         },
         {
           "default": false,
