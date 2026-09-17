@@ -114,6 +114,14 @@ def test_declared_params_subset_of_signature(cmd: Cmd) -> None:
         flag = opt.flag.split()[0]
         if opt.dest_name in _LOCAL_DESTS or flag in _LOCAL_FLAGS:
             continue
+        # A `query_fallback` option is declared against the *spec*, not against this SDK
+        # snapshot: it exists because the parameter shipped server-side and this repo has not
+        # regenerated yet. The dispatcher routes it through
+        # request_options.additional_query_parameters exactly while it is missing here, so
+        # "the method does not accept it" is the expected state, not the drift this asserts.
+        # `test_query_fallback_is_still_needed` is the check that ends that state.
+        if opt.query_fallback:
+            continue
         declared.append(opt.dest_name)
     declared.extend(cmd.consts.keys())
 
@@ -121,6 +129,30 @@ def test_declared_params_subset_of_signature(cmd: Cmd) -> None:
         return
     for name in declared:
         assert name in params, f"{cmd.method} does not accept declared param {name!r} (have {list(params)})"
+
+
+def _query_fallback_opts() -> list[tuple[Cmd, str]]:
+    return [(cmd, opt.dest_name) for cmd in TABLE for opt in cmd.options if opt.query_fallback]
+
+
+@pytest.mark.parametrize(
+    ("cmd", "dest"), _query_fallback_opts(), ids=lambda value: value if isinstance(value, str) else ".".join(value.path)
+)
+def test_query_fallback_is_still_needed(cmd: Cmd, dest: str) -> None:
+    """A `query_fallback` bridge must disappear the moment the SDK grows the real keyword.
+
+    The bridge is a workaround for one window -- the parameter is live on the API, and the
+    generated client has not caught up. Left in place past that window it is a second, dimmer
+    code path for something the SDK now does natively, and the kind of thing that is only
+    found when it breaks. Failing here on the regen PR that closes the gap is what makes it
+    get deleted then, rather than becoming permanent.
+    """
+    params = inspect.signature(_resolve_cmd_method(cmd)).parameters
+
+    assert dest not in params, (
+        f"{'.'.join(cmd.path)}: {cmd.method} now accepts {dest!r} natively, so the "
+        f"query_fallback=True bridge on that Opt is dead code — drop it from _spec.py."
+    )
 
 
 @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))

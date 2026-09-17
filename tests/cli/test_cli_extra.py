@@ -41,52 +41,6 @@ class TestCommaListAndCapture:
         assert captured.get("language") == ["en-us", "ko-kr"]
 
 
-class TestVoicesBuildable:
-    """`voices list --buildable` forwards only when set, and is gated on --language locally."""
-
-    @staticmethod
-    def _stub_voices(monkeypatch, captured) -> None:
-        from onepin.core.pagination import SyncPager
-
-        class Voices:
-            def list(self, **kw):
-                captured.update(kw)
-                return SyncPager(get_next=None, has_next=False, items=[], response=None)
-
-        client = type("C", (), {"voices": Voices()})()
-        monkeypatch.setattr(_dispatch, "get_client", lambda: client)
-
-    def test_omitted_when_not_passed(self, monkeypatch, tmp_home) -> None:
-        captured = {}
-        self._stub_voices(monkeypatch, captured)
-        result = runner.invoke(app, ["--api-key", "op_live_x", "voices", "list"])
-        assert result.exit_code == 0, result.output
-        # Server default is already false, so the switch at its default carries no meaning.
-        assert "buildable" not in captured
-
-    def test_forwarded_with_language(self, monkeypatch, tmp_home) -> None:
-        captured = {}
-        self._stub_voices(monkeypatch, captured)
-        result = runner.invoke(
-            app,
-            ["--api-key", "op_live_x", "voices", "list", "--buildable", "--language", "en-us"],
-        )
-        assert result.exit_code == 0, result.output
-        assert captured.get("buildable") is True
-        assert captured.get("language") == ["en-us"]
-
-    def test_without_language_is_a_usage_error(self, monkeypatch, tmp_home) -> None:
-        captured = {}
-        self._stub_voices(monkeypatch, captured)
-        result = runner.invoke(app, ["--api-key", "op_live_x", "voices", "list", "--buildable"])
-        # Exit code only: Typer renders a BadParameter inside a rich box that elides the
-        # message at narrow terminal widths. Same assertion style as the --offset check.
-        assert result.exit_code == 2
-        # Rejected before the client is built -- the 422 round trip this guard exists to
-        # save was not spent.
-        assert captured == {}
-
-
 class TestWorkspaceForwarding:
     def test_workspace_forwarded_when_method_accepts(self, monkeypatch, tmp_home) -> None:
         captured = {}

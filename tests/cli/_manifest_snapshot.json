@@ -949,7 +949,7 @@
         {
           "default": false,
           "flag": "--buildable",
-          "help": "Only voices that can actually be synthesized for --language, which this requires: the voice clears the measured quality floors on a provider and model that are enabled, routable, and billable (or covered by your BYOK key). Without it the list is a raw catalogue browse that can return a voice a run would refuse. Your workspace's own voices are listed either way.",
+          "help": "Only voices this server could actually synthesize for --language right now: measured above the quality floors, on an enabled and routable provider/model you can be billed for. Requires --language (quality is measured per locale). Narrows pagination.total too, so 0 rows means 0 buildable \u2014 not an empty catalog. Excludes transient provider outages, so a run can still fail.",
           "required": false,
           "type": "bool"
         },

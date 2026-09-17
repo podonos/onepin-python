@@ -19,7 +19,8 @@ from typing import Any, Callable, Optional
 import typer
 
 from onepin._cli import _state
-from onepin._cli._ctx import CliError, api_errors, get_client, output_json, to_jsonable
+from onepin._cli._ctx import CliError, api_errors, get_client, output_json, resolve_cli_credentials, to_jsonable
+from onepin._cli._gates import get_gate
 from onepin._cli._spec import Cmd, Opt
 from onepin._cli.render import render_json, render_table
 
@@ -209,6 +210,79 @@ def _build_kwargs(cmd: Cmd, bound: dict[str, Any]) -> tuple[list[Any], dict[str,
     return positional, kwargs
 
 
+def _check_requires(cmd: Cmd, bound: dict[str, Any]) -> None:
+    """Enforce declared cross-flag preconditions before anything is sent.
+
+    A precondition the API states is one the CLI can answer itself, and answering it here is
+    not only cheaper than a round trip -- the server's 422 names a field and a reason, while
+    the caller is holding flags, so this is also the only place the message can say which flag
+    to add. Raises ``typer.BadParameter`` (exit 2) because an unsatisfiable flag combination
+    is a usage error, the same class as ``--limit 0``.
+    """
+    # Indexed by every spelling a `requires` entry could reasonably use: each alias, and each
+    # with any `/--no-x` off-switch stripped -- the same normalisation `dest_name` does. A
+    # requirement that silently fails to resolve would read as "the flag is missing" and refuse
+    # a combination that is actually fine.
+    by_flag = {alias.split("/")[0]: opt for opt in cmd.options for alias in opt.flag.split()}
+    for opt in cmd.options:
+        if not opt.requires or not _is_set(opt, bound):
+            continue
+        missing = [flag for flag in opt.requires if not _is_set(by_flag.get(flag), bound)]
+        if not missing:
+            continue
+        needed = " and ".join(missing)
+        note = f" — {opt.requires_note}" if opt.requires_note else ""
+        raise typer.BadParameter(f"{opt.flag.split()[0]} requires {needed}{note}")
+
+
+def _is_set(opt: Optional[Opt], bound: dict[str, Any]) -> bool:
+    """True when an option carries a value that will actually reach the server.
+
+    Mirrors :func:`_build_kwargs`'s own drop rules rather than re-deciding what "set" means,
+    so a precondition can never disagree with what the request ends up carrying. The one
+    addition is transform emptiness: ``--language ""`` and ``--language ,`` both parse, both
+    survive as a forwarded ``[]``, and both encode to zero query keys -- counting those as set
+    would pass the check and hand the server a gate with nothing to evaluate it against.
+    """
+    if opt is None:
+        return False
+    raw = bound.get(opt.dest_name)
+    if raw is None:
+        return False
+    if opt.type == "bool" and raw == opt.default:
+        return False
+    if opt.transform in ("wrap_list", "comma_list"):
+        return bool(_apply_transform(opt, raw))
+    return True
+
+
+def _apply_query_fallbacks(cmd: Cmd, method: Callable[..., Any], kwargs: dict[str, Any]) -> None:
+    """Move any ``query_fallback`` value the SDK method cannot take onto the raw query string.
+
+    The API and this repo do not gain a parameter at the same moment: the server ships it, and
+    the SDK only learns about it on the next Fern regen. In that window the generated method
+    raises ``TypeError`` on the keyword, which would make a flag that works against the live
+    API unreachable from the CLI. ``request_options.additional_query_parameters`` is the
+    SDK's own supported way through, and it is chosen *per call* against the real signature --
+    so the regen that adds the keyword silently switches this path off.
+    """
+    fallbacks = [opt for opt in cmd.options if opt.query_fallback and opt.dest_name in kwargs]
+    if not fallbacks:
+        return
+    try:
+        params = inspect.signature(method).parameters
+    except (TypeError, ValueError):  # pragma: no cover - builtins/fakes without a signature
+        return
+    if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in params.values()):
+        return
+    extra = {opt.dest_name: kwargs.pop(opt.dest_name) for opt in fallbacks if opt.dest_name not in params}
+    if not extra:
+        return
+    options = dict(kwargs.get("request_options") or {})
+    options["additional_query_parameters"] = {**(options.get("additional_query_parameters") or {}), **extra}
+    kwargs["request_options"] = options
+
+
 def _confirm_destructive(cmd: Cmd, assume_yes: bool, *, json_on: bool) -> None:
     """Require ``--yes`` or an interactive confirm for a destructive command.
 
@@ -226,22 +300,26 @@ def _confirm_destructive(cmd: Cmd, assume_yes: bool, *, json_on: bool) -> None:
     typer.confirm(f"This will {cmd.help.rstrip('.').lower()}. Continue?", abort=True, err=True)
 
 
-def _emit(cmd: Cmd, resp: Any, bound: dict[str, Any], json_on: bool, *, limit: int) -> None:
-    """Render an SDK response according to the command's unwrap mode."""
+def _emit(cmd: Cmd, resp: Any, bound: dict[str, Any], json_on: bool, *, limit: int) -> Optional[int]:
+    """Render an SDK response according to the command's unwrap mode.
+
+    Returns the number of rows rendered for the two row-shaped modes, and ``None`` for the
+    single-payload ones -- a gate needs to distinguish "the filter returned nothing" from
+    "this mode has no row count", and ``0`` cannot carry both.
+    """
     if cmd.unwrap == "pager":
-        _emit_pager(cmd, resp, json_on, limit=limit, offset=int(bound.get("offset") or 0))
-        return
+        return _emit_pager(cmd, resp, json_on, limit=limit, offset=int(bound.get("offset") or 0))
     if cmd.unwrap == "list":
-        _emit_list(cmd, resp, json_on)
-        return
+        return _emit_list(cmd, resp, json_on)
     if cmd.unwrap == "action":
         _emit_action(cmd, resp, bound, json_on)
-        return
+        return None
     # default: "data"
     _emit_data(cmd, resp, bound, json_on)
+    return None
 
 
-def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int, offset: int = 0) -> None:
+def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int, offset: int = 0) -> int:
     # The SDK returns a SyncPager when generated with pagination enabled, and a
     # list-envelope model (items under .data) otherwise. Iterating a pydantic
     # envelope directly would yield (field, value) tuples — unwrap .data first.
@@ -250,9 +328,10 @@ def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int, offset: int 
     rows = [to_jsonable(item) for item in items]
     if json_on:
         render_json(rows)
-        return
+        return len(rows)
     render_table(rows, _columns_for(cmd, rows))
     _echo_pager_footer(pager, len(rows), limit=limit, offset=offset)
+    return len(rows)
 
 
 def _echo_pager_footer(pager: Any, shown: int, *, limit: int, offset: int = 0) -> None:
@@ -285,7 +364,7 @@ def _echo_pager_footer(pager: Any, shown: int, *, limit: int, offset: int = 0) -
         print(f"Showing {shown} rows — a full page, so there may be more. Page with --offset.")
 
 
-def _emit_list(cmd: Cmd, resp: Any, json_on: bool) -> None:
+def _emit_list(cmd: Cmd, resp: Any, json_on: bool) -> int:
     data = getattr(resp, "data", resp)
     rows = to_jsonable(data)
     if not isinstance(rows, list):
@@ -296,8 +375,9 @@ def _emit_list(cmd: Cmd, resp: Any, json_on: bool) -> None:
         rows = [_redact(row) for row in rows]
     if json_on:
         render_json(rows)
-        return
+        return len(rows)
     render_table(rows, _columns_for(cmd, rows))
+    return len(rows)
 
 
 def _emit_data(cmd: Cmd, resp: Any, bound: dict[str, Any], json_on: bool) -> None:
@@ -461,7 +541,7 @@ def _run(cmd: Cmd, bound: dict[str, Any]) -> None:
 
     limit = _resolve_limit(cmd, bound, json_on)
     _validate_offset(bound)
-    _validate_buildable(bound)
+    _check_requires(cmd, bound)
 
     with api_errors(json_on):
         if cmd.destructive:
@@ -470,18 +550,33 @@ def _run(cmd: Cmd, bound: dict[str, Any]) -> None:
         client = get_client()
         method = _resolve_method(client, cmd.method_paths)
         positional, kwargs = _build_kwargs(cmd, bound)
-        if _accepts_workspace_kwarg(method):
-            workspace = _state.root_options.get("workspace")
-            if workspace:
-                kwargs["workspace_id"] = workspace
+        workspace = _state.root_options.get("workspace")
+        if _accepts_workspace_kwarg(method) and workspace:
+            kwargs["workspace_id"] = workspace
+
+        gate = get_gate(cmd.gate)
+        gate_on = gate is not None and gate.is_on(kwargs)
+        # Verified BEFORE the call, not after: a server that does not know the gate answers the
+        # gated request with the full catalog and a 200, so there is nothing in the response to
+        # notice afterwards.
+        probe = gate.preflight(resolve_cli_credentials(), workspace) if gate_on and gate is not None else None
+        languages = list(kwargs.get("language") or [])
+
+        _apply_query_fallbacks(cmd, method, kwargs)
         try:
             resp = method(*positional, **kwargs)
         except Exception as exc:  # noqa: BLE001 - 404 idempotency for delete --yes only
+            if gate_on and gate is not None:
+                translated = gate.translate_error(exc)
+                if translated is not None:
+                    raise translated from exc
             if _is_idempotent_delete(cmd) and bound.get("yes") and _is_not_found(exc):
                 _emit_idempotent(cmd, bound, json_on)
                 return
             raise
-        _emit(cmd, resp, bound, json_on, limit=limit)
+        shown = _emit(cmd, resp, bound, json_on, limit=limit)
+        if gate_on and gate is not None and probe is not None and shown is not None:
+            gate.report(probe, shown=shown, languages=languages)
 
 
 def _resolve_limit(cmd: Cmd, bound: dict[str, Any], json_on: bool) -> int:
@@ -502,20 +597,6 @@ def _validate_offset(bound: dict[str, Any]) -> None:
     offset = bound.get("offset")
     if offset is not None and offset < 0:
         raise typer.BadParameter("--offset must be >= 0.")
-
-
-def _validate_buildable(bound: dict[str, Any]) -> None:
-    """Reject ``--buildable`` without ``--language`` locally (usage exit 2) instead of a 422.
-
-    The gate is defined per-locale — a voice is buildable *for* a language, never in the
-    abstract — so the server rejects the pair outright. Catching it here names the flag that
-    is missing instead of surfacing an API validation error the caller has to decode.
-
-    Reads the pre-transform ``bound`` (``--language`` is still the raw comma string at this
-    point), so an empty or absent value is falsy either way.
-    """
-    if bound.get("buildable") and not bound.get("language"):
-        raise typer.BadParameter("--buildable requires --language (e.g. --language en-us).")
 
 
 def _is_idempotent_delete(cmd: Cmd) -> bool:
