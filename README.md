@@ -277,10 +277,17 @@ See `onepin templates --help` for the full list (`update`, `delete`, `unfavorite
 
 ```bash
 onepin voices list --provider elevenlabs --gender female --language en-us
+onepin voices list --language en-us --buildable          # only what this API can synthesize now
 onepin voices show <voice_id>
 onepin voices similar <voice_id>
 onepin voices favorite <voice_id>
 ```
+
+`--buildable` narrows the catalogue to voices with a measured `(provider, model, locale)` above the
+quality floors, on an enabled and currently-routable provider you can be billed for. It requires
+`--language` — quality is measured per locale — and narrows `pagination.total` along with the page,
+so `0` under the flag means "nothing buildable here", not "no voices here". It excludes transient
+provider outages by design, so a buildable voice can still fail a run.
 
 See `onepin voices --help` for the full list.
 

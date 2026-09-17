@@ -44,6 +44,18 @@ class Opt:
         help: Help text shown in ``--help`` and the JSON manifest.
         required: Whether Typer should require the flag.
         multiple: Whether the flag may be repeated (``list`` of values).
+        requires: Other flags on the same command that must also be set for this one to mean
+            anything. Checked before the request goes out, so a precondition the server states
+            (and answers with a 422) costs a usage error instead of a round trip.
+        requires_note: Why that precondition exists, appended to the usage error. A caller who is
+            told only *that* a combination is refused has to guess whether to add the other flag
+            or drop this one; the reason is what makes that obvious.
+        query_fallback: Forward the value as a raw query parameter when the generated SDK method
+            has no such keyword *yet*. This is the bridge for a spec parameter that has shipped
+            server-side but has not reached this repo through a Fern regen: the dispatcher uses
+            the native keyword the moment the regen adds it, so nothing here has to change back.
+            Never a way to reach a parameter the API does not have --
+            ``tests/build/test_sdk_contract.py`` deletes the flag once the SDK catches up.
     """
 
     flag: str
@@ -54,6 +66,9 @@ class Opt:
     help: str = ""
     required: bool = False
     multiple: bool = False
+    requires: tuple[str, ...] = ()
+    requires_note: str = ""
+    query_fallback: bool = False
 
     @property
     def dest_name(self) -> str:
@@ -88,6 +103,11 @@ class Cmd:
         success_msg: Message template for ``action``/``data`` modes (``{id}`` substituted).
         destructive: Whether the command mutates/deletes and requires ``--yes`` or confirm.
         redact: Whether the response contains fields in ``_SECRET_FIELDS`` that must be masked.
+        gate: Name of a server-side result gate this command can switch on, handled by
+            :mod:`onepin._cli._gates`. A gate is not just another filter: it silently changes
+            what "no rows" and ``pagination.total`` mean, and an older server drops the
+            parameter without erroring, so the gate module verifies the server honors it and
+            says what the numbers now describe. Currently only ``"buildable"``.
     """
 
     group: str
@@ -104,6 +124,7 @@ class Cmd:
     destructive: bool = False
     redact: bool = False
     fallback_methods: tuple[str, ...] = ()
+    gate: Optional[str] = None
 
     @property
     def method_paths(self) -> tuple[str, ...]:
@@ -577,6 +598,27 @@ TABLE: list[Cmd] = [
                 help="Filter by language code(s), comma-separated (e.g. en-us,ko-kr).",
             ),
             Opt(
+                # Off by default and deliberately not tri-state: `buildable=false` IS the server
+                # default, so there is nothing for an off-switch to express, and defaulting it ON
+                # would shrink every existing caller's catalog without them asking -- including
+                # the scripts that parse `--json`.
+                "--buildable",
+                "bool",
+                False,
+                requires=("--language",),
+                requires_note=(
+                    "quality is measured per (provider, model, locale), so there is no answer "
+                    "until you say buildable for WHICH locale. Add --language <locale> (e.g. "
+                    "--language ko-kr), or drop --buildable to browse the whole catalog."
+                ),
+                query_fallback=True,
+                help="Only voices this server could actually synthesize for --language right now: "
+                "measured above the quality floors, on an enabled and routable provider/model "
+                "you can be billed for. Requires --language (quality is measured per locale). "
+                "Narrows pagination.total too, so 0 rows means 0 buildable — not an empty "
+                "catalog. Excludes transient provider outages, so a run can still fail.",
+            ),
+            Opt(
                 "--search",
                 "str",
                 None,
@@ -603,6 +645,7 @@ TABLE: list[Cmd] = [
         ),
         unwrap="pager",
         columns=_COLS_VOICE,
+        gate="buildable",
     ),
     Cmd(
         "voices",
@@ -613,6 +656,11 @@ TABLE: list[Cmd] = [
         # its own selection, so one call answers "what can I still narrow by, and how much is
         # left". The values returned are exactly what `voices list` accepts, which is how a
         # caller stops discovering invalid locale codes by 422.
+        #
+        # No --buildable here: the endpoint does not take it. Gating a chip needs the LANGUAGE
+        # dimension judged per candidate locale, and a language chip self-excludes the very
+        # `language` filter the gate is defined against. So these counts stay ungated and can
+        # over-count a `voices list --buildable` page -- do not read a chip as a buildable count.
         options=[
             Opt("--favorites-only", "bool", False, help="Scope the counts to favorited voices."),
             Opt("--gender", _literals(VoiceGender), None, transform="wrap_list", help="Filter by gender."),

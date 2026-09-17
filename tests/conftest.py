@@ -18,15 +18,22 @@ def _reset_cli_state():
     """
     try:
         from onepin._cli import _state
+        from onepin._cli._gates import BuildableGate
     except ModuleNotFoundError:
         yield
         return
 
-    _state.root_options = {}
-    os.environ.pop("NO_COLOR", None)
+    def reset() -> None:
+        _state.root_options = {}
+        # Gate capability verdicts are cached per base URL for the life of the process. That is
+        # one invocation in production, but one whole session under pytest, so a test that
+        # mocks an old server would otherwise decide the answer for every test after it.
+        BuildableGate._probe_cache.clear()
+        os.environ.pop("NO_COLOR", None)
+
+    reset()
     yield
-    _state.root_options = {}
-    os.environ.pop("NO_COLOR", None)
+    reset()
 
 
 @pytest.fixture
