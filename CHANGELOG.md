@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.0](https://github.com/podonos/onepin-python/compare/v0.15.0...v0.16.0) (2026-09-17)
+
+
+### Features
+
+* **cli:** audition voices, page every list, and close the SDK flag gap ([#110](https://github.com/podonos/onepin-python/issues/110)) ([3760930](https://github.com/podonos/onepin-python/commit/3760930e85794670f92237ad5aff58e4a2c7c4c4))
+
 ## [0.15.0](https://github.com/podonos/onepin-python/compare/v0.14.0...v0.15.0) (2026-09-16)
 
 
