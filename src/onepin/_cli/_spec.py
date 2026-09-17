@@ -15,7 +15,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional, get_args
 
-from onepin.types import NodeType, VoiceAccent, VoiceAge, VoiceCategory, VoiceGender
+from onepin.types import NodeType, TemplateCategory, VoiceAccent, VoiceAge, VoiceCategory, VoiceGender
+from onepin.users.types import ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort
 from onepin.voices.types import (
     ListVoicesRequestOrderItem,
     ListVoicesRequestSortItem,
@@ -147,6 +148,8 @@ def _literals(alias: Any) -> tuple[str, ...]:
 
 
 _NODE_TYPES: tuple[str, ...] = _literals(NodeType)
+# Derived from the generated type so the list never drifts when the API adds a category.
+_TEMPLATE_CATEGORIES: tuple[str, ...] = _literals(TemplateCategory)
 
 # Column presets keyed by output model.
 _COLS_WORKFLOW = ["id", "name", "runs_count", "last_run_status", "updated_at"]
@@ -406,7 +409,7 @@ TABLE: list[Cmd] = [
             _OFFSET,
             Opt(
                 "--category",
-                ("media", "creative", "business", "education", "wellness"),
+                _TEMPLATE_CATEGORIES,
                 None,
                 transform="wrap_list",
                 help="Filter by category.",
@@ -437,7 +440,7 @@ TABLE: list[Cmd] = [
             Opt("--description", "str", None, help="Template description."),
             Opt(
                 "--category",
-                ("media", "creative", "business", "education", "wellness"),
+                _TEMPLATE_CATEGORIES,
                 None,
                 help="Template category.",
             ),
@@ -463,7 +466,7 @@ TABLE: list[Cmd] = [
         options=[
             Opt("--name", "str", None, help="New name."),
             Opt("--description", "str", None, help="New description."),
-            Opt("--category", ("media", "creative", "business", "education", "wellness"), None, help="New category."),
+            Opt("--category", _TEMPLATE_CATEGORIES, None, help="New category."),
             Opt(
                 "--definition",
                 "str",
@@ -991,6 +994,204 @@ TABLE: list[Cmd] = [
         "Show a node type's detail (runtime options).",
         args=[("node_type", "Node type identifier.")],
         options=[_JSON],
+        unwrap="data",
+    ),
+    # --- providers -----------------------------------------------------------------------
+    # Models are a subgroup rather than flat siblings: adjacent singular/plural commands
+    # (e.g. `providers models`/`providers model`) make a typo silently run the wrong one.
+    Cmd(
+        "providers",
+        "list",
+        "providers.list_catalog_providers",
+        "List speech synthesis providers.",
+        options=[_JSON],
+        unwrap="list",
+        columns=["provider", "display_name", "kind", "model_count", "beta"],
+    ),
+    Cmd(
+        "providers",
+        "show",
+        "providers.get_catalog_provider",
+        "Show a single provider.",
+        args=[("provider", "Provider identifier.")],
+        options=[_JSON],
+        unwrap="data",
+    ),
+    Cmd(
+        "providers",
+        "list",
+        "providers.list_catalog_provider_models",
+        "List a provider's models.",
+        subgroup="models",
+        args=[("provider", "Provider identifier.")],
+        options=[_JSON],
+        unwrap="list",
+        columns=["model", "display_name", "content_type", "voice_count", "beta"],
+    ),
+    Cmd(
+        "providers",
+        "show",
+        "providers.get_catalog_provider_model",
+        "Show a single provider model.",
+        subgroup="models",
+        args=[("provider", "Provider identifier."), ("model", "Model identifier.")],
+        options=[_JSON],
+        unwrap="data",
+    ),
+    Cmd(
+        "providers",
+        "voices",
+        "providers.list_catalog_provider_model_voices",
+        "List platform voices for a provider model.",
+        subgroup="models",
+        args=[("provider", "Provider identifier."), ("model", "Model identifier.")],
+        options=_list_opts(_OFFSET),
+        unwrap="pager",
+        columns=["id", "name", "gender", "age", "accent"],
+    ),
+    # --- account -------------------------------------------------------------------------
+    # Group is `account`, not `users`: every endpoint is /users/me/* and a `users` group
+    # would read as managing other people (that job belongs to `workspace members`).
+    Cmd(
+        "account",
+        "credits",
+        "users.get_my_credits",
+        "Show the account's credit balance and billing period.",
+        options=[_JSON],
+        unwrap="data",
+    ),
+    Cmd(
+        "account",
+        "plan",
+        "users.get_my_plan_limits",
+        "Show the plan limits governing the account.",
+        options=[_JSON],
+        unwrap="data",
+    ),
+    Cmd(
+        "account",
+        "show",
+        "users.get_current_notification_preferences",
+        "Show email notification preferences.",
+        subgroup="notifications",
+        options=[_JSON],
+        unwrap="data",
+    ),
+    Cmd(
+        "account",
+        "set",
+        "users.update_current_notification_preferences",
+        "Update email notification preferences. Passing neither flag leaves preferences unchanged and just returns them.",
+        subgroup="notifications",
+        options=[
+            Opt(
+                "--completed-generation-email/--no-completed-generation-email",
+                "bool",
+                None,
+                help="Email when a generation completes.",
+            ),
+            Opt(
+                "--failed-generation-email/--no-failed-generation-email",
+                "bool",
+                None,
+                help="Email when a generation fails.",
+            ),
+            _JSON,
+        ],
+        unwrap="data",
+    ),
+    Cmd(
+        "account",
+        "templates",
+        "users.list_my_templates",
+        "List templates created by the account.",
+        options=_list_opts(
+            _OFFSET,
+            Opt("--category", _TEMPLATE_CATEGORIES, None, transform="wrap_list", help="Filter by category."),
+            Opt("--search", "str", None, help="Substring search."),
+            Opt(
+                "--sort",
+                _literals(ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort),
+                None,
+                help="Sort order.",
+            ),
+            Opt("--favorites-only", "bool", False, help="Only favorited templates."),
+        ),
+        unwrap="pager",
+        columns=_COLS_TEMPLATE,
+    ),
+    # --- workflows runs (additional subgroup commands) ----------------------------------
+    Cmd(
+        "workflows",
+        "outputs",
+        "workflows.get_run_outputs",
+        "Show one logical output per sink node in a run.",
+        subgroup="runs",
+        args=[("workflow_id", "Workflow UUID."), ("run_id", "Run UUID.")],
+        options=[_JSON],
+        unwrap="data",
+    ),
+    Cmd(
+        "workflows",
+        "analysis",
+        "workflows.get_run_analysis",
+        "Show delivery, quality and cost analysis for a run.",
+        subgroup="runs",
+        args=[("workflow_id", "Workflow UUID."), ("run_id", "Run UUID.")],
+        options=[_JSON],
+        unwrap="data",
+    ),
+    # Neither pause nor resume is destructive: both are reversible, unlike cancel.
+    Cmd(
+        "workflows",
+        "pause",
+        "workflows.pause_run",
+        "Pause an active run at the next safe checkpoint.",
+        subgroup="runs",
+        args=[("workflow_id", "Workflow UUID."), ("run_id", "Run UUID.")],
+        options=[_JSON],
+        unwrap="action",
+        success_msg="Paused run {run_id}.",
+    ),
+    Cmd(
+        "workflows",
+        "resume",
+        "workflows.resume_run",
+        "Resume a paused run from its last completed wave.",
+        subgroup="runs",
+        args=[("workflow_id", "Workflow UUID."), ("run_id", "Run UUID.")],
+        options=[_JSON],
+        unwrap="action",
+        success_msg="Resumed run {run_id}.",
+    ),
+    # --- templates (additional commands) ------------------------------------------------
+    Cmd(
+        "templates",
+        "estimate",
+        "templates.estimate_template",
+        "Estimate the credit cost of running this template.",
+        args=[("template_id", "Template UUID.")],
+        options=[_JSON],
+        unwrap="data",
+    ),
+    # --- workflows (additional top-level commands) --------------------------------------
+    Cmd(
+        "workflows",
+        "validate",
+        "workflows.validate_workflow",
+        "Validate a workflow definition without saving it.",
+        options=[
+            Opt(
+                "--definition",
+                "str",
+                None,
+                dest="definition",
+                required=True,
+                transform="json_file",
+                help="Definition to validate: inline JSON or @path/to/file.json.",
+            ),
+            _JSON,
+        ],
         unwrap="data",
     ),
 ]

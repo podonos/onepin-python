@@ -3,6 +3,159 @@
     {
       "args": [],
       "destructive": false,
+      "group": "account",
+      "name": "credits",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "account",
+        "credits"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "account",
+      "name": "set",
+      "options": [
+        {
+          "default": null,
+          "flag": "--completed-generation-email",
+          "help": "Email when a generation completes.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": null,
+          "flag": "--failed-generation-email",
+          "help": "Email when a generation fails.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "account",
+        "notifications",
+        "set"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "account",
+      "name": "show",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "account",
+        "notifications",
+        "show"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "account",
+      "name": "plan",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "account",
+        "plan"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "account",
+      "name": "templates",
+      "options": [
+        {
+          "default": 50,
+          "flag": "--limit",
+          "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--category",
+          "help": "Filter by category.",
+          "required": false,
+          "type": "choice[media,creative,business,education,wellness]"
+        },
+        {
+          "default": null,
+          "flag": "--search",
+          "help": "Substring search.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
+          "flag": "--sort",
+          "help": "Sort order.",
+          "required": false,
+          "type": "choice[popular,recent,name]"
+        },
+        {
+          "default": false,
+          "flag": "--favorites-only",
+          "help": "Only favorited templates.",
+          "required": false,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "account",
+        "templates"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
       "group": "login",
       "name": "login",
       "options": [
@@ -74,6 +227,140 @@
       ],
       "path": [
         "nodes",
+        "show"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "providers",
+      "name": "list",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "providers",
+        "list"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "provider"
+        }
+      ],
+      "destructive": false,
+      "group": "providers",
+      "name": "list",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "providers",
+        "models",
+        "list"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "provider"
+        },
+        {
+          "name": "model"
+        }
+      ],
+      "destructive": false,
+      "group": "providers",
+      "name": "show",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "providers",
+        "models",
+        "show"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "provider"
+        },
+        {
+          "name": "model"
+        }
+      ],
+      "destructive": false,
+      "group": "providers",
+      "name": "voices",
+      "options": [
+        {
+          "default": 50,
+          "flag": "--limit",
+          "help": "Max rows to display (>=1).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": null,
+          "flag": "--offset",
+          "help": "Zero-based row offset for paging (>=0).",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "providers",
+        "models",
+        "voices"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "provider"
+        }
+      ],
+      "destructive": false,
+      "group": "providers",
+      "name": "show",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "providers",
         "show"
       ]
     },
@@ -334,6 +621,29 @@
       "path": [
         "templates",
         "delete"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "template_id"
+        }
+      ],
+      "destructive": false,
+      "group": "templates",
+      "name": "estimate",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "templates",
+        "estimate"
       ]
     },
     {
@@ -1443,6 +1753,33 @@
           "name": "run_id"
         }
       ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "analysis",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "analysis"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        }
+      ],
       "destructive": true,
       "group": "workflows",
       "name": "cancel",
@@ -1692,6 +2029,33 @@
       ],
       "destructive": false,
       "group": "workflows",
+      "name": "outputs",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "outputs"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
       "name": "overview",
       "options": [
         {
@@ -1706,6 +2070,60 @@
         "workflows",
         "runs",
         "overview"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "pause",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "pause"
+      ]
+    },
+    {
+      "args": [
+        {
+          "name": "workflow_id"
+        },
+        {
+          "name": "run_id"
+        }
+      ],
+      "destructive": false,
+      "group": "workflows",
+      "name": "resume",
+      "options": [
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "runs",
+        "resume"
       ]
     },
     {
@@ -2001,6 +2419,32 @@
       "path": [
         "workflows",
         "uploads"
+      ]
+    },
+    {
+      "args": [],
+      "destructive": false,
+      "group": "workflows",
+      "name": "validate",
+      "options": [
+        {
+          "default": null,
+          "flag": "--definition",
+          "help": "Definition to validate: inline JSON or @path/to/file.json.",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "flag": "--json",
+          "help": "Emit JSON instead of a table.",
+          "required": false,
+          "type": "bool"
+        }
+      ],
+      "path": [
+        "workflows",
+        "validate"
       ]
     },
     {
