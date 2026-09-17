@@ -32,7 +32,8 @@ then poll it. Three rules follow from that and they outrank the mechanics below:
   about to be heard, not a question. Stopping at *"here are the samples, have a listen and tell me
   which"* is the failure this rule exists to prevent: you were holding the audio and handed back
   homework. Ask first only when playing is itself the imposition — a long export, or audio they did
-  not ask for.
+  not ask for. A finished run whose last message is a file
+  path and a metrics table has failed the same way. See *Ending a run*.
 - **Reuse before you build, and make it the user's choice.** Before authoring a workflow, look
   at what the workspace already has and offer *both* paths. See *Reuse before you build*.
 
@@ -65,8 +66,9 @@ the user, not to you. Walk it in order and stop at each question.
    Every run, however small; if `preview-run` fails, make it work — never turn the script's length
    into a credit figure. → *Running a workflow*
 6. **Hand over the audio.** `runs data` → announce → play every line (link it only when this shell
-   cannot play). A run that finished and was only described in text is not finished.
-   → *Audio: the part you must not skip*
+   cannot play). Your closing message carries the sound, or a one-line offer to play it — a path and
+   a table is neither. A run that finished and was only described in text is not finished.
+   → *Ending a run*
 
 **If they chose to build a new one**, step 2 becomes its own set of questions — ask, don't pick for
 them, lead with a recommendation rather than a menu, and confirm every slug against `nodes list`
@@ -313,34 +315,138 @@ these URLs is a plain audio file with no auth header valid for about an hour —
 re-sign rather than caching it.
 
 Whether this shell can make noise is a question with an answer — settle it once, up front, instead
-of assuming it cannot and reaching for links:
+of assuming it cannot and reaching for links. Don't assume `afplay` either: it is macOS-only, and
+your shell may be Linux, WSL, a container, or someone else's box entirely.
 
 ```bash
 [ -n "$SSH_TTY$SSH_CONNECTION" ] && echo "remote shell — link instead"
-command -v afplay || command -v ffplay || command -v mpg123 || echo "no player — link instead"
+for c in afplay ffplay mpg123 mpv cvlc paplay aplay powershell.exe; do command -v "$c"; done
 ```
 
-A player on a local shell means **play**. Neither line is a reason to ask the user's permission
-first; they are the only reasons to fall back to links.
+A player on a local shell means **play**; an empty second line means this shell cannot make sound,
+so say that rather than reporting a clip as played. Neither line is a reason to ask the user's
+permission first — they are the only reasons to fall back to links. Run it early, before you have
+audio in hand, so a missing player changes the plan instead of stranding a finished run.
+
+Whatever survives takes different flags, and only some accept a URL, so wrap the answer once and
+stop thinking about it:
 
 ```bash
-curl -fsSL "<url>" -o /tmp/onepin-clip.mp3 && afplay /tmp/onepin-clip.mp3   # macOS
-ffplay -nodisp -autoexit "<url>"                                           # takes the URL directly
-# Windows: start "<url>" · Linux without ffplay: xdg-open "<url>"
+play() {                                    # $1 = presigned URL or local file
+  case $1 in
+    http*)                                  # these three stream the presigned link as-is
+      command -v ffplay >/dev/null && { ffplay -nodisp -autoexit -nostats -loglevel quiet "$1"; return; }
+      command -v mpv    >/dev/null && { mpv --no-video --really-quiet "$1"; return; }
+      command -v mpg123 >/dev/null && { mpg123 -q "$1"; return; }
+      f=${TMPDIR:-/tmp}/onepin-clip                     # the rest need a file on disk
+      curl -fsSL "$1" -o "$f" || return 1
+      play "$f"; return ;;
+  esac
+  for c in afplay ffplay mpg123 mpv cvlc paplay aplay; do
+    command -v "$c" >/dev/null || continue
+    case $c in
+      ffplay) ffplay -nodisp -autoexit -nostats -loglevel quiet "$1" ;;
+      mpv)    mpv --no-video --really-quiet "$1" ;;
+      mpg123) mpg123 -q "$1" ;;
+      cvlc)   cvlc --play-and-exit -q "$1" ;;
+      *)      "$c" "$1" ;;                  # afplay · paplay · aplay: file in, no flags, blocks
+    esac
+    return
+  done
+  return 127                                # nothing POSIX here — try *Windows* below, then links
+}
 ```
 
-`afplay` takes a *file*, not a URL — hence the `curl` — and it **blocks for the clip's whole
-duration**, so it is for samples and single lines, never a whole export (that is what
-`runs download` is for). Three things playback cannot tell you:
+`afplay`, `paplay` and `aplay` take a *file*, not a URL — hence the `curl` — and `paplay` / `aplay`
+are WAV-only, so on Linux let the streamers win. All of them **block for the clip's whole duration**:
+right for a sample or one line, wrong for a whole export, which is what `runs download` is for.
+
+**Windows.** The shell there is PowerShell, not bash, so none of the above applies. `voices sample
+--play` already covers itself on Windows from inside the CLI (`ffplay` → `mpg123` → the built-in
+player); this is for the run-line URLs you play yourself — same idea, one language over, and one
+trap that silently eats the whole thing:
+
+```powershell
+function Play($src) {                   # URL or local path; $true only if it really played
+  if (Get-Command ffplay -ErrorAction SilentlyContinue) {
+    ffplay -nodisp -autoexit -nostats -loglevel quiet $src
+    return ($LASTEXITCODE -eq 0)
+  }
+  Add-Type -AssemblyName PresentationCore
+  $uri = if ($src -match '^https?://') { [uri]$src } else { [uri](Resolve-Path $src).Path }
+  $p = New-Object System.Windows.Media.MediaPlayer
+  $p.Open($uri); $p.Play()
+  $n = 0
+  while (-not $p.NaturalDuration.HasTimeSpan -and $n -lt 50) { Start-Sleep -Milliseconds 100; $n++ }
+  if (-not $p.NaturalDuration.HasTimeSpan) { $p.Close(); return $false }   # never opened
+  Start-Sleep -Seconds $p.NaturalDuration.TimeSpan.TotalSeconds
+  $p.Close(); return $true
+}
+
+function Announce($label) {             # in the box, blocking, nothing to install
+  Add-Type -AssemblyName System.Speech
+  (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak($label)
+}
+```
+
+- **`Play()` returns before the sound does.** `MediaPlayer` is asynchronous: drop the duration wait
+  and eight clips "play" in a blink of silence, every exit code `0`. That wait is the only reason
+  this is longer than `afplay "$1"` — and `$false` coming back means it never opened, so hand over
+  the link instead of reporting a clip the user never heard.
+- **Give it an absolute path.** `[uri]"clip.mp3"` is a *relative* URI and `MediaPlayer` resolves it
+  against somewhere that is not your working directory, then plays nothing at all — hence the
+  `Resolve-Path`. A URL goes in untouched.
+- **`System.Media.SoundPlayer` is WAV-only.** It is what every snippet on the web reaches for first,
+  and Onepin hands you mp3 most of the time — it will throw, or play nothing. That is why the CLI
+  keeps it last. `MediaPlayer` goes through Media Foundation, takes both, and opens an http URL
+  directly, so a presigned link needs no download at all.
+- **`start "" "<file>"` is not playback.** It hands the clip to whatever app owns mp3, returns
+  instantly, and leaves a window open on their screen. Last resort — and say that is what you did.
+- **Git Bash and WSL are POSIX shells on a Windows box.** WSL2 with WSLg has real audio, so probe
+  inside Linux first — `ffplay` or `paplay` there is one moving part instead of two. Otherwise cross
+  over with `powershell.exe -NoProfile -Command`, converting the path first (`wslpath -w` under WSL,
+  `cygpath -w` under Git Bash): `/mnt/c/...` and `/c/...` mean nothing to Windows.
+
+Three things this cannot tell you:
 
 - **Exit `0` does not mean they heard it.** The player returns success whether the output device is
   headphones, a muted monitor, or something else entirely. Say what you just played, and offer the
   link if they say they heard nothing.
-- **There may be no audio device at all.** If your shell is not on the user's own machine — SSH, a
-  container, CI, a cloud session — playing is not an option; that is what the check above is for,
-  and then you go straight to the links below.
+- **There may be no audio device at all, and a player on `PATH` is not one.** Over SSH, in a
+  container, in CI, in a cloud session the binary runs happily and the sound goes nowhere — that is
+  what the check above is for, and then you go straight to the links below.
 - **Playing makes noise on someone's desk.** That is why the announcement rule above is not
   optional — but announcing is a sentence, not a request. Say what is coming and play it.
+
+**`runs download` is not delivery.** It writes an export the user asked to *keep*. Saving the clips
+to a folder and telling them to open it hands back homework, not audio — if a player is available,
+the sound leaves their speakers before your message ends.
+
+**Playing a run's lines.** A shortlist of voices is `voices sample --play`'s job; don't hand-roll
+that. A run's lines are the case you still play yourself, and a question between every clip destroys
+the comparison — so play them in one blocking loop, and *speak* each label, because someone
+listening is not reading your terminal:
+
+```bash
+announce() {                            # speak the label, or print it where nothing can speak
+  for c in say spd-say espeak-ng espeak; do
+    command -v "$c" >/dev/null || continue
+    "$c" "$1"; return                   # macOS `say -v <voice>` if the label is not English:
+  done                                  # `say -v '?'` lists them (Yuna = ko-KR, Kyoko = ja-JP, ...)
+  printf '> %s\n' "$1"
+}
+
+while IFS=$'\t' read -r idx url; do     # line_index + playback_url in order — recipe in reference.md
+  announce "line $idx"
+  play "$url"
+done
+```
+
+Take the label from the response's own `line_index`, never from an array you index by hand — that is
+how clips get announced under their neighbour's name (zsh indexes from 1, bash from 0), and a
+mislabelled audition is worse than none: the user picks the wrong take and never finds out. Where
+nothing can speak, `announce` prints instead — so state the running order in your message before the
+first clip, because a printed label scrolls past someone who is listening.
 
 Announce it first — whose voice, or which line. **If the check above says you cannot play sound**,
 hand over one titled markdown link per clip, each on its own line:
@@ -352,6 +458,20 @@ hand over one titled markdown link per clip, each on its own line:
 
 **Never paste the bare URL.** It is a presigned link hundreds of characters long, and the title is
 how the user knows whose voice, or which line, they are about to open.
+
+**Ending a run.** This is where the whole flow leaks. The credits are spent, the gates passed, and
+the easiest message to write is a file path, a validation table and "opened the folder" — a report
+*about* audio containing none of it. Exactly two endings count as delivered:
+
+- **You played it.** One line naming what is about to play, then the clip. This is the default.
+  Seventeen seconds of audio answers "how did it turn out?" better than any table you can build.
+- **You offered — one closed question, as the last line of your message.** "Want to hear it?" Reach
+  for this when the run took long enough that they stopped watching, or is long enough that
+  unprompted sound would be a nuisance. Then stop, and play it the moment they say yes.
+
+"Opened the folder" is neither. Nor is a titled link, unless you genuinely cannot play — and you
+know which you are, because you probed. Retry counts, MOS scores and credits are context around the
+deliverable. The sound *is* the deliverable.
 
 ## The script is the user's
 

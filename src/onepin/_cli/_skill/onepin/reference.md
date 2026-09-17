@@ -301,12 +301,23 @@ onepin --json workflows runs data <workflow_id> <run_id> \
            | [.line_index, .locale_code, .voice.display_name, .audio.playback_url] | @tsv'
 ```
 
-Announce the line, then play it (or link it — `[▶ Line <line_index>](<playback_url>)`, never the
-bare URL):
+Announce what is about to play, then play the run — in `line_index` order, without stopping to ask
+between lines:
 
 ```bash
-curl -fsSL "<playback_url>" -o /tmp/onepin-line.mp3 && afplay /tmp/onepin-line.mp3   # macOS
+onepin --json workflows runs data <workflow_id> <run_id> \
+  | jq -r '.rows[].cards[]
+           | select(.audio.status == "available")
+           | [.line_index, .audio.playback_url] | @tsv' \
+  | sort -n \
+  | while IFS=$'\t' read -r idx url; do
+      announce "line $idx"; play "$url"   # SKILL.md > Audio: the player this machine actually has
+    done
 ```
+
+Only when there is no audio device does this become links — `[▶ Line <line_index>](<playback_url>)`,
+one per line, never the bare URL. Downloading the clips and pointing the user at the folder is not
+the third option; it is the run undelivered.
 
 Cards also carry `validations[]` and `retry_count`, so a line that passed on a retry can be reported
 as such. A card with no `playback_url`, or a `dropped` / `rejected` card, is a line the user did not
