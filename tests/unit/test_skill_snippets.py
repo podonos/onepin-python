@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,11 @@ def test_skill_documents_playback_helpers() -> None:
 
 @pytest.mark.parametrize("shell", ["bash", "zsh"])
 def test_posix_playback_helpers_parse(shell: str, tmp_path: Path) -> None:
+    if sys.platform == "win32":
+        # `bash` on a Windows runner resolves to the WSL launcher stub, which exits 1 with no
+        # distro installed — so it would fail the snippet rather than parse it. These blocks are
+        # for POSIX shells anyway; the ubuntu and macos legs are what check them.
+        pytest.skip("POSIX shells are checked on the non-Windows legs")
     if shutil.which(shell) is None:
         pytest.skip(f"{shell} not installed")
     for index, block in enumerate(_posix_helpers()):
