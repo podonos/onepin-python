@@ -19,8 +19,8 @@ class EstimateResponse(UniversalBaseModel):
     expected_credits: int
     max_credits: int
     breakdown: typing.List[NodeEstimate]
-    current_balance: int
-    deficit_at_max: int
+    current_balance: typing.Optional[int] = None
+    deficit_at_max: typing.Optional[int] = None
     can_run: bool
     overage_rate_cents_per_credit: typing.Optional[float] = None
     will_incur_overage: typing.Optional[bool] = None
