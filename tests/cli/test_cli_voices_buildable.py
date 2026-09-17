@@ -8,6 +8,7 @@ about any of those, so it cannot catch them being wrong either.
 
 from __future__ import annotations
 
+import re
 from urllib.parse import parse_qsl, urlsplit
 
 import httpx
@@ -57,6 +58,20 @@ def _page(rows: list[dict], total: int | None = None) -> dict:
 
 def _invoke(argv: list[str]):
     return runner.invoke(app, ["--api-key", "op_live_x", *argv])
+
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _plain(text: str) -> str:
+    """Rendered output with ANSI styling removed, so a substring assertion means what it says.
+
+    Typer renders a usage error through Rich, and Rich's highlighter styles each `--flag` by
+    emitting `-` and `-language` as *two* spans -- so the literal `--language` is not in the
+    raw output at all once color is on. Color is off on a non-tty and on under CI, which is
+    the way round that keeps the problem out of a local run and in someone else's red build.
+    """
+    return _ANSI.sub("", text)
 
 
 def _queries(route) -> list[list[tuple[str, str]]]:
@@ -132,7 +147,7 @@ class TestRequiresLanguage:
         result = _invoke(["voices", "list", "--buildable"])
 
         assert result.exit_code == 2, result.output
-        assert "--language" in result.output
+        assert "--language" in _plain(result.output)
         assert not route.calls, "the CLI asked the server a question it had already been told is invalid"
 
     @respx.mock
@@ -156,10 +171,10 @@ class TestRequiresLanguage:
         result = _invoke(["voices", "list", "--language", "zz-zz", "--buildable", "--json"])
 
         assert result.exit_code == 1, result.output
-        assert "BUILDABLE_REQUIRES_LANGUAGE" in result.output
-        assert "voices facets" in result.output
+        assert "BUILDABLE_REQUIRES_LANGUAGE" in _plain(result.output)
+        assert "voices facets" in _plain(result.output)
         # The raw envelope's own vocabulary must not be what the user is handed.
-        assert "requires_language" not in result.output
+        assert "requires_language" not in _plain(result.output)
 
 
 class TestEmptyResultMeaning:
@@ -252,10 +267,10 @@ class TestOldServerIsNotSilentlyUngated:
         result = _invoke(["voices", "list", "--language", "ko-kr", "--buildable"])
 
         assert result.exit_code == 1, result.output
-        assert "BUILDABLE_UNSUPPORTED" in result.output
+        assert "BUILDABLE_UNSUPPORTED" in _plain(result.output)
         # Refused at the probe: the ungated page was never fetched, let alone printed.
         assert len(route.calls) == 1
-        assert "Haneul" not in result.stdout
+        assert "Haneul" not in _plain(result.stdout)
 
     @respx.mock
     def test_unverifiable_server_lists_but_claims_nothing(self, tmp_home) -> None:
