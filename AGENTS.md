@@ -51,6 +51,7 @@ Patches applied to generated files (kept minimal; each must be reproducible on r
 | `_ctx.py` | Per-invocation context object |
 | `_http.py` | httpx client construction (base-url + auth) |
 | `_state.py` | Root-option state captured in the main callback |
+| `_gates.py` | Server-side result gates (`voices list --buildable`) — capability probe + reporting |
 | `render.py` | Rich tables / JSON output |
 | `commands/skill.py` | `onepin skill install/path/uninstall` — installs the bundled agent skill into AI tools (SDK-free) |
 | `_fsutil.py` | Atomic-write helper shared by `skill install` and run downloads |
@@ -130,6 +131,22 @@ Comments must **never**:
 - **Changing the CLI surface** (e.g. adding the `skill` group) → regenerate the README block (`python scripts/gen_cli_docs.py`) and the manifest snapshot (`UPDATE_SNAPSHOT=1 pytest tests/cli/test_cli_manifest.py`), or `test_readme_in_sync.py` / `test_cli_manifest.py` fail.
 - **Patching generated files locally** → the next regen wipes your fix. Either fix the spec, or add an explicit `.fernignore` entry + document the patch.
 - **Bare attribute access on pydantic models** without `from __future__ import annotations` → forward refs break on older Pythons. Always import annotations at module top.
+
+## Reaching an API parameter the SDK has not regenerated to yet
+
+The backend ships a query parameter and this repo learns about it one Fern regen later. In that
+window `Opt(..., query_fallback=True)` in `_spec.py` lets the CLI expose it anyway: the dispatcher
+checks the *real* method signature per call and sends the value through
+`request_options.additional_query_parameters` only while the keyword is missing, so the regen that
+adds it switches the bridge off with no edit. It is a bridge, not a policy —
+`tests/build/test_sdk_contract.py::test_query_fallback_is_still_needed` goes red on the regen PR
+that closes the gap, and the flag must be deleted then.
+
+**A bridged parameter is not automatically honored.** FastAPI ignores query parameters it does not
+declare, so an API older than the parameter answers `200` with an *ungated* result and nothing
+errors. Anything whose absence changes what the response means therefore also needs a `Cmd(gate=)`
+handler in `_gates.py` that verifies support before the call and reports what the rows describe
+after it. Currently: `buildable`.
 
 ## Out of scope for in-repo work
 

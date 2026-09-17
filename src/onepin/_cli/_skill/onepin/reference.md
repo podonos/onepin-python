@@ -111,7 +111,8 @@ with no key at all.
 - **Where a voice lives, and how to fill it in.** `operator_generator.config.voice_map` is a map of
   locale → list of `VoiceAssignment` (required: `voice_id`, `provider`, `model`; optional:
   `catalog_voice_id`, `voice_name`, `provider_config`, `canonical_controls`). Every field comes from
-  a `voices list` row, and the two id fields are **not** interchangeable:
+  a `voices list` row — take it from a `--language <locale> --buildable` row, since this map is
+  what every future run reads — and the two id fields are **not** interchangeable:
 
   | `VoiceAssignment` | `voices list` row |
   |---|---|
@@ -277,7 +278,7 @@ Let the server narrow it; don't page the catalog (SKILL.md → *Let the server p
 # What is even available in this locale? (values + match counts, per dimension)
 onepin --json voices facets --language ko-kr
 
-onepin --json voices list --language ko-kr --gender female --category narration \
+onepin --json voices list --language ko-kr --buildable --gender female --category narration \
   --search "calm, warm audiobook narrator" --limit 10 \
   | jq -r '.[] | [.name, .provider, (.age // "-"), (.category // "-"), .language_sample_url] | @tsv'
 ```
@@ -291,6 +292,17 @@ only reorders the page you were given. Nothing matched? Re-run `voices facets` w
 filters to see which axis is at zero, then drop `--search` first and the rest one at a time. Then
 audition: `language_sample_url` is the clip in the locale you asked for, and
 `voices similar <voice_id> --language <code>` is the server-side "more like this one".
+
+`--buildable` is the axis that is not about taste: it drops voices this API cannot synthesize for
+`--language` right now (quality floors, an enabled and routable provider/model, a billable rate).
+It **requires `--language`** and the CLI refuses the pair without one — exit `2`, nothing sent.
+Repeating `--language` asks for buildable in *at least one* of the locales, each judged whole.
+Three things it does not do: it does not apply to `voices facets` (those chip counts stay ungated
+and can exceed a gated page), it does not exclude a provider whose outage is transient (so a
+buildable voice can still fail a run), and it is not a durable property — re-ask rather than
+reusing an earlier answer. Zero rows under it means zero *buildable*, not an empty locale:
+`pagination.total` is narrowed too, so re-run without the flag before telling anyone the locale is
+empty. The CLI writes that distinction to stderr; stdout stays the bare array.
 
 ## Recipe: hand over a run's audio
 

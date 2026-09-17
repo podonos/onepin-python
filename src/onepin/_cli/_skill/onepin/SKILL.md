@@ -48,14 +48,14 @@ the user, not to you. Walk it in order and stop at each question.
 2. **Show it before it costs anything.** `workflows show <workflow_id>` → render the pipeline, the
    voice per language, and the quality gates. → *Show the workflow before you run it*
 3. **The voice — keep it, hear it, or change it?** Ask; don't assume the saved one is wanted.
-   - *hear it*: `voices list --language <locale> --search <name>` to build the shortlist, then
-     announce it and `voices sample <id>... --language <locale> --play` — **every** candidate in
-     one call, not just the one whose name you liked. The shortlist and the audio go out in the
-     same turn: name them 1..N, play them 1..N, ask for a number.
+   - *hear it*: `voices list --language <locale> --buildable --search <name>` to build the
+     shortlist, then announce it and `voices sample <id>... --language <locale> --play` —
+     **every** candidate in one call, not just the one whose name you liked. The shortlist and
+     the audio go out in the same turn: name them 1..N, play them 1..N, ask for a number.
      → *Audio: the part you must not skip*
    - *change it*: ask what they want it to sound like, then hand that description to the server —
-     `voices list --language <locale> --search "<their words>"` comes back ranked and already
-     narrowed. → *Let the server pick the shortlist*. Then stop: `workflows set-voice` is one
+     `voices list --language <locale> --buildable --search "<their words>"` comes back ranked and
+     already narrowed. → *Let the server pick the shortlist*. Then stop: `workflows set-voice` is one
      command, but a voice change is **not** run-scoped — it rewrites the saved workflow, and it
      needs a yes of its own before you touch anything. → *Changing a voice is not run-scoped*
 4. **The script.** Their exact text on `workflows run --script`, with `--source-language` when it
@@ -79,7 +79,10 @@ first. → *Designing a new workflow*
   `operator_translator` (`target_languages`) if they want other languages? an
   `operator_phoneme_injector` if pronunciation matters?
 - **Generator** — `operator_generator`, one `voice_map` entry per locale. Build each entry from a
-  `voices list` row (`voice_id` is the row's `provider_voice_id`, not its `id` — see reference.md).
+  `voices list --language <locale> --buildable` row (`voice_id` is the row's `provider_voice_id`,
+  not its `id` — see reference.md). A `voice_map` entry is **pinned**: it is what every future run
+  of this workflow uses, so it is the last place to offer a voice the API cannot synthesize.
+  → *Pin a voice you can actually build*
 - **Validators** — which checks, and at what bar: word accuracy, naturalness, clarity,
   pronunciation. Each has a `threshold` and `max_retries`, and **the defaults differ per validator**
   — read the real one out of `nodes list` (`.config_schema.threshold.default`) and quote that number
@@ -192,11 +195,20 @@ see below) and the workflow you are about to run (show its shape before it costs
   `--favorites-only`, plus `--sort`/`--order`. Filters AND across fields; a comma-separated value
   ORs within one. Ask the server for the shortlist instead of paging the catalog →
   *Let the server pick the shortlist*.
+- **`--buildable` narrows the list to voices this API can actually synthesize** for `--language`:
+  measured above the quality floors, on an enabled and currently-routable provider/model you can
+  be billed for (or hold your own key for). Without it, `voices list` is a raw catalogue browse
+  that can hand back a voice a run would refuse. **It requires `--language`** (quality is measured
+  per locale, so the question has no answer without one) and the CLI rejects the pair before
+  sending. Multiple locales OR: a voice is returned if it is buildable for at least one of them.
+  → *Pin a voice you can actually build*
 - **`onepin --json voices facets` answers "what can I filter by, and how much is left?"** — one call
   returns every provider, model, language, gender, age, category and accent that exists, each with
   a match count, and it takes the same filters so the counts narrow as you add them. Its `value`s
   are exactly what `voices list` accepts, so use it instead of guessing a locale code into a `422`
-  or offering the user a filter that would return nothing.
+  or offering the user a filter that would return nothing. **It does not take `--buildable`**, so
+  its counts are ungated and can be larger than a `--buildable` page — read a chip as "exists",
+  never as "buildable".
 - `--language` accepts only specific comma-separated codes (e.g. `en-us`, `en-gb`, `en`); an
   unsupported code returns `422` — don't guess regions, and note a voice's own
   `supported_languages` may be broader than the filter codes.
@@ -205,7 +217,8 @@ see below) and the workflow you are about to run (show its shape before it costs
   is one of the sets you should *not* walk by hand: an unfiltered page is an arbitrary slice, and
   the point of the filters is to make the first page the right one.
 - `onepin --json voices show <voice_id>` · `onepin --json voices similar <voice_id>` ·
-  `voices favorite` / `unfavorite <voice_id>` (and `voices list --favorites-only`).
+  `voices favorite` / `unfavorite <voice_id>` (and `voices list --favorites-only`). None of these
+  take `--buildable` — the gate is a `list` filter, and these already have the id.
 - **Audition them:** `onepin voices sample <voice_id>... --language <locale> --play` takes as many
   ids as you have candidates, mints a fresh sample URL for each, and plays them in order, naming
   each voice just before its clip. `--play` is the normal form; `--out-dir <dir>` writes files
@@ -238,7 +251,9 @@ shortlist.**
    per voice), `--gender`, `--age`, `--category` (the delivery style: `narration`, `podcast`,
    `news`, …), `--accent`, `--source` (`platform` vs. this workspace's own), `--provider`,
    `--model`, and `--favorites-only` for what this workspace already liked. Don't pull rows you
-   could have excluded in the request.
+   could have excluded in the request. **Once you have a locale, add `--buildable`** — a voice
+   the API cannot synthesize is a row you could have excluded, and the most expensive kind to
+   leave in. → *Pin a voice you can actually build*
 3. **Ask `voices facets` when you don't know what to ask for.** It reports the values that exist
    with a count each, under the filters you already have — so "is there even a Korean
    conversational voice?" is one call, not a search that comes back empty and tells you nothing.
@@ -254,6 +269,14 @@ nothing. Relax `--search` first (it is the fuzziest constraint), then one filter
 the user what you dropped — or run `voices facets` with the same filters to see which axis is the
 one at zero. The wrong recovery is an unfiltered `voices list` read by eye.
 
+**Zero under `--buildable` is a different sentence.** The gate narrows `pagination.total` as well
+as the page, so a `Showing 0 of 0` says *nothing buildable here*, not *no voices here* — and
+`voices facets` will still report a non-zero count for the same locale, because its chips are
+ungated. Don't report the locale as empty. Say the gate emptied it, and offer the ungated list
+(`voices list --language <locale>`, no `--buildable`) so the user can decide whether to wait for
+the provider or pick another locale. The CLI prints this distinction on stderr; pass it on rather
+than reading `total: 0` off stdout and drawing your own conclusion.
+
 **Read the count, and check the row is usable.** The row count is bounded by `--limit` and is never
 "how many matched" — the match count is the `N` in the `Showing X of N` footer (text output; under
 `--json` you get the rows alone, so page to find the end). And a row can be listed but unusable:
@@ -262,14 +285,49 @@ wire appears in its `model_capabilities[]` *for that locale*.
 
 Then hand the shortlist over by ear, not by name.
 
+## Pin a voice you can actually build
+
+`voices list` is a catalogue browse. Being listed means the voice *exists*; it does not mean this
+API can synthesize it for the locale you care about — the measured quality of a
+`(provider, model, locale)` triple, whether that provider and model are enabled and routable right
+now, and whether there is a rate you can be billed for are all separate questions, and the first
+place they get asked is the moment a run starts. `--buildable` asks them up front instead.
+
+**Use it wherever the voice is about to be pinned.** A `voice_map` entry and `workflows set-voice`
+both write the choice into the saved workflow, so a voice that cannot be built is not a failed
+call — it is a workflow that fails on every future run until someone edits it back.
+
+```bash
+onepin --json voices list --language ko-kr --buildable --search "warm, unhurried narrator"
+onepin --json voices list --language ko-kr --language en-us --buildable   # buildable for EITHER
+```
+
+Three rules to keep it honest:
+
+- **It needs `--language`, always.** Quality is measured per locale, so "buildable" has no meaning
+  until you say buildable *for what*. The CLI refuses the pair with a usage error (exit `2`)
+  rather than sending it. A name lookup with no locale in hand stays ungated — that is a lookup,
+  not a shortlist.
+- **It is not a guarantee.** A provider outage is deliberately *outside* the gate: excluding a
+  vendor whose circuit breaker just tripped would empty a whole locale on a blip, so buildable
+  voices keep listing through one. Offer a buildable voice as "nothing structural rules this out",
+  never as "this will work".
+- **It is not a lasting fact about a voice.** The answer moves with provider routing and can
+  differ between two calls a minute apart with no catalogue change at all. Don't cache it, don't
+  write it into notes, and re-run the query rather than reusing yesterday's shortlist.
+
+**If the CLI says it could not confirm `--buildable`**, the API it is pointed at may not know the
+parameter — an older deployment drops an unknown query parameter and answers with the *full*
+catalogue. Treat that list as unfiltered and say so; do not tell the user it was gated.
+
 ## Audio: the part you must not skip
 
 The user paid credits for sound. A reply that lists voice names, or reports "the run completed",
 and never puts audio in front of them has not delivered the thing they asked for.
 
 **Hearing a voice.** Have the server narrow it first (*Let the server pick the shortlist*), then
-audition what comes back. `onepin --json voices list --language <code> --search "<what they asked
-for>"` — each row's
+audition what comes back. `onepin --json voices list --language <code> --buildable --search "<what
+they asked for>"` — each row's
 `language_sample_url` is the clip *in the language you filtered for*, and `language_sample_locale`
 is the region it actually came from: report that, not the code you asked for (a bare family like
 `en` expands to `en-us` or `en-gb`, and only that field says which one they heard). A row's plain
@@ -500,7 +558,11 @@ no `--voice` flag, so "use a different voice just for this one" — an entirely 
   being made, and report the id you ended up on.
 
 `set-voice` being one command does not make it a small change. It **overwrites the saved workflow
-for every future run**, and the output says so on purpose.
+for every future run**, and the output says so on purpose. That is also why the candidate handed to
+`--voice` should come off a `voices list --language <locale> --buildable` row: `set-voice` checks
+the voice can *speak* the locale, not that this API can currently *synthesize* it, so an
+un-buildable pick passes the check here and fails at every run afterwards.
+→ *Pin a voice you can actually build*
 
 Say which of the two you are proposing, and get a yes for it *before* the run gate and separately
 from it — this is a permanent change to something the user built, not a run parameter. Never

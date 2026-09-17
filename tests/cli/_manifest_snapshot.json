@@ -947,6 +947,13 @@
           "type": "text"
         },
         {
+          "default": false,
+          "flag": "--buildable",
+          "help": "Only voices this server could actually synthesize for --language right now: measured above the quality floors, on an enabled and routable provider/model you can be billed for. Requires --language (quality is measured per locale). Narrows pagination.total too, so 0 rows means 0 buildable \u2014 not an empty catalog. Excludes transient provider outages, so a run can still fail.",
+          "required": false,
+          "type": "bool"
+        },
+        {
           "default": null,
           "flag": "--search",
           "help": "Free-text voice search over meaning plus name/tags/descriptor, returned relevance-ranked \u2014 not a plain substring match. Pass a description (\"warm, unhurried narrator\"), not just a name.",
