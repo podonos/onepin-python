@@ -40,7 +40,7 @@ class UsageSummaryOut(UniversalBaseModel):
 
     credits: UsageCreditsOut = pydantic.Field()
     """
-    Credit consumption and quota for the authenticated user's billing period.
+    Credit consumption and quota for the workspace's billing owner — an org workspace's shared pool, or a personal workspace owner's billing period.
     """
 
     characters: UsageCharactersOut = pydantic.Field()

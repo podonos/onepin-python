@@ -53,9 +53,13 @@ class UsageClient:
         statistics for the requested rolling window (`range`) with a chart-ready
         activity series (`activity`) bucketed by `activity_view`.
 
-        The `credits.used` field reflects the authenticated user's own billing-period
-        consumption; all other aggregate fields (characters, lines, runs, daily
-        buckets, activity buckets) are workspace-scoped across all members.
+        The `credits` block reflects the WORKSPACE's billing owner's billing-period
+        consumption — an org workspace's shared pool, or a personal workspace owner's —
+        when the account read-flip is enabled (else the authenticated user's own). The
+        sensitive billing menu (payment methods / subscription) stays owner/admin-gated
+        separately; this usage card is not that menu. All other aggregate fields
+        (characters, lines, runs, daily buckets, activity buckets) are workspace-scoped
+        across all members.
 
         Date boundaries are computed in the supplied `timezone` (IANA, e.g.
         `America/New_York`) so "today" and "this week" align with the caller's local
@@ -285,9 +289,13 @@ class AsyncUsageClient:
         statistics for the requested rolling window (`range`) with a chart-ready
         activity series (`activity`) bucketed by `activity_view`.
 
-        The `credits.used` field reflects the authenticated user's own billing-period
-        consumption; all other aggregate fields (characters, lines, runs, daily
-        buckets, activity buckets) are workspace-scoped across all members.
+        The `credits` block reflects the WORKSPACE's billing owner's billing-period
+        consumption — an org workspace's shared pool, or a personal workspace owner's —
+        when the account read-flip is enabled (else the authenticated user's own). The
+        sensitive billing menu (payment methods / subscription) stays owner/admin-gated
+        separately; this usage card is not that menu. All other aggregate fields
+        (characters, lines, runs, daily buckets, activity buckets) are workspace-scoped
+        across all members.
 
         Date boundaries are computed in the supplied `timezone` (IANA, e.g.
         `America/New_York`) so "today" and "this week" align with the caller's local
