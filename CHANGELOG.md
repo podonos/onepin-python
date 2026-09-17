@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.1](https://github.com/podonos/onepin-python/compare/v0.16.0...v0.16.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **skill:** play the audio instead of handing over a folder ([#112](https://github.com/podonos/onepin-python/issues/112)) ([505c7e1](https://github.com/podonos/onepin-python/commit/505c7e1decda59bfca6052abb74b7e16f322798b))
+
 ## [0.16.0](https://github.com/podonos/onepin-python/compare/v0.15.0...v0.16.0) (2026-09-17)
 
 
