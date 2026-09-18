@@ -27,11 +27,15 @@ _GROUP_HELP = {
     "workspace": "Manage workspaces, members, and statistics.",
     "usage": "Inspect workspace usage and activity.",
     "nodes": "Inspect available workflow node types.",
+    "providers": "Browse the speech synthesis provider and model catalog.",
+    "account": "Inspect the signed-in account: credits, plan, notifications.",
 }
 
 _SUBGROUP_HELP = {
     ("workflows", "runs"): "Inspect and control workflow runs.",
     ("workspace", "members"): "Manage workspace members and invites.",
+    ("providers", "models"): "Inspect a provider's models.",
+    ("account", "notifications"): "View and update email notification preferences.",
 }
 
 

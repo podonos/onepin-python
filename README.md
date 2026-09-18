@@ -95,6 +95,17 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 <!-- BEGIN GENERATED: cli-commands -->
 ## CLI command reference
 
+### account
+
+- `onepin account credits` — Show the account's credit balance and billing period.
+- `onepin account plan` — Show the plan limits governing the account.
+- `onepin account templates` — List templates created by the account.
+
+#### account notifications
+
+- `onepin account notifications set` — Update email notification preferences.
+- `onepin account notifications show` — Show email notification preferences.
+
 ### login
 
 - `onepin login` — Validate an API key and write it to ~/.onepin/credentials.
@@ -107,6 +118,17 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 
 - `onepin nodes list` — List available node types.
 - `onepin nodes show <node_type>` — Show a node type's detail (runtime options).
+
+### providers
+
+- `onepin providers list` — List speech synthesis providers.
+- `onepin providers show <provider>` — Show a single provider.
+
+#### providers models
+
+- `onepin providers models list <provider>` — List a provider's models.
+- `onepin providers models show <provider> <model>` — Show a single provider model.
+- `onepin providers models voices <provider> <model>` — List platform voices for a provider model.
 
 ### schema
 
@@ -123,6 +145,7 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 - `onepin templates clone <template_id>` — Clone a template into a new workflow.
 - `onepin templates create` — Create a template.
 - `onepin templates delete <template_id>` — Delete a template.
+- `onepin templates estimate <template_id>` — Estimate the credit cost of running this template.
 - `onepin templates favorite <template_id>` — Favorite a template.
 - `onepin templates list` — List gallery templates.
 - `onepin templates show <template_id>` — Show a single template.
@@ -168,15 +191,20 @@ generated from the live command tree (the same source as `onepin schema`) and ke
 - `onepin workflows show <workflow_id>` — Show a single workflow.
 - `onepin workflows update <workflow_id>` — Update a workflow (partial patch).
 - `onepin workflows uploads <workflow_id>` — List a workflow's uploads.
+- `onepin workflows validate` — Validate a workflow definition without saving it.
 
 #### workflows runs
 
+- `onepin workflows runs analysis <workflow_id> <run_id>` — Show delivery, quality and cost analysis for a run.
 - `onepin workflows runs cancel <workflow_id> <run_id>` — Cancel a running run.
 - `onepin workflows runs data <workflow_id> <run_id>` — Show a run's output data.
 - `onepin workflows runs download <workflow_id> <run_id>` — Download a run's full export to a file.
 - `onepin workflows runs download-node <workflow_id> <run_id> <node_id>` — Download a single node's output to a file.
 - `onepin workflows runs list <workflow_id>` — List runs for a workflow.
+- `onepin workflows runs outputs <workflow_id> <run_id>` — Show one logical output per sink node in a run.
 - `onepin workflows runs overview <workflow_id> <run_id>` — Show a run's node overview.
+- `onepin workflows runs pause <workflow_id> <run_id>` — Pause an active run at the next safe checkpoint.
+- `onepin workflows runs resume <workflow_id> <run_id>` — Resume a paused run from its last completed wave.
 - `onepin workflows runs show <workflow_id> <run_id>` — Show a single run.
 - `onepin workflows runs status <workflow_id> <run_id>` — Show a run's current status.
 - `onepin workflows runs steps <workflow_id> <run_id>` — List the steps of a run.
