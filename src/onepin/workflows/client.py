@@ -24,7 +24,6 @@ from ..types.api_response_workflow_validate_out import ApiResponseWorkflowValida
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
-from ..types.workflow_run_start_in import WorkflowRunStartIn
 from .raw_client import AsyncRawWorkflowsClient, RawWorkflowsClient
 from .types.list_workflows_request_order_item import ListWorkflowsRequestOrderItem
 from .types.list_workflows_request_sort_item import ListWorkflowsRequestSortItem
@@ -627,7 +626,8 @@ class WorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -648,7 +648,11 @@ class WorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -660,18 +664,21 @@ class WorkflowsClient:
 
         Examples
         --------
-        from onepin import OnePinClient, WorkflowRunStartIn
+        from onepin import OnePinClient
 
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
         client.workflows.estimate_workflow(
             workflow_id="workflow_id",
-            request=WorkflowRunStartIn(),
         )
         """
         _response = self._raw_client.estimate_workflow(
-            workflow_id, workspace_id=workspace_id, request=request, request_options=request_options
+            workflow_id,
+            workspace_id=workspace_id,
+            script_text=script_text,
+            source_language=source_language,
+            request_options=request_options,
         )
         return _response.data
 
@@ -680,7 +687,8 @@ class WorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -701,7 +709,11 @@ class WorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -713,18 +725,21 @@ class WorkflowsClient:
 
         Examples
         --------
-        from onepin import OnePinClient, WorkflowRunStartIn
+        from onepin import OnePinClient
 
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
         client.workflows.preview_run(
             workflow_id="workflow_id",
-            request=WorkflowRunStartIn(),
         )
         """
         _response = self._raw_client.preview_run(
-            workflow_id, workspace_id=workspace_id, request=request, request_options=request_options
+            workflow_id,
+            workspace_id=workspace_id,
+            script_text=script_text,
+            source_language=source_language,
+            request_options=request_options,
         )
         return _response.data
 
@@ -2143,7 +2158,8 @@ class AsyncWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -2164,7 +2180,11 @@ class AsyncWorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2178,7 +2198,7 @@ class AsyncWorkflowsClient:
         --------
         import asyncio
 
-        from onepin import AsyncOnePinClient, WorkflowRunStartIn
+        from onepin import AsyncOnePinClient
 
         client = AsyncOnePinClient(
             token="YOUR_TOKEN",
@@ -2188,14 +2208,17 @@ class AsyncWorkflowsClient:
         async def main() -> None:
             await client.workflows.estimate_workflow(
                 workflow_id="workflow_id",
-                request=WorkflowRunStartIn(),
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.estimate_workflow(
-            workflow_id, workspace_id=workspace_id, request=request, request_options=request_options
+            workflow_id,
+            workspace_id=workspace_id,
+            script_text=script_text,
+            source_language=source_language,
+            request_options=request_options,
         )
         return _response.data
 
@@ -2204,7 +2227,8 @@ class AsyncWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -2225,7 +2249,11 @@ class AsyncWorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2239,7 +2267,7 @@ class AsyncWorkflowsClient:
         --------
         import asyncio
 
-        from onepin import AsyncOnePinClient, WorkflowRunStartIn
+        from onepin import AsyncOnePinClient
 
         client = AsyncOnePinClient(
             token="YOUR_TOKEN",
@@ -2249,14 +2277,17 @@ class AsyncWorkflowsClient:
         async def main() -> None:
             await client.workflows.preview_run(
                 workflow_id="workflow_id",
-                request=WorkflowRunStartIn(),
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.preview_run(
-            workflow_id, workspace_id=workspace_id, request=request, request_options=request_options
+            workflow_id,
+            workspace_id=workspace_id,
+            script_text=script_text,
+            source_language=source_language,
+            request_options=request_options,
         )
         return _response.data
 
