@@ -10,7 +10,6 @@ from ...core.jsonable_encoder import encode_path_param
 from ...core.parse_error import ParsingError
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
-from ...core.serialization import convert_and_respect_annotation_metadata
 from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.api_counted_list_response_workflow_run_list_item import ApiCountedListResponseWorkflowRunListItem
 from ...types.api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
@@ -18,7 +17,6 @@ from ...types.api_response_workflow_run_detail_out import ApiResponseWorkflowRun
 from ...types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ...types.api_response_workflow_run_status_out import ApiResponseWorkflowRunStatusOut
 from ...types.node_type import NodeType
-from ...types.workflow_run_start_in import WorkflowRunStartIn
 from .types.list_runs_request_order import ListRunsRequestOrder
 from .types.list_runs_request_sort import ListRunsRequestSort
 from pydantic import ValidationError
@@ -144,7 +142,8 @@ class RawRunsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowRunOut]:
         """
@@ -177,7 +176,11 @@ class RawRunsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -190,9 +193,10 @@ class RawRunsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs",
             method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
-            ),
+            json={
+                "script_text": script_text,
+                "source_language": source_language,
+            },
             headers={
                 "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
@@ -684,7 +688,8 @@ class AsyncRawRunsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowRunOut]:
         """
@@ -717,7 +722,11 @@ class AsyncRawRunsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -730,9 +739,10 @@ class AsyncRawRunsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs",
             method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
-            ),
+            json={
+                "script_text": script_text,
+                "source_language": source_language,
+            },
             headers={
                 "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,

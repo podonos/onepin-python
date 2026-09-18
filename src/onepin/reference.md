@@ -5037,6 +5037,88 @@ client.workspaces.get_workspace_subscription(
 </dl>
 </details>
 
+<details><summary><code>client.workspaces.<a href="src/onepin/workspaces/client.py">get_workspace_credits</a>(...) -> ApiResponseBalanceResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Return the credit balance governing this workspace — the source the Usage/credit card reads.
+
+Same shape as ``/users/me/credits``. For an **organization** workspace this is the organization's
+shared credit pool — the balance a member's runs debit; for a **personal** workspace it is the
+workspace owner's balance. Readable by any workspace member (the sensitive billing menu — payment
+methods and subscription lifecycle — is gated separately). ``balance``/``remaining`` are the
+spendable pool, ``used`` is consumption in the current billing period, ``plan_grant`` is the plan's
+monthly allowance, and ``period_end`` is the next expected reset boundary (or null when none is
+promised). For an annual subscriber this GET may perform idempotent period maintenance before
+returning; retries remain safe. Membership is existence-hidden (404); the org-admin fallback applies.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.workspaces.get_workspace_credits(
+    workspace_id="workspace_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**workspace_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.workspaces.<a href="src/onepin/workspaces/client.py">create_workspace_org_checkout</a>(...) -> ApiResponseCheckoutResponse</code></summary>
 <dl>
 <dd>
@@ -7289,7 +7371,7 @@ lifecycle.
 <dd>
 
 ```python
-from onepin import OnePinClient, WorkflowRunStartIn
+from onepin import OnePinClient
 from onepin.environment import OnePinClientEnvironment
 
 client = OnePinClient(
@@ -7299,7 +7381,6 @@ client = OnePinClient(
 
 client.workflows.estimate_workflow(
     workflow_id="workflow_id",
-    request=WorkflowRunStartIn(),
 )
 
 ```
@@ -7324,7 +7405,7 @@ client.workflows.estimate_workflow(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]` 
+**request:** `WorkflowRunStartIn` 
     
 </dd>
 </dl>
@@ -7332,7 +7413,7 @@ client.workflows.estimate_workflow(
 <dl>
 <dd>
 
-**request:** `typing.Optional[WorkflowRunStartIn]` 
+**workspace_id:** `typing.Optional[str]` 
     
 </dd>
 </dl>
@@ -7388,7 +7469,7 @@ confirm the expected cost. Equivalent to `POST /estimate`.
 <dd>
 
 ```python
-from onepin import OnePinClient, WorkflowRunStartIn
+from onepin import OnePinClient
 from onepin.environment import OnePinClientEnvironment
 
 client = OnePinClient(
@@ -7398,7 +7479,6 @@ client = OnePinClient(
 
 client.workflows.preview_run(
     workflow_id="workflow_id",
-    request=WorkflowRunStartIn(),
 )
 
 ```
@@ -7423,7 +7503,7 @@ client.workflows.preview_run(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]` 
+**request:** `WorkflowRunStartIn` 
     
 </dd>
 </dl>
@@ -7431,7 +7511,7 @@ client.workflows.preview_run(
 <dl>
 <dd>
 
-**request:** `typing.Optional[WorkflowRunStartIn]` 
+**workspace_id:** `typing.Optional[str]` 
     
 </dd>
 </dl>
@@ -8951,7 +9031,7 @@ Requires at least `editor` role in the workspace; viewers cannot run workflows.
 <dd>
 
 ```python
-from onepin import OnePinClient, WorkflowRunStartIn
+from onepin import OnePinClient
 from onepin.environment import OnePinClientEnvironment
 
 client = OnePinClient(
@@ -8961,7 +9041,6 @@ client = OnePinClient(
 
 client.workflows.runs.start(
     workflow_id="workflow_id",
-    request=WorkflowRunStartIn(),
 )
 
 ```
@@ -8986,7 +9065,7 @@ client.workflows.runs.start(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]` 
+**request:** `WorkflowRunStartIn` 
     
 </dd>
 </dl>
@@ -8994,7 +9073,7 @@ client.workflows.runs.start(
 <dl>
 <dd>
 
-**request:** `typing.Optional[WorkflowRunStartIn]` 
+**workspace_id:** `typing.Optional[str]` 
     
 </dd>
 </dl>
