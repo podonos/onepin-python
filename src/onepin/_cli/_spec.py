@@ -614,7 +614,8 @@ TABLE: list[Cmd] = [
                     "until you say buildable for WHICH locale. Add --language <locale> (e.g. "
                     "--language ko-kr), or drop --buildable to browse the whole catalog."
                 ),
-                query_fallback=True,
+                # No `query_fallback` here: the regen that synced the spec gave `voices.list` a
+                # native `buildable` keyword, which is the window the bridge existed for.
                 help="Only voices this server could actually synthesize for --language right now: "
                 "measured above the quality floors, on an enabled and routable provider/model "
                 "you can be billed for. Requires --language (quality is measured per locale). "

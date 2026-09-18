@@ -2635,6 +2635,32 @@ your workspace owns — imported, recorded, or uploaded — are exempt from both
 exclusion and the narrowing: they routinely carry no declared locale at all, and
 hiding them would remove a customer's own voices from their own list.
 
+`buildable=true` narrows platform voices to the ones that can actually be
+SYNTHESIZED for `language`: the voice must have a measured `(provider, model, locale)`
+pair that clears the quality floors used by automatic voice selection, on a provider
+and model that are enabled, currently routable for synthesis, and carry a billable
+rate (or one your workspace holds a valid BYOK key for), and the voice must itself be
+able to speak that locale on that model.
+Without it the list is a raw catalogue browse that can return a voice a run would
+refuse — the same voice the assistant's own cards never offer. It **requires**
+`language` (422 otherwise): the measurements are per-locale, so "buildable" has no
+meaning until you say buildable for what. Repeating `language` asks whether the voice
+is buildable for AT LEAST ONE of them, and each locale is judged whole: a voice
+measured only for `en-us` is not returned for `?language=en-gb&language=en-us` unless
+it can speak `en-us` itself. Voices your workspace owns are returned
+either way — nothing measures a customer's own voice, so there is no pair to clear.
+`pagination.total` follows the same narrowing, so paging cannot walk past the gate.
+Transient provider health is deliberately NOT part of this filter; a vendor whose
+circuit breaker is open still lists. A vendor whose credentials cannot be resolved at
+all is a different case and IS excluded — that failure is not transient.
+
+`GET /voices/facets` does NOT take this parameter, so its chip counts are ungated and
+a chip can over-count relative to a `buildable=true` page. Gating them needs the
+LANGUAGE dimension evaluated per candidate locale — a language chip self-excludes the
+`language` filter this gate is defined against, so reusing the request's own locales
+would count every chip against the locale already selected — and that is a separate
+change from this one.
+
 Multi-sort: `sort` and `order` are parallel lists. `?sort=uses_count&sort=name&order=desc&order=asc`
 orders primarily by uses_count DESC, secondarily by name ASC. When `order`
 is shorter than `sort`, missing entries default per-field:
@@ -2768,6 +2794,14 @@ client.voices.list()
 <dl>
 <dd>
 
+**buildable:** `typing.Optional[bool]` — Return only voices that can actually be synthesized for `language`: the measured quality floors, a provider/model that is enabled AND currently routable, and a billable rate (or your own BYOK key). Requires `language`; each repeated value is judged on its own. Voices your workspace owns are always returned.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **provider:** `typing.Optional[typing.List[str]]` — Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
     
 </dd>
@@ -2868,6 +2902,13 @@ value already selected (the ranked set is computed under the current filters), a
 ANN recall can return fewer rows than the chip promises. In the LEXICAL
 fallback (flag off / no embedder / non-platform source / embed fault) `search` is the
 `name`/`descriptor`/`tags` ILIKE and counts are exact (no cap), exactly as before.
+
+No `buildable` parameter: unlike `GET /voices` these counts are NOT narrowed to
+synthesizable voices, so against a `buildable=true` page a chip can over-count. The
+language dimension is why — a language chip deliberately self-excludes the `language`
+filter that gate is defined against, so it has to be evaluated per candidate locale
+rather than against the request's own, and the legacy-JSONB half of the language count
+is aggregated in Python with no query to attach it to.
 
 Chips are drawn from the same population `GET /voices` returns, so the
 official-locale restriction applies here too and no chip can open an empty page.
@@ -5453,9 +5494,13 @@ Combines credit consumption, character and line counts, and workflow run
 statistics for the requested rolling window (`range`) with a chart-ready
 activity series (`activity`) bucketed by `activity_view`.
 
-The `credits.used` field reflects the authenticated user's own billing-period
-consumption; all other aggregate fields (characters, lines, runs, daily
-buckets, activity buckets) are workspace-scoped across all members.
+The `credits` block reflects the WORKSPACE's billing owner's billing-period
+consumption — an org workspace's shared pool, or a personal workspace owner's —
+when the account read-flip is enabled (else the authenticated user's own). The
+sensitive billing menu (payment methods / subscription) stays owner/admin-gated
+separately; this usage card is not that menu. All other aggregate fields
+(characters, lines, runs, daily buckets, activity buckets) are workspace-scoped
+across all members.
 
 Date boundaries are computed in the supplied `timezone` (IANA, e.g.
 `America/New_York`) so "today" and "this week" align with the caller's local

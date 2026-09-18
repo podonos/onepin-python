@@ -157,6 +157,19 @@ jobs:
           echo "CLI preserved + non-bare + shaped client confirmed."
 
       - name: Build/CLI guard tests
+        # Only on the dev smoke-check path, which opens no PR and so has no other place
+        # for these to run. On the PR-opening paths this step is deliberately skipped:
+        # ci.yml runs the very same `tests/build` on the regen PR, so gating here is
+        # duplicate coverage with a strictly worse failure mode. `tests/build` mixes two
+        # severities -- CLI->SDK breakage (a renamed/dropped method, which crashes the CLI)
+        # and SDK->CLI drift (a new param with no flag yet, which breaks nothing) -- and a
+        # failure of either kind used to run BEFORE "Open regen PR" and take the PR down
+        # with it. That deleted the spec update entirely: no branch, no diff, nothing to
+        # fix forward from, just a red run. Which is the exact silence test_sdk_contract.py
+        # was written to end. The regen PR is a proposal, not a release; gate the merge
+        # (branch protection + ci.yml), not the proposal. The pre-PR shell guard above
+        # still blocks the catastrophic case -- a clobbered _cli/ or a bare client.
+        if: steps.vars.outputs.open_pr != 'true'
         run: |
           pip install uv
           uv sync --all-extras
