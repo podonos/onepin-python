@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.17.0](https://github.com/podonos/onepin-python/compare/v0.16.1...v0.17.0) (2026-09-18)
+
+
+### Features
+
+* **cli:** gate voices list on --buildable, and verify the server honors it ([#115](https://github.com/podonos/onepin-python/issues/115)) ([616a3f1](https://github.com/podonos/onepin-python/commit/616a3f1722c685a902410bcc82d040d4aee7a49b))
+* **cli:** reach the providers, account, and run-control endpoints ([#116](https://github.com/podonos/onepin-python/issues/116)) ([3a79160](https://github.com/podonos/onepin-python/commit/3a79160fda7b08f9a438ebfdc0c34e800360c1c8))
+* land the regen the CI gate deleted, and expose voices --buildable ([#117](https://github.com/podonos/onepin-python/issues/117)) ([eac9de7](https://github.com/podonos/onepin-python/commit/eac9de73e2d7998caddfcfad28357bdb515ddbb8))
+
 ## [0.16.1](https://github.com/podonos/onepin-python/compare/v0.16.0...v0.16.1) (2026-09-17)
 
 
