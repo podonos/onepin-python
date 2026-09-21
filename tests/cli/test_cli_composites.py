@@ -217,13 +217,17 @@ class TestWorkflowPreviewRun:
         assert preview.calls[0].request.content == run.calls[0].request.content
 
     @respx.mock
-    def test_no_overrides_sends_no_body(self, tmp_home) -> None:
+    def test_no_overrides_sends_empty_body(self, tmp_home) -> None:
         route = respx.post("https://api.onepin.ai/api/v1/workflows/wf-1/runs/preview").mock(
             return_value=httpx.Response(200, json={"data": _ESTIMATE, "meta": _META_JSON})
         )
         result = runner.invoke(app, ["--api-key", "op_live_x", "workflows", "preview-run", "wf-1", "--json"])
         assert result.exit_code == 0, result.output
-        assert route.calls[0].request.content == b""
+        # With the run-input body inlined (script_text/source_language as OMIT-defaulted
+        # kwargs), an override-free call serializes to an empty JSON object rather than no
+        # body at all. The endpoint's `Body(default_factory=WorkflowRunStartIn)` treats `{}`
+        # and an absent body identically (both mean "no run-scoped overrides").
+        assert route.calls[0].request.content == b"{}"
 
     @respx.mock
     def test_text_output_renders_the_credits(self, tmp_home) -> None:
