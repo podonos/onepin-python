@@ -4651,8 +4651,8 @@ client.workspaces.get_workspace(
 <dl>
 <dd>
 
-**workspace_id:** `str` 
-    
+**workspace_id:** `str`
+
 </dd>
 </dl>
 
@@ -4660,7 +4660,7 @@ client.workspaces.get_workspace(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
+
 </dd>
 </dl>
 </dd>
@@ -5099,8 +5099,8 @@ client.workspaces.get_workspace_credits(
 <dl>
 <dd>
 
-**workspace_id:** `str` 
-    
+**workspace_id:** `str`
+
 </dd>
 </dl>
 
@@ -5108,7 +5108,7 @@ client.workspaces.get_workspace_credits(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
+
 </dd>
 </dl>
 </dd>
