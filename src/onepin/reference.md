@@ -7405,7 +7405,7 @@ client.workflows.estimate_workflow(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]` 
+**request:** `WorkflowRunStartIn`
     
 </dd>
 </dl>
@@ -7413,15 +7413,7 @@ client.workflows.estimate_workflow(
 <dl>
 <dd>
 
-**script_text:** `typing.Optional[str]` — Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**source_language:** `typing.Optional[str]` — BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
+**workspace_id:** `typing.Optional[str]`
     
 </dd>
 </dl>
@@ -7511,7 +7503,7 @@ client.workflows.preview_run(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]` 
+**request:** `WorkflowRunStartIn`
     
 </dd>
 </dl>
@@ -7519,15 +7511,7 @@ client.workflows.preview_run(
 <dl>
 <dd>
 
-**script_text:** `typing.Optional[str]` — Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**source_language:** `typing.Optional[str]` — BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
+**workspace_id:** `typing.Optional[str]`
     
 </dd>
 </dl>
@@ -9081,7 +9065,7 @@ client.workflows.runs.start(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]` 
+**request:** `WorkflowRunStartIn`
     
 </dd>
 </dl>
@@ -9089,15 +9073,7 @@ client.workflows.runs.start(
 <dl>
 <dd>
 
-**script_text:** `typing.Optional[str]` — Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**source_language:** `typing.Optional[str]` — BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
+**workspace_id:** `typing.Optional[str]`
     
 </dd>
 </dl>
@@ -9559,4 +9535,3 @@ client.workflows.runs.cancel(
 </dd>
 </dl>
 </details>
-

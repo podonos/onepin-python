@@ -7,6 +7,7 @@ from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.http_response import AsyncHttpResponse, HttpResponse
 from ...core.jsonable_encoder import encode_path_param
+from ...core.pagination import AsyncPager, SyncPager
 from ...core.parse_error import ParsingError
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
@@ -17,6 +18,7 @@ from ...types.api_response_workflow_run_detail_out import ApiResponseWorkflowRun
 from ...types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ...types.api_response_workflow_run_status_out import ApiResponseWorkflowRunStatusOut
 from ...types.node_type import NodeType
+from ...types.workflow_run_list_item import WorkflowRunListItem
 from .types.list_runs_request_order import ListRunsRequestOrder
 from .types.list_runs_request_sort import ListRunsRequestSort
 from pydantic import ValidationError
@@ -41,7 +43,7 @@ class RawRunsClient:
         order: typing.Optional[ListRunsRequestOrder] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ApiCountedListResponseWorkflowRunListItem]:
+    ) -> SyncPager[WorkflowRunListItem, ApiCountedListResponseWorkflowRunListItem]:
         """
         List runs for a workflow, newest first by default.
 
@@ -88,9 +90,11 @@ class RawRunsClient:
 
         Returns
         -------
-        HttpResponse[ApiCountedListResponseWorkflowRunListItem]
+        SyncPager[WorkflowRunListItem, ApiCountedListResponseWorkflowRunListItem]
             Successful Response
         """
+        offset = offset if offset is not None else 0
+
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs",
             method="GET",
@@ -109,14 +113,27 @@ class RawRunsClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
+                _parsed_response = typing.cast(
                     ApiCountedListResponseWorkflowRunListItem,
                     parse_obj_as(
                         type_=ApiCountedListResponseWorkflowRunListItem,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return HttpResponse(response=_response, data=_data)
+                _items = _parsed_response.data
+                _has_next = len(_items or []) > 0
+                _get_next = lambda: self.list(
+                    workflow_id,
+                    offset=offset + len(_items or []),
+                    limit=limit,
+                    status=status,
+                    search=search,
+                    sort=sort,
+                    order=order,
+                    workspace_id=workspace_id,
+                    request_options=request_options,
+                )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -587,7 +604,7 @@ class AsyncRawRunsClient:
         order: typing.Optional[ListRunsRequestOrder] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ApiCountedListResponseWorkflowRunListItem]:
+    ) -> AsyncPager[WorkflowRunListItem, ApiCountedListResponseWorkflowRunListItem]:
         """
         List runs for a workflow, newest first by default.
 
@@ -634,9 +651,11 @@ class AsyncRawRunsClient:
 
         Returns
         -------
-        AsyncHttpResponse[ApiCountedListResponseWorkflowRunListItem]
+        AsyncPager[WorkflowRunListItem, ApiCountedListResponseWorkflowRunListItem]
             Successful Response
         """
+        offset = offset if offset is not None else 0
+
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs",
             method="GET",
@@ -655,14 +674,30 @@ class AsyncRawRunsClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
+                _parsed_response = typing.cast(
                     ApiCountedListResponseWorkflowRunListItem,
                     parse_obj_as(
                         type_=ApiCountedListResponseWorkflowRunListItem,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return AsyncHttpResponse(response=_response, data=_data)
+                _items = _parsed_response.data
+                _has_next = len(_items or []) > 0
+
+                async def _get_next():
+                    return await self.list(
+                        workflow_id,
+                        offset=offset + len(_items or []),
+                        limit=limit,
+                        status=status,
+                        search=search,
+                        sort=sort,
+                        order=order,
+                        workspace_id=workspace_id,
+                        request_options=request_options,
+                    )
+
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),

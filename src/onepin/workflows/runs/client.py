@@ -3,6 +3,7 @@
 import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.pagination import AsyncPager, SyncPager
 from ...core.request_options import RequestOptions
 from ...types.api_counted_list_response_workflow_run_list_item import ApiCountedListResponseWorkflowRunListItem
 from ...types.api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
@@ -10,6 +11,7 @@ from ...types.api_response_workflow_run_detail_out import ApiResponseWorkflowRun
 from ...types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ...types.api_response_workflow_run_status_out import ApiResponseWorkflowRunStatusOut
 from ...types.node_type import NodeType
+from ...types.workflow_run_list_item import WorkflowRunListItem
 from .raw_client import AsyncRawRunsClient, RawRunsClient
 from .types.list_runs_request_order import ListRunsRequestOrder
 from .types.list_runs_request_sort import ListRunsRequestSort
@@ -45,7 +47,7 @@ class RunsClient:
         order: typing.Optional[ListRunsRequestOrder] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ApiCountedListResponseWorkflowRunListItem:
+    ) -> SyncPager[WorkflowRunListItem, ApiCountedListResponseWorkflowRunListItem]:
         """
         List runs for a workflow, newest first by default.
 
@@ -92,7 +94,7 @@ class RunsClient:
 
         Returns
         -------
-        ApiCountedListResponseWorkflowRunListItem
+        SyncPager[WorkflowRunListItem, ApiCountedListResponseWorkflowRunListItem]
             Successful Response
 
         Examples
@@ -102,11 +104,16 @@ class RunsClient:
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
-        client.workflows.runs.list(
+        response = client.workflows.runs.list(
             workflow_id="workflow_id",
         )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
         """
-        _response = self._raw_client.list(
+        return self._raw_client.list(
             workflow_id,
             offset=offset,
             limit=limit,
@@ -117,7 +124,6 @@ class RunsClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
-        return _response.data
 
     def start(
         self,
@@ -473,7 +479,7 @@ class AsyncRunsClient:
         order: typing.Optional[ListRunsRequestOrder] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ApiCountedListResponseWorkflowRunListItem:
+    ) -> AsyncPager[WorkflowRunListItem, ApiCountedListResponseWorkflowRunListItem]:
         """
         List runs for a workflow, newest first by default.
 
@@ -520,7 +526,7 @@ class AsyncRunsClient:
 
         Returns
         -------
-        ApiCountedListResponseWorkflowRunListItem
+        AsyncPager[WorkflowRunListItem, ApiCountedListResponseWorkflowRunListItem]
             Successful Response
 
         Examples
@@ -535,14 +541,20 @@ class AsyncRunsClient:
 
 
         async def main() -> None:
-            await client.workflows.runs.list(
+            response = await client.workflows.runs.list(
                 workflow_id="workflow_id",
             )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list(
+        return await self._raw_client.list(
             workflow_id,
             offset=offset,
             limit=limit,
@@ -553,7 +565,6 @@ class AsyncRunsClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
-        return _response.data
 
     async def start(
         self,

@@ -30,8 +30,7 @@
       }
     ]
   },
-  "originGitCommit": "403fef02d6d53ab8076d8023d3c42789add4b5ed",
-  "originGitCommitIsDirty": false,
-  "invokedBy": "ci",
-  "ciProvider": "github"
+  "originGitCommit": "3d712ffd87d0eab81a87aa8c0e603081a11ee5f1",
+  "originGitCommitIsDirty": true,
+  "invokedBy": "manual"
 }
