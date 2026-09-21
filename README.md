@@ -71,14 +71,14 @@ installed `onepin` is **below that floor**, the SDK stops with a clear, copy-pas
 onepin 0.4.1 is below the required minimum 0.5.0. Upgrade: pip install --upgrade 'onepin>=0.5.0'
 ```
 
-The `onepin` CLI enforces this automatically. For **programmatic** use, build the client with
-`onepin.make_client` (instead of `OnePinClient` directly) to get the same gate plus a corrected
-`User-Agent`:
+The `onepin` CLI enforces this automatically. For **programmatic** use, `OnepinClient` has the
+same gate built in plus a corrected `User-Agent` (`make_client` is the explicit-token equivalent
+if you are not using credential resolution):
 
 ```python
 import onepin
 
-client = onepin.make_client(token="op_live_...")
+client = onepin.OnepinClient()   # resolves your key (arg / ONEPIN_API_KEY / `onepin login`), version-gated
 client.workflows.list()  # raises onepin.OnePinUpgradeRequiredError if the SDK is too old
 ```
 
@@ -440,9 +440,9 @@ Full per-endpoint reference: [`src/onepin/reference.md`](src/onepin/reference.md
 hosted docs at [onepin.ai/docs](https://onepin.ai/docs). Runnable scripts in [`examples/`](examples/).
 
 ```python
-from onepin import OnePinClient
+from onepin import OnepinClient
 
-client = OnePinClient(token="op_...")   # your API key, used as the bearer token
+client = OnepinClient(api_key="op_...")   # or set ONEPIN_API_KEY, or run `onepin login`
 
 workflows = client.workflows.list()     # paginated — iterate items directly
 voices = client.voices.list()
@@ -451,22 +451,19 @@ voices = client.voices.list()
 ### Environments
 
 ```python
-from onepin import OnePinClient
-from onepin.environment import OnePinClientEnvironment
+from onepin import OnepinClient
 
-# Defaults to PROD (https://api.onepin.ai). Target the dev API instead:
-client = OnePinClient(token="op_...", environment=OnePinClientEnvironment.DEV)
-# ...or point at any host directly:
-client = OnePinClient(token="op_...", base_url="https://dev-api.onepin.ai")
+# Defaults to PROD (https://api.onepin.ai). Target the dev API by URL:
+client = OnepinClient(api_key="op_...", base_url="https://dev-api.onepin.ai")
 ```
 
 ### Async
 
 ```python
 import asyncio
-from onepin import AsyncOnePinClient
+from onepin import AsyncOnepinClient
 
-client = AsyncOnePinClient(token="op_...")
+client = AsyncOnepinClient(api_key="op_...")
 
 
 async def main() -> None:
@@ -479,10 +476,10 @@ asyncio.run(main())
 ### Errors, retries, timeouts
 
 ```python
-from onepin import OnePinClient
+from onepin import OnepinClient
 from onepin.core.api_error import ApiError
 
-client = OnePinClient(token="op_...", timeout=20.0)   # client-wide timeout (default 60s)
+client = OnepinClient(api_key="op_...", timeout=20.0)   # client-wide timeout (default 60s)
 
 try:
     client.workflows.get(

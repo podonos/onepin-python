@@ -28,7 +28,7 @@ class TestIsOlder:
 
 class TestRequiredVersionFrom:
     def test_case_insensitive(self) -> None:
-        assert vg.required_version_from({"X-OnePin-Required-Version": "0.7.0"}) == "0.7.0"
+        assert vg.required_version_from({"X-Onepin-Required-Version": "0.7.0"}) == "0.7.0"
         assert vg.required_version_from({"x-onepin-required-version": "0.7.0"}) == "0.7.0"
 
     def test_missing_and_blank(self) -> None:

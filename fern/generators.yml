@@ -1,6 +1,6 @@
-# Fern generator config for the OnePin Python SDK.
+# Fern generator config for the Onepin Python SDK.
 #
-# This repo self-generates its SDK. The OnePin API spec is shaped upstream (x-fern + servers
+# This repo self-generates its SDK. The Onepin API spec is shaped upstream (x-fern + servers
 # folded into the published OpenAPI), so this is a VANILLA generate — no overlay/overrides here.
 #
 # regen.yml fetches the shaped spec into ./openapi/openapi.yml, then `fern generate

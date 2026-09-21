@@ -13,10 +13,10 @@ python examples/quickstart.py
 |------|-------|
 | `quickstart.py` | Construct a client, list workflows |
 | `list_workflows.py` | Paginate workflows, fetch one by id |
-| `async_client.py` | `AsyncOnePinClient` + async pagination |
+| `async_client.py` | `AsyncOnepinClient` + async pagination |
 | `error_handling.py` | `ApiError`, retries, timeouts |
 
 By default the client targets **PROD** (`https://api.onepin.ai`). Pass
-`environment=OnePinClientEnvironment.DEV` or `base_url="https://dev-api.onepin.ai"` to
+`base_url="https://dev-api.onepin.ai"` to
 target another host. See the repo [README](../README.md#sdk-usage) and the full
 per-endpoint reference in [`src/onepin/reference.md`](../src/onepin/reference.md).

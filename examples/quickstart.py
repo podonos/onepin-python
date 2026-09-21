@@ -8,11 +8,11 @@ Run:
 
 import os
 
-from onepin import OnePinClient
+from onepin import OnepinClient
 
 
 def main() -> None:
-    client = OnePinClient(token=os.environ["ONEPIN_API_KEY"])
+    client = OnepinClient(api_key=os.environ["ONEPIN_API_KEY"])
 
     # Workflows in your workspace. `list()` returns a pager you can iterate directly.
     for workflow in client.workflows.list():
