@@ -47,9 +47,7 @@ def workflow_run(
     with api_errors(json_on):
         client = get_client()
         kwargs = _maybe_workspace(client.workflows.runs.start)
-        overrides = _run_scoped_body(script, source_language)
-        if overrides is not None:
-            kwargs["request_options"] = overrides
+        kwargs.update(_run_scoped_kwargs(script, source_language))
         started = client.workflows.runs.start(workflow_id, **kwargs)
         run = to_jsonable(getattr(started, "data", started))
         run_id = run.get("id") if isinstance(run, dict) else None
@@ -142,9 +140,7 @@ def workflow_preview_run(
     with api_errors(json_on):
         client = get_client()
         kwargs = _maybe_workspace(client.workflows.preview_run)
-        overrides = _run_scoped_body(script, source_language)
-        if overrides is not None:
-            kwargs["request_options"] = overrides
+        kwargs.update(_run_scoped_kwargs(script, source_language))
         resp = client.workflows.preview_run(workflow_id, **kwargs)
         payload = to_jsonable(getattr(resp, "data", resp))
         if json_on:
@@ -870,24 +866,22 @@ def definition_schema(
 # === Shared helpers ======================================================================
 
 
-def _run_scoped_body(script: Optional[str], source_language: Optional[str]) -> Optional[dict[str, Any]]:
-    """Build ``request_options`` carrying the run-scoped overrides, or ``None`` for neither.
+def _run_scoped_kwargs(script: Optional[str], source_language: Optional[str]) -> dict[str, str]:
+    """Typed run-scoped overrides for ``runs.start`` / ``preview_run``, omitting what wasn't passed.
 
     ``workflows run`` and ``workflows preview-run`` share this so an estimate prices the exact
     body the run will send — two builders could drift, and a cost quoted from a different body
     than the one charged is precisely the failure these overrides exist to prevent.
 
-    Sent as additional body parameters rather than a ``WorkflowRunStartIn``: the generated model
-    defaults both fields to ``None``, so Fern serializes the unset one as an explicit
-    ``"source_language": null`` instead of omitting it. Building the dict keeps only the keys the
-    user actually passed, which is the wire format this endpoint has always been called with.
+    The SDK now accepts ``script_text`` / ``source_language`` as ``OMIT``-defaulted keyword args,
+    so passing only the keys the user supplied yields the same wire body without the explicit
+    ``"source_language": null`` the old wrapped-model path would have serialized.
     """
-    overrides = {
+    return {
         key: value
         for key, value in (("script_text", script), ("source_language", source_language))
         if value is not None
     }
-    return {"additional_body_parameters": overrides} if overrides else None
 
 
 def _maybe_workspace(method: Any) -> dict[str, Any]:

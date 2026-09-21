@@ -133,7 +133,7 @@ class TestWorkflowRun:
         assert result.exit_code == 1
         assert "Timed out" in result.output
 
-    def test_script_flags_ride_as_body_params(self, patch_client, tmp_home) -> None:
+    def test_script_flags_are_forwarded_as_typed_kwargs(self, patch_client, tmp_home) -> None:
         client = _WfClient(["running"])
         patch_client(client)
         result = runner.invoke(
@@ -151,24 +151,26 @@ class TestWorkflowRun:
             ],
         )
         assert result.exit_code == 0, result.output
-        assert client.workflows.runs.start_kwargs["request_options"] == {
-            "additional_body_parameters": {"script_text": "Hello world!", "source_language": "en-us"}
-        }
+        assert client.workflows.runs.start_kwargs["script_text"] == "Hello world!"
+        assert client.workflows.runs.start_kwargs["source_language"] == "en-us"
+        assert "request_options" not in client.workflows.runs.start_kwargs
 
     def test_script_flag_alone_sends_only_script_text(self, patch_client, tmp_home) -> None:
         client = _WfClient(["running"])
         patch_client(client)
         result = runner.invoke(app, ["--api-key", "op_live_x", "workflows", "run", "wf-1", "--script", "Hi"])
         assert result.exit_code == 0, result.output
-        assert client.workflows.runs.start_kwargs["request_options"] == {
-            "additional_body_parameters": {"script_text": "Hi"}
-        }
+        assert client.workflows.runs.start_kwargs["script_text"] == "Hi"
+        assert "source_language" not in client.workflows.runs.start_kwargs
+        assert "request_options" not in client.workflows.runs.start_kwargs
 
-    def test_no_script_flags_sends_no_request_options(self, patch_client, tmp_home) -> None:
+    def test_no_script_flags_forwards_no_typed_overrides(self, patch_client, tmp_home) -> None:
         client = _WfClient(["running"])
         patch_client(client)
         result = runner.invoke(app, ["--api-key", "op_live_x", "workflows", "run", "wf-1"])
         assert result.exit_code == 0, result.output
+        assert "script_text" not in client.workflows.runs.start_kwargs
+        assert "source_language" not in client.workflows.runs.start_kwargs
         assert "request_options" not in client.workflows.runs.start_kwargs
 
 
@@ -187,7 +189,7 @@ _ESTIMATE = {
 
 
 class TestWorkflowPreviewRun:
-    """The estimate must price the body the run will actually send (see _run_scoped_body)."""
+    """The estimate must price the body the run will actually send (see _run_scoped_kwargs)."""
 
     @respx.mock
     def test_script_rides_in_the_body(self, tmp_home) -> None:
