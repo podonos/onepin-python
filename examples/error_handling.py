@@ -6,12 +6,12 @@ Per-request behaviour is tuned via `request_options`; client-wide timeout via `t
 
 import os
 
-from onepin import OnePinClient
+from onepin import OnepinClient
 from onepin.core.api_error import ApiError
 
 
 def main() -> None:
-    client = OnePinClient(token=os.environ["ONEPIN_API_KEY"], timeout=20.0)
+    client = OnepinClient(api_key=os.environ["ONEPIN_API_KEY"], timeout=20.0)
 
     try:
         client.workflows.get(
