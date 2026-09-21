@@ -2,11 +2,11 @@
 
 import os
 
-from onepin import OnePinClient
+from onepin import OnepinClient
 
 
 def main() -> None:
-    client = OnePinClient(token=os.environ["ONEPIN_API_KEY"])
+    client = OnepinClient(api_key=os.environ["ONEPIN_API_KEY"])
 
     # `list()` returns a SyncPager — iterate items directly, or use `.iter_pages()`.
     for index, workflow in enumerate(client.workflows.list()):

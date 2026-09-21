@@ -1,7 +1,7 @@
 """Client-side SDK version gate (hand-written; preserved across ``fern generate`` via ``.fernignore``).
 
 The Onepin API advertises the minimum SDK version it still accepts via the
-``X-OnePin-Required-Version`` response header (and enforces it with HTTP 426). This module reads
+``X-Onepin-Required-Version`` response header (and enforces it with HTTP 426). This module reads
 that header off every response and stops the caller when the installed ``onepin`` package is
 older than the floor.
 
@@ -31,7 +31,7 @@ if typing.TYPE_CHECKING:  # pragma: no cover - type-only imports
     from onepin.client import AsyncOnePinClient, OnePinClient
 
 #: Response header the API uses to advertise the minimum acceptable SDK version.
-REQUIRED_VERSION_HEADER = "X-OnePin-Required-Version"
+REQUIRED_VERSION_HEADER = "X-Onepin-Required-Version"
 
 _BASE_UPGRADE_COMMAND = "pip install --upgrade onepin"
 
