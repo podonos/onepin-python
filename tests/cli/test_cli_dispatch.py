@@ -211,6 +211,26 @@ class TestPagerMode:
         assert result.exit_code == 0, result.output
         assert '"id": "wf-1"' in result.output
 
+    def test_sdk_pager_renders_only_the_requested_page(self, fake_client: FakeClient, tmp_home) -> None:
+        item = _workflow_item()
+        response = _counted(42, [item])
+
+        def unexpected_next_page():
+            raise AssertionError("the CLI must not auto-fetch the next SDK page")
+
+        fake_client.workflows.list = lambda **_kw: SyncPager(
+            get_next=unexpected_next_page,
+            has_next=True,
+            items=[item],
+            response=response,
+        )
+
+        result = _invoke(["--no-color", "workflows", "list"])
+
+        assert result.exit_code == 0, result.output
+        assert "Alpha" in result.output
+        assert "Showing 1 of 42." in result.output
+
 
 class TestDataMode:
     def test_happy(self, fake_client: FakeClient, tmp_home) -> None:

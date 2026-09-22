@@ -29,6 +29,8 @@ which every parametrized check above therefore skips. See :data:`_COMPOSITE_CALL
 from __future__ import annotations
 
 import inspect
+import re
+from pathlib import Path
 from typing import get_args
 
 import pytest
@@ -272,27 +274,15 @@ _COMPOSITE_CALLS: dict[str, frozenset[str]] = {
     "workflows.duplicate_workflow": frozenset({"workflow_id", "workspace_id"}),
     "workflows.get": frozenset({"workflow_id", "workspace_id"}),
     "workflows.patch_workflow": frozenset({"workflow_id", "workspace_id", "name", "definition"}),
-    "workflows.preview_run": frozenset({"workflow_id", "workspace_id", "request_options"}),
-    "workflows.runs.start": frozenset({"workflow_id", "workspace_id", "request_options"}),
+    "workflows.preview_run": frozenset({"workflow_id", "workspace_id", "script_text", "source_language"}),
+    "workflows.runs.start": frozenset({"workflow_id", "workspace_id", "script_text", "source_language"}),
     "workflows.runs.status": frozenset({"workflow_id", "run_id", "workspace_id"}),
 }
 
-# Same contract as _INTENTIONALLY_UNEXPOSED, keyed by dotted SDK path.
-_COMPOSITE_UNEXPOSED: dict[str, dict[str, str]] = {
-    "workflows.runs.start": {
-        "request": (
-            "Run-scoped overrides ride as request_options.additional_body_parameters instead: "
-            "the generated WorkflowRunStartIn defaults both fields to None, so Fern would "
-            "serialize the unset one as an explicit null (see composites._run_scoped_body)."
-        ),
-    },
-    "workflows.preview_run": {
-        "request": (
-            "Built by the same composites._run_scoped_body as workflows.runs.start, so the "
-            "estimate prices the byte-identical body the run will send."
-        ),
-    },
-}
+# Same contract as _INTENTIONALLY_UNEXPOSED, keyed by dotted SDK path. The run-input body
+# is now inlined (script_text/source_language are OMIT-defaulted kwargs), so both composites
+# pass them directly via composites._run_scoped_kwargs — nothing is left unexposed here.
+_COMPOSITE_UNEXPOSED: dict[str, dict[str, str]] = {}
 
 
 def _resolve_composite_method(dotted: str):
@@ -371,9 +361,6 @@ def test_composite_calls_covers_every_sdk_call_site() -> None:
     call sites out of the source keeps a newly added composite from slipping past the three
     checks above the same way `duplicate`/`preview-run` slipped past the TABLE ones.
     """
-    import re
-    from pathlib import Path
-
     import onepin._cli.commands.composites as composites_module
 
     source = Path(composites_module.__file__).read_text(encoding="utf-8")
@@ -390,3 +377,24 @@ def test_composite_calls_covers_every_sdk_call_site() -> None:
 
     unused = set(_COMPOSITE_CALLS) - called
     assert not unused, f"_COMPOSITE_CALLS lists {sorted(unused)}, which composites.py no longer calls — drop it"
+
+
+@pytest.mark.parametrize(
+    "method_path",
+    ("workflows.estimate_workflow", "workflows.preview_run", "workflows.runs.start"),
+)
+def test_run_input_reference_matches_flattened_signatures(method_path: str) -> None:
+    """The generated reference must expose the same flattened run-input kwargs as the clients."""
+    reference = (Path(__file__).parents[2] / "src" / "onepin" / "reference.md").read_text(encoding="utf-8")
+    method_name = method_path.rsplit(".", 1)[-1]
+    owner = method_path.removesuffix(f".{method_name}")
+    marker = rf"<details><summary><code>client\.{re.escape(owner)}(?:\.<a [^>]+>)?{method_name}</a>\(\.\.\.\)"
+    match = re.search(marker, reference)
+    assert match is not None, f"reference.md has no section for {method_path}"
+    section = reference[match.start() : reference.index("</details>", match.start())]
+
+    assert "**script_text:**" in section, f"{method_path} reference omits script_text"
+    assert "**source_language:**" in section, f"{method_path} reference omits source_language"
+    assert "**request:** `WorkflowRunStartIn`" not in section, (
+        f"{method_path} reference still documents the stale wrapped request model"
+    )

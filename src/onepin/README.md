@@ -1,9 +1,9 @@
-# OnePin Python Library
+# Onepin Python Library
 
-[![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=OnePin%2FPython)
+[![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=Onepin%2FPython)
 [![pypi](https://img.shields.io/pypi/v/onepin)](https://pypi.python.org/pypi/onepin)
 
-The OnePin Python library provides convenient access to the OnePin APIs from Python.
+The Onepin Python library provides convenient access to the Onepin APIs from Python.
 
 ## Table of Contents
 
@@ -13,6 +13,7 @@ The OnePin Python library provides convenient access to the OnePin APIs from Pyt
 - [Environments](#environments)
 - [Async Client](#async-client)
 - [Exception Handling](#exception-handling)
+- [Pagination](#pagination)
 - [Advanced](#advanced)
   - [Access Raw Response Data](#access-raw-response-data)
   - [Retries](#retries)
@@ -99,6 +100,29 @@ try:
 except ApiError as e:
     print(e.status_code)
     print(e.body)
+```
+
+## Pagination
+
+Paginated requests will return a `SyncPager` or `AsyncPager`, which can be used as generators for the underlying object.
+
+```python
+from onepin import OnePinClient
+
+client = OnePinClient(
+    token="<token>",
+)
+
+client.templates.list()
+```
+
+```python
+# You can also iterate through pages and access the typed response per page
+pager = client.templates.list(...)
+for page in pager.iter_pages():
+    print(page.response)  # access the typed response for each page
+    for item in page:
+        print(item)
 ```
 
 ## Advanced

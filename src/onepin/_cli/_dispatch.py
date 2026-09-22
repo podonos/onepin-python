@@ -320,11 +320,12 @@ def _emit(cmd: Cmd, resp: Any, bound: dict[str, Any], json_on: bool, *, limit: i
 
 
 def _emit_pager(cmd: Cmd, pager: Any, json_on: bool, *, limit: int, offset: int = 0) -> int:
-    # The SDK returns a SyncPager when generated with pagination enabled, and a
-    # list-envelope model (items under .data) otherwise. Iterating a pydantic
-    # envelope directly would yield (field, value) tuples — unwrap .data first.
-    # SyncPager has no .data attribute, so this is a no-op for real pagers.
-    items = list(islice(iter(getattr(pager, "data", pager)), limit))
+    # A generated SyncPager iterates across every API page. The CLI exposes explicit
+    # --offset paging, so render only the current page's .items; otherwise a single
+    # command silently fans out into repeated requests. Older SDK envelopes keep rows
+    # under .data, and iterating the envelope itself would yield (field, value) tuples.
+    source = (pager.items or []) if hasattr(pager, "items") else getattr(pager, "data", pager)
+    items = list(islice(iter(source), limit))
     rows = [to_jsonable(item) for item in items]
     if json_on:
         render_json(rows)
@@ -354,7 +355,8 @@ def _echo_pager_footer(pager: Any, shown: int, *, limit: int, offset: int = 0) -
     Human output only. The ``--json`` payload stays a bare array because that shape is the
     agent contract pinned by the manifest snapshot; agents read the count by paging.
     """
-    total = getattr(getattr(pager, "pagination", None), "total", None)
+    envelope = getattr(pager, "response", pager)
+    total = getattr(getattr(envelope, "pagination", None), "total", None)
     if isinstance(total, int):
         remaining = max(total - (offset + shown), 0)
         more = f" {remaining} more — page with --offset." if remaining > 0 else ""

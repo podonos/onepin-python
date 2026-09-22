@@ -6,6 +6,7 @@ import datetime as dt
 import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.api_counted_list_response_workflow_list_item import ApiCountedListResponseWorkflowListItem
 from ..types.api_list_response_upload_out import ApiListResponseUploadOut
@@ -22,9 +23,9 @@ from ..types.api_response_workflow_run_outputs_out import ApiResponseWorkflowRun
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
 from ..types.api_response_workflow_validate_out import ApiResponseWorkflowValidateOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
+from ..types.workflow_list_item import WorkflowListItem
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
-from ..types.workflow_run_start_in import WorkflowRunStartIn
 from .raw_client import AsyncRawWorkflowsClient, RawWorkflowsClient
 from .types.list_workflows_request_order_item import ListWorkflowsRequestOrderItem
 from .types.list_workflows_request_sort_item import ListWorkflowsRequestSortItem
@@ -67,7 +68,7 @@ class WorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ApiCountedListResponseWorkflowListItem:
+    ) -> SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
         """
         List workflows in the current workspace.
 
@@ -145,7 +146,7 @@ class WorkflowsClient:
 
         Returns
         -------
-        ApiCountedListResponseWorkflowListItem
+        SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
             Successful Response
 
         Examples
@@ -155,9 +156,14 @@ class WorkflowsClient:
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
-        client.workflows.list()
+        response = client.workflows.list()
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
         """
-        _response = self._raw_client.list(
+        return self._raw_client.list(
             status=status,
             search=search,
             sort=sort,
@@ -171,7 +177,6 @@ class WorkflowsClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
-        return _response.data
 
     def create_workflow(
         self,
@@ -627,7 +632,8 @@ class WorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -648,7 +654,11 @@ class WorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -660,18 +670,21 @@ class WorkflowsClient:
 
         Examples
         --------
-        from onepin import OnePinClient, WorkflowRunStartIn
+        from onepin import OnePinClient
 
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
         client.workflows.estimate_workflow(
             workflow_id="workflow_id",
-            request=WorkflowRunStartIn(),
         )
         """
         _response = self._raw_client.estimate_workflow(
-            workflow_id, workspace_id=workspace_id, request=request, request_options=request_options
+            workflow_id,
+            workspace_id=workspace_id,
+            script_text=script_text,
+            source_language=source_language,
+            request_options=request_options,
         )
         return _response.data
 
@@ -680,7 +693,8 @@ class WorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -701,7 +715,11 @@ class WorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -713,18 +731,21 @@ class WorkflowsClient:
 
         Examples
         --------
-        from onepin import OnePinClient, WorkflowRunStartIn
+        from onepin import OnePinClient
 
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
         client.workflows.preview_run(
             workflow_id="workflow_id",
-            request=WorkflowRunStartIn(),
         )
         """
         _response = self._raw_client.preview_run(
-            workflow_id, workspace_id=workspace_id, request=request, request_options=request_options
+            workflow_id,
+            workspace_id=workspace_id,
+            script_text=script_text,
+            source_language=source_language,
+            request_options=request_options,
         )
         return _response.data
 
@@ -1511,7 +1532,7 @@ class AsyncWorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ApiCountedListResponseWorkflowListItem:
+    ) -> AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
         """
         List workflows in the current workspace.
 
@@ -1589,7 +1610,7 @@ class AsyncWorkflowsClient:
 
         Returns
         -------
-        ApiCountedListResponseWorkflowListItem
+        AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
             Successful Response
 
         Examples
@@ -1604,12 +1625,18 @@ class AsyncWorkflowsClient:
 
 
         async def main() -> None:
-            await client.workflows.list()
+            response = await client.workflows.list()
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list(
+        return await self._raw_client.list(
             status=status,
             search=search,
             sort=sort,
@@ -1623,7 +1650,6 @@ class AsyncWorkflowsClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
-        return _response.data
 
     async def create_workflow(
         self,
@@ -2143,7 +2169,8 @@ class AsyncWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -2164,7 +2191,11 @@ class AsyncWorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2178,7 +2209,7 @@ class AsyncWorkflowsClient:
         --------
         import asyncio
 
-        from onepin import AsyncOnePinClient, WorkflowRunStartIn
+        from onepin import AsyncOnePinClient
 
         client = AsyncOnePinClient(
             token="YOUR_TOKEN",
@@ -2188,14 +2219,17 @@ class AsyncWorkflowsClient:
         async def main() -> None:
             await client.workflows.estimate_workflow(
                 workflow_id="workflow_id",
-                request=WorkflowRunStartIn(),
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.estimate_workflow(
-            workflow_id, workspace_id=workspace_id, request=request, request_options=request_options
+            workflow_id,
+            workspace_id=workspace_id,
+            script_text=script_text,
+            source_language=source_language,
+            request_options=request_options,
         )
         return _response.data
 
@@ -2204,7 +2238,8 @@ class AsyncWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -2225,7 +2260,11 @@ class AsyncWorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2239,7 +2278,7 @@ class AsyncWorkflowsClient:
         --------
         import asyncio
 
-        from onepin import AsyncOnePinClient, WorkflowRunStartIn
+        from onepin import AsyncOnePinClient
 
         client = AsyncOnePinClient(
             token="YOUR_TOKEN",
@@ -2249,14 +2288,17 @@ class AsyncWorkflowsClient:
         async def main() -> None:
             await client.workflows.preview_run(
                 workflow_id="workflow_id",
-                request=WorkflowRunStartIn(),
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.preview_run(
-            workflow_id, workspace_id=workspace_id, request=request, request_options=request_options
+            workflow_id,
+            workspace_id=workspace_id,
+            script_text=script_text,
+            source_language=source_language,
+            request_options=request_options,
         )
         return _response.data
 

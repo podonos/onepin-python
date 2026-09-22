@@ -5,6 +5,7 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.api_list_response_workspace_out import ApiListResponseWorkspaceOut
+from ..types.api_response_balance_response import ApiResponseBalanceResponse
 from ..types.api_response_checkout_response import ApiResponseCheckoutResponse
 from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_plan_limits import ApiResponsePlanLimits
@@ -420,6 +421,47 @@ class WorkspacesClient:
         )
         """
         _response = self._raw_client.get_workspace_subscription(workspace_id, request_options=request_options)
+        return _response.data
+
+    def get_workspace_credits(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponseBalanceResponse:
+        """
+        Return the credit balance governing this workspace — the source the Usage/credit card reads.
+
+        Same shape as ``/users/me/credits``. For an **organization** workspace this is the organization's
+        shared credit pool — the balance a member's runs debit; for a **personal** workspace it is the
+        workspace owner's balance. Readable by any workspace member (the sensitive billing menu — payment
+        methods and subscription lifecycle — is gated separately). ``balance``/``remaining`` are the
+        spendable pool, ``used`` is consumption in the current billing period, ``plan_grant`` is the plan's
+        monthly allowance, and ``period_end`` is the next expected reset boundary (or null when none is
+        promised). For an annual subscriber this GET may perform idempotent period maintenance before
+        returning; retries remain safe. Membership is existence-hidden (404); the org-admin fallback applies.
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseBalanceResponse
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workspaces.get_workspace_credits(
+            workspace_id="workspace_id",
+        )
+        """
+        _response = self._raw_client.get_workspace_credits(workspace_id, request_options=request_options)
         return _response.data
 
     def create_workspace_org_checkout(
@@ -947,6 +989,55 @@ class AsyncWorkspacesClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get_workspace_subscription(workspace_id, request_options=request_options)
+        return _response.data
+
+    async def get_workspace_credits(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponseBalanceResponse:
+        """
+        Return the credit balance governing this workspace — the source the Usage/credit card reads.
+
+        Same shape as ``/users/me/credits``. For an **organization** workspace this is the organization's
+        shared credit pool — the balance a member's runs debit; for a **personal** workspace it is the
+        workspace owner's balance. Readable by any workspace member (the sensitive billing menu — payment
+        methods and subscription lifecycle — is gated separately). ``balance``/``remaining`` are the
+        spendable pool, ``used`` is consumption in the current billing period, ``plan_grant`` is the plan's
+        monthly allowance, and ``period_end`` is the next expected reset boundary (or null when none is
+        promised). For an annual subscriber this GET may perform idempotent period maintenance before
+        returning; retries remain safe. Membership is existence-hidden (404); the org-admin fallback applies.
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseBalanceResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workspaces.get_workspace_credits(
+                workspace_id="workspace_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_workspace_credits(workspace_id, request_options=request_options)
         return _response.data
 
     async def create_workspace_org_checkout(

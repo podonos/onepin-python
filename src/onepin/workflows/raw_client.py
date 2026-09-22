@@ -9,6 +9,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.datetime_utils import serialize_datetime
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import encode_path_param
+from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
@@ -31,9 +32,9 @@ from ..types.api_response_workflow_run_outputs_out import ApiResponseWorkflowRun
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
 from ..types.api_response_workflow_validate_out import ApiResponseWorkflowValidateOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
+from ..types.workflow_list_item import WorkflowListItem
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
-from ..types.workflow_run_start_in import WorkflowRunStartIn
 from .types.list_workflows_request_order_item import ListWorkflowsRequestOrderItem
 from .types.list_workflows_request_sort_item import ListWorkflowsRequestSortItem
 from pydantic import ValidationError
@@ -61,7 +62,7 @@ class RawWorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ApiCountedListResponseWorkflowListItem]:
+    ) -> SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
         """
         List workflows in the current workspace.
 
@@ -139,9 +140,11 @@ class RawWorkflowsClient:
 
         Returns
         -------
-        HttpResponse[ApiCountedListResponseWorkflowListItem]
+        SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
             Successful Response
         """
+        offset = offset if offset is not None else 0
+
         _response = self._client_wrapper.httpx_client.request(
             "api/v1/workflows",
             method="GET",
@@ -164,14 +167,30 @@ class RawWorkflowsClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
+                _parsed_response = typing.cast(
                     ApiCountedListResponseWorkflowListItem,
                     parse_obj_as(
                         type_=ApiCountedListResponseWorkflowListItem,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return HttpResponse(response=_response, data=_data)
+                _items = _parsed_response.data
+                _has_next = len(_items or []) > 0
+                _get_next = lambda: self.list(
+                    status=status,
+                    search=search,
+                    sort=sort,
+                    order=order,
+                    last_run_after=last_run_after,
+                    last_run_before=last_run_before,
+                    has_failed_run=has_failed_run,
+                    include_definition=include_definition,
+                    offset=offset + len(_items or []),
+                    limit=limit,
+                    workspace_id=workspace_id,
+                    request_options=request_options,
+                )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -845,7 +864,8 @@ class RawWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseEstimateResponse]:
         """
@@ -866,7 +886,11 @@ class RawWorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -879,9 +903,10 @@ class RawWorkflowsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/estimate",
             method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
-            ),
+            json={
+                "script_text": script_text,
+                "source_language": source_language,
+            },
             headers={
                 "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
@@ -924,7 +949,8 @@ class RawWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseEstimateResponse]:
         """
@@ -945,7 +971,11 @@ class RawWorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -958,9 +988,10 @@ class RawWorkflowsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/preview",
             method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
-            ),
+            json={
+                "script_text": script_text,
+                "source_language": source_language,
+            },
             headers={
                 "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
@@ -2078,7 +2109,7 @@ class AsyncRawWorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ApiCountedListResponseWorkflowListItem]:
+    ) -> AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
         """
         List workflows in the current workspace.
 
@@ -2156,9 +2187,11 @@ class AsyncRawWorkflowsClient:
 
         Returns
         -------
-        AsyncHttpResponse[ApiCountedListResponseWorkflowListItem]
+        AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
             Successful Response
         """
+        offset = offset if offset is not None else 0
+
         _response = await self._client_wrapper.httpx_client.request(
             "api/v1/workflows",
             method="GET",
@@ -2181,14 +2214,33 @@ class AsyncRawWorkflowsClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
+                _parsed_response = typing.cast(
                     ApiCountedListResponseWorkflowListItem,
                     parse_obj_as(
                         type_=ApiCountedListResponseWorkflowListItem,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return AsyncHttpResponse(response=_response, data=_data)
+                _items = _parsed_response.data
+                _has_next = len(_items or []) > 0
+
+                async def _get_next():
+                    return await self.list(
+                        status=status,
+                        search=search,
+                        sort=sort,
+                        order=order,
+                        last_run_after=last_run_after,
+                        last_run_before=last_run_before,
+                        has_failed_run=has_failed_run,
+                        include_definition=include_definition,
+                        offset=offset + len(_items or []),
+                        limit=limit,
+                        workspace_id=workspace_id,
+                        request_options=request_options,
+                    )
+
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -2862,7 +2914,8 @@ class AsyncRawWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseEstimateResponse]:
         """
@@ -2883,7 +2936,11 @@ class AsyncRawWorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2896,9 +2953,10 @@ class AsyncRawWorkflowsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/estimate",
             method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
-            ),
+            json={
+                "script_text": script_text,
+                "source_language": source_language,
+            },
             headers={
                 "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
@@ -2941,7 +2999,8 @@ class AsyncRawWorkflowsClient:
         workflow_id: str,
         *,
         workspace_id: typing.Optional[str] = None,
-        request: typing.Optional[WorkflowRunStartIn] = None,
+        script_text: typing.Optional[str] = OMIT,
+        source_language: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseEstimateResponse]:
         """
@@ -2962,7 +3021,11 @@ class AsyncRawWorkflowsClient:
 
         workspace_id : typing.Optional[str]
 
-        request : typing.Optional[WorkflowRunStartIn]
+        script_text : typing.Optional[str]
+            Run this workflow with this script text instead of the text saved in the workflow's source_script node. Applied to the run's definition snapshot only.
+
+        source_language : typing.Optional[str]
+            BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2975,9 +3038,10 @@ class AsyncRawWorkflowsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/preview",
             method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=typing.Optional[WorkflowRunStartIn], direction="write"
-            ),
+            json={
+                "script_text": script_text,
+                "source_language": source_language,
+            },
             headers={
                 "content-type": "application/json",
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,

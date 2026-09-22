@@ -17,6 +17,7 @@ from ..errors.not_found_error import NotFoundError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_error_response import ApiErrorResponse
 from ..types.api_list_response_workspace_out import ApiListResponseWorkspaceOut
+from ..types.api_response_balance_response import ApiResponseBalanceResponse
 from ..types.api_response_checkout_response import ApiResponseCheckoutResponse
 from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_plan_limits import ApiResponsePlanLimits
@@ -646,6 +647,79 @@ class RawWorkspacesClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_workspace_credits(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ApiResponseBalanceResponse]:
+        """
+        Return the credit balance governing this workspace — the source the Usage/credit card reads.
+
+        Same shape as ``/users/me/credits``. For an **organization** workspace this is the organization's
+        shared credit pool — the balance a member's runs debit; for a **personal** workspace it is the
+        workspace owner's balance. Readable by any workspace member (the sensitive billing menu — payment
+        methods and subscription lifecycle — is gated separately). ``balance``/``remaining`` are the
+        spendable pool, ``used`` is consumption in the current billing period, ``plan_grant`` is the plan's
+        monthly allowance, and ``period_end`` is the next expected reset boundary (or null when none is
+        promised). For an annual subscriber this GET may perform idempotent period maintenance before
+        returning; retries remain safe. Membership is existence-hidden (404); the org-admin fallback applies.
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseBalanceResponse]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workspaces/{encode_path_param(workspace_id)}/credits",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseBalanceResponse,
+                    parse_obj_as(
+                        type_=ApiResponseBalanceResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -1407,6 +1481,79 @@ class AsyncRawWorkspacesClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_workspace_credits(
+        self, workspace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ApiResponseBalanceResponse]:
+        """
+        Return the credit balance governing this workspace — the source the Usage/credit card reads.
+
+        Same shape as ``/users/me/credits``. For an **organization** workspace this is the organization's
+        shared credit pool — the balance a member's runs debit; for a **personal** workspace it is the
+        workspace owner's balance. Readable by any workspace member (the sensitive billing menu — payment
+        methods and subscription lifecycle — is gated separately). ``balance``/``remaining`` are the
+        spendable pool, ``used`` is consumption in the current billing period, ``plan_grant`` is the plan's
+        monthly allowance, and ``period_end`` is the next expected reset boundary (or null when none is
+        promised). For an annual subscriber this GET may perform idempotent period maintenance before
+        returning; retries remain safe. Membership is existence-hidden (404); the org-admin fallback applies.
+
+        Parameters
+        ----------
+        workspace_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseBalanceResponse]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workspaces/{encode_path_param(workspace_id)}/credits",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseBalanceResponse,
+                    parse_obj_as(
+                        type_=ApiResponseBalanceResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
