@@ -3060,6 +3060,181 @@ client.voices.get_voice_facets()
 </dl>
 </details>
 
+<details><summary><code>client.voices.<a href="src/onepin/voices/client.py">recommend_voices</a>(...) -> ApiListResponseVoiceRecommendedOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Recommend voices for a language — the ranked answer, not a catalogue page.
+
+`GET /voices` is a browse: it answers "what exists" and orders by whatever `sort`
+says, defaulting to newest-first. That is the right shape for a person scrolling a
+catalogue and the wrong one for a caller that will put three voices in front of
+someone — there, WHICH three is the entire recommendation, and "most recently added"
+is not an opinion about quality.
+
+This endpoint is the selection half of automatic voice choice, the same one the
+in-product assistant's cards are built from, and it is deliberately a separate route
+rather than a mode of the list: browse and recommend disagree about vendors on
+purpose. A company may be excluded from what we OFFER automatically while staying
+fully browsable and fully usable when a customer asks for it by name, so the policy
+belongs to the surface that offers rather than the one that lists.
+
+What it applies, and the list does not:
+
+* **Measured quality floors and tier ranking.** Candidates clear the naturalness and
+  noise floors, then sort by quality tier first; price may only reorder within a
+  tier, so a cheaper voice never displaces a detectably better one. Which axis leads
+  inside a tier follows the workspace's Auto-route setting.
+* **Spread across companies.** One large catalogue cannot sweep the slate.
+* **Build re-resolution.** Every voice is re-resolved through the same gate a run
+  uses, and `recommended_model` is that gate's answer — so a recommendation cannot
+  name a pairing synthesis would then refuse.
+
+`exclude` plus `offer_round` is how "show me different ones" works: pass the ids
+already shown and raise the round. The slate is deterministic in its inputs, so the
+same request returns the same voices — paging is the caller's to drive, not a
+hidden cursor's.
+
+`provider`, `model`, `gender` and `age` narrow the eligible pool without turning this
+into a browse. Describing a SOUND ("warm, low, conversational") is not a filter here;
+that is `GET /voices?search=`, which ranks by meaning. A future `similar_to` will add
+the third route — voices near one the customer already chose — and is intentionally
+not part of this first cut.
+
+An empty `data` means nothing is buildable for this language under these constraints,
+which is a real answer and not an error.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.voices.recommend_voices(
+    language="language",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**language:** `str` — Locale the voices must speak, e.g. `ko-kr`. A bare family widens to the product default.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**limit:** `typing.Optional[int]` — How many to recommend (1–6).
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**exclude:** `typing.Optional[typing.List[str]]` — Voice ids already offered. Repeat for each; newest kept when over the cap.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**offer_round:** `typing.Optional[int]` — Increment to draw a different slate of equally-ranked voices.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**gender:** `typing.Optional[typing.List[VoiceGender]]` — Repeat for OR
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**age:** `typing.Optional[typing.List[VoiceAge]]` — Repeat for OR
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**provider:** `typing.Optional[typing.List[str]]` — Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**model:** `typing.Optional[typing.List[str]]` — Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.voices.<a href="src/onepin/voices/client.py">get</a>(...) -> ApiResponseVoiceOut</code></summary>
 <dl>
 <dd>
@@ -4651,8 +4826,8 @@ client.workspaces.get_workspace(
 <dl>
 <dd>
 
-**workspace_id:** `str`
-
+**workspace_id:** `str` 
+    
 </dd>
 </dl>
 
@@ -4660,7 +4835,7 @@ client.workspaces.get_workspace(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-
+    
 </dd>
 </dl>
 </dd>
@@ -4976,7 +5151,9 @@ workspace → the **organization's** subscription (or ``null`` on free tier), re
 member or an org admin. Use this instead of ``/users/me/subscription`` when rendering a
 workspace's plan, so an org workspace shows the ORGANIZATION's plan. Membership is
 existence-hidden (404); the org-admin fallback applies (an org admin with no materialized
-member row can still read).
+member row can still read). Before returning a locally active subscription, the endpoint
+verifies it with Stripe; a Stripe-confirmed terminal subscription is persisted and returns
+``null``, while a verification failure returns 502 ``BILLING_ERROR``.
 </dd>
 </dl>
 </dd>
@@ -5099,8 +5276,8 @@ client.workspaces.get_workspace_credits(
 <dl>
 <dd>
 
-**workspace_id:** `str`
-
+**workspace_id:** `str` 
+    
 </dd>
 </dl>
 
@@ -5108,7 +5285,7 @@ client.workspaces.get_workspace_credits(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-
+    
 </dd>
 </dl>
 </dd>
@@ -7405,7 +7582,7 @@ client.workflows.estimate_workflow(
 <dl>
 <dd>
 
-**request:** `WorkflowRunStartIn`
+**request:** `WorkflowRunStartIn` 
     
 </dd>
 </dl>
@@ -7413,7 +7590,7 @@ client.workflows.estimate_workflow(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]`
+**workspace_id:** `typing.Optional[str]` 
     
 </dd>
 </dl>
@@ -7503,7 +7680,7 @@ client.workflows.preview_run(
 <dl>
 <dd>
 
-**request:** `WorkflowRunStartIn`
+**request:** `WorkflowRunStartIn` 
     
 </dd>
 </dl>
@@ -7511,7 +7688,7 @@ client.workflows.preview_run(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]`
+**workspace_id:** `typing.Optional[str]` 
     
 </dd>
 </dl>
@@ -9065,7 +9242,7 @@ client.workflows.runs.start(
 <dl>
 <dd>
 
-**request:** `WorkflowRunStartIn`
+**request:** `WorkflowRunStartIn` 
     
 </dd>
 </dl>
@@ -9073,7 +9250,7 @@ client.workflows.runs.start(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]`
+**workspace_id:** `typing.Optional[str]` 
     
 </dd>
 </dl>
@@ -9535,3 +9712,4 @@ client.workflows.runs.cancel(
 </dd>
 </dl>
 </details>
+

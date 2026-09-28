@@ -7,12 +7,12 @@ from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import encode_path_param
-from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_counted_list_response_voice_out import ApiCountedListResponseVoiceOut
+from ..types.api_list_response_voice_recommended_out import ApiListResponseVoiceRecommendedOut
 from ..types.api_list_response_voice_similar_out import ApiListResponseVoiceSimilarOut
 from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_voice_facets_out import ApiResponseVoiceFacetsOut
@@ -22,7 +22,6 @@ from ..types.voice_accent import VoiceAccent
 from ..types.voice_age import VoiceAge
 from ..types.voice_category import VoiceCategory
 from ..types.voice_gender import VoiceGender
-from ..types.voice_out import VoiceOut
 from .types.get_voice_facets_api_v1voices_facets_get_request_source_item import (
     GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem,
 )
@@ -58,7 +57,7 @@ class RawVoicesClient:
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[VoiceOut, ApiCountedListResponseVoiceOut]:
+    ) -> HttpResponse[ApiCountedListResponseVoiceOut]:
         """
         List TTS voices available to the current workspace.
 
@@ -191,11 +190,9 @@ class RawVoicesClient:
 
         Returns
         -------
-        SyncPager[VoiceOut, ApiCountedListResponseVoiceOut]
+        HttpResponse[ApiCountedListResponseVoiceOut]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = self._client_wrapper.httpx_client.request(
             "api/v1/voices",
             method="GET",
@@ -223,35 +220,14 @@ class RawVoicesClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiCountedListResponseVoiceOut,
                     parse_obj_as(
                         type_=ApiCountedListResponseVoiceOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-                _get_next = lambda: self.list(
-                    offset=offset + len(_items or []),
-                    limit=limit,
-                    favorites_only=favorites_only,
-                    source=source,
-                    gender=gender,
-                    age=age,
-                    category=category,
-                    accent=accent,
-                    search=search,
-                    sort=sort,
-                    order=order,
-                    buildable=buildable,
-                    provider=provider,
-                    model=model,
-                    language=language,
-                    workspace_id=workspace_id,
-                    request_options=request_options,
-                )
-                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -421,6 +397,145 @@ class RawVoicesClient:
                     ApiResponseVoiceFacetsOut,
                     parse_obj_as(
                         type_=ApiResponseVoiceFacetsOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def recommend_voices(
+        self,
+        *,
+        language: str,
+        limit: typing.Optional[int] = None,
+        exclude: typing.Optional[typing.Sequence[str]] = None,
+        offer_round: typing.Optional[int] = None,
+        gender: typing.Optional[typing.Sequence[VoiceGender]] = None,
+        age: typing.Optional[typing.Sequence[VoiceAge]] = None,
+        provider: typing.Optional[typing.Sequence[str]] = None,
+        model: typing.Optional[typing.Sequence[str]] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiListResponseVoiceRecommendedOut]:
+        """
+        Recommend voices for a language — the ranked answer, not a catalogue page.
+
+        `GET /voices` is a browse: it answers "what exists" and orders by whatever `sort`
+        says, defaulting to newest-first. That is the right shape for a person scrolling a
+        catalogue and the wrong one for a caller that will put three voices in front of
+        someone — there, WHICH three is the entire recommendation, and "most recently added"
+        is not an opinion about quality.
+
+        This endpoint is the selection half of automatic voice choice, the same one the
+        in-product assistant's cards are built from, and it is deliberately a separate route
+        rather than a mode of the list: browse and recommend disagree about vendors on
+        purpose. A company may be excluded from what we OFFER automatically while staying
+        fully browsable and fully usable when a customer asks for it by name, so the policy
+        belongs to the surface that offers rather than the one that lists.
+
+        What it applies, and the list does not:
+
+        * **Measured quality floors and tier ranking.** Candidates clear the naturalness and
+          noise floors, then sort by quality tier first; price may only reorder within a
+          tier, so a cheaper voice never displaces a detectably better one. Which axis leads
+          inside a tier follows the workspace's Auto-route setting.
+        * **Spread across companies.** One large catalogue cannot sweep the slate.
+        * **Build re-resolution.** Every voice is re-resolved through the same gate a run
+          uses, and `recommended_model` is that gate's answer — so a recommendation cannot
+          name a pairing synthesis would then refuse.
+
+        `exclude` plus `offer_round` is how "show me different ones" works: pass the ids
+        already shown and raise the round. The slate is deterministic in its inputs, so the
+        same request returns the same voices — paging is the caller's to drive, not a
+        hidden cursor's.
+
+        `provider`, `model`, `gender` and `age` narrow the eligible pool without turning this
+        into a browse. Describing a SOUND ("warm, low, conversational") is not a filter here;
+        that is `GET /voices?search=`, which ranks by meaning. A future `similar_to` will add
+        the third route — voices near one the customer already chose — and is intentionally
+        not part of this first cut.
+
+        An empty `data` means nothing is buildable for this language under these constraints,
+        which is a real answer and not an error.
+
+        Parameters
+        ----------
+        language : str
+            Locale the voices must speak, e.g. `ko-kr`. A bare family widens to the product default.
+
+        limit : typing.Optional[int]
+            How many to recommend (1–6).
+
+        exclude : typing.Optional[typing.Sequence[str]]
+            Voice ids already offered. Repeat for each; newest kept when over the cap.
+
+        offer_round : typing.Optional[int]
+            Increment to draw a different slate of equally-ranked voices.
+
+        gender : typing.Optional[typing.Sequence[VoiceGender]]
+            Repeat for OR
+
+        age : typing.Optional[typing.Sequence[VoiceAge]]
+            Repeat for OR
+
+        provider : typing.Optional[typing.Sequence[str]]
+            Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
+
+        model : typing.Optional[typing.Sequence[str]]
+            Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiListResponseVoiceRecommendedOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v1/voices/recommendations",
+            method="GET",
+            params={
+                "language": language,
+                "limit": limit,
+                "exclude": exclude,
+                "offer_round": offer_round,
+                "gender": gender,
+                "age": age,
+                "provider": provider,
+                "model": model,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiListResponseVoiceRecommendedOut,
+                    parse_obj_as(
+                        type_=ApiListResponseVoiceRecommendedOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -868,7 +983,7 @@ class AsyncRawVoicesClient:
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[VoiceOut, ApiCountedListResponseVoiceOut]:
+    ) -> AsyncHttpResponse[ApiCountedListResponseVoiceOut]:
         """
         List TTS voices available to the current workspace.
 
@@ -1001,11 +1116,9 @@ class AsyncRawVoicesClient:
 
         Returns
         -------
-        AsyncPager[VoiceOut, ApiCountedListResponseVoiceOut]
+        AsyncHttpResponse[ApiCountedListResponseVoiceOut]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = await self._client_wrapper.httpx_client.request(
             "api/v1/voices",
             method="GET",
@@ -1033,38 +1146,14 @@ class AsyncRawVoicesClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiCountedListResponseVoiceOut,
                     parse_obj_as(
                         type_=ApiCountedListResponseVoiceOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-
-                async def _get_next():
-                    return await self.list(
-                        offset=offset + len(_items or []),
-                        limit=limit,
-                        favorites_only=favorites_only,
-                        source=source,
-                        gender=gender,
-                        age=age,
-                        category=category,
-                        accent=accent,
-                        search=search,
-                        sort=sort,
-                        order=order,
-                        buildable=buildable,
-                        provider=provider,
-                        model=model,
-                        language=language,
-                        workspace_id=workspace_id,
-                        request_options=request_options,
-                    )
-
-                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -1234,6 +1323,145 @@ class AsyncRawVoicesClient:
                     ApiResponseVoiceFacetsOut,
                     parse_obj_as(
                         type_=ApiResponseVoiceFacetsOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def recommend_voices(
+        self,
+        *,
+        language: str,
+        limit: typing.Optional[int] = None,
+        exclude: typing.Optional[typing.Sequence[str]] = None,
+        offer_round: typing.Optional[int] = None,
+        gender: typing.Optional[typing.Sequence[VoiceGender]] = None,
+        age: typing.Optional[typing.Sequence[VoiceAge]] = None,
+        provider: typing.Optional[typing.Sequence[str]] = None,
+        model: typing.Optional[typing.Sequence[str]] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiListResponseVoiceRecommendedOut]:
+        """
+        Recommend voices for a language — the ranked answer, not a catalogue page.
+
+        `GET /voices` is a browse: it answers "what exists" and orders by whatever `sort`
+        says, defaulting to newest-first. That is the right shape for a person scrolling a
+        catalogue and the wrong one for a caller that will put three voices in front of
+        someone — there, WHICH three is the entire recommendation, and "most recently added"
+        is not an opinion about quality.
+
+        This endpoint is the selection half of automatic voice choice, the same one the
+        in-product assistant's cards are built from, and it is deliberately a separate route
+        rather than a mode of the list: browse and recommend disagree about vendors on
+        purpose. A company may be excluded from what we OFFER automatically while staying
+        fully browsable and fully usable when a customer asks for it by name, so the policy
+        belongs to the surface that offers rather than the one that lists.
+
+        What it applies, and the list does not:
+
+        * **Measured quality floors and tier ranking.** Candidates clear the naturalness and
+          noise floors, then sort by quality tier first; price may only reorder within a
+          tier, so a cheaper voice never displaces a detectably better one. Which axis leads
+          inside a tier follows the workspace's Auto-route setting.
+        * **Spread across companies.** One large catalogue cannot sweep the slate.
+        * **Build re-resolution.** Every voice is re-resolved through the same gate a run
+          uses, and `recommended_model` is that gate's answer — so a recommendation cannot
+          name a pairing synthesis would then refuse.
+
+        `exclude` plus `offer_round` is how "show me different ones" works: pass the ids
+        already shown and raise the round. The slate is deterministic in its inputs, so the
+        same request returns the same voices — paging is the caller's to drive, not a
+        hidden cursor's.
+
+        `provider`, `model`, `gender` and `age` narrow the eligible pool without turning this
+        into a browse. Describing a SOUND ("warm, low, conversational") is not a filter here;
+        that is `GET /voices?search=`, which ranks by meaning. A future `similar_to` will add
+        the third route — voices near one the customer already chose — and is intentionally
+        not part of this first cut.
+
+        An empty `data` means nothing is buildable for this language under these constraints,
+        which is a real answer and not an error.
+
+        Parameters
+        ----------
+        language : str
+            Locale the voices must speak, e.g. `ko-kr`. A bare family widens to the product default.
+
+        limit : typing.Optional[int]
+            How many to recommend (1–6).
+
+        exclude : typing.Optional[typing.Sequence[str]]
+            Voice ids already offered. Repeat for each; newest kept when over the cap.
+
+        offer_round : typing.Optional[int]
+            Increment to draw a different slate of equally-ranked voices.
+
+        gender : typing.Optional[typing.Sequence[VoiceGender]]
+            Repeat for OR
+
+        age : typing.Optional[typing.Sequence[VoiceAge]]
+            Repeat for OR
+
+        provider : typing.Optional[typing.Sequence[str]]
+            Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
+
+        model : typing.Optional[typing.Sequence[str]]
+            Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiListResponseVoiceRecommendedOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v1/voices/recommendations",
+            method="GET",
+            params={
+                "language": language,
+                "limit": limit,
+                "exclude": exclude,
+                "offer_round": offer_round,
+                "gender": gender,
+                "age": age,
+                "provider": provider,
+                "model": model,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiListResponseVoiceRecommendedOut,
+                    parse_obj_as(
+                        type_=ApiListResponseVoiceRecommendedOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

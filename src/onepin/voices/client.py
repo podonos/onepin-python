@@ -3,9 +3,9 @@
 import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.api_counted_list_response_voice_out import ApiCountedListResponseVoiceOut
+from ..types.api_list_response_voice_recommended_out import ApiListResponseVoiceRecommendedOut
 from ..types.api_list_response_voice_similar_out import ApiListResponseVoiceSimilarOut
 from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_voice_facets_out import ApiResponseVoiceFacetsOut
@@ -15,7 +15,6 @@ from ..types.voice_accent import VoiceAccent
 from ..types.voice_age import VoiceAge
 from ..types.voice_category import VoiceCategory
 from ..types.voice_gender import VoiceGender
-from ..types.voice_out import VoiceOut
 from .raw_client import AsyncRawVoicesClient, RawVoicesClient
 from .types.get_voice_facets_api_v1voices_facets_get_request_source_item import (
     GetVoiceFacetsApiV1VoicesFacetsGetRequestSourceItem,
@@ -62,7 +61,7 @@ class VoicesClient:
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[VoiceOut, ApiCountedListResponseVoiceOut]:
+    ) -> ApiCountedListResponseVoiceOut:
         """
         List TTS voices available to the current workspace.
 
@@ -195,7 +194,7 @@ class VoicesClient:
 
         Returns
         -------
-        SyncPager[VoiceOut, ApiCountedListResponseVoiceOut]
+        ApiCountedListResponseVoiceOut
             Successful Response
 
         Examples
@@ -205,14 +204,9 @@ class VoicesClient:
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
-        response = client.voices.list()
-        for item in response:
-            yield item
-        # alternatively, you can paginate page-by-page
-        for page in response.iter_pages():
-            yield page
+        client.voices.list()
         """
-        return self._raw_client.list(
+        _response = self._raw_client.list(
             offset=offset,
             limit=limit,
             favorites_only=favorites_only,
@@ -231,6 +225,7 @@ class VoicesClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
+        return _response.data
 
     def get_voice_facets(
         self,
@@ -375,6 +370,122 @@ class VoicesClient:
             provider=provider,
             model=model,
             language=language,
+            workspace_id=workspace_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def recommend_voices(
+        self,
+        *,
+        language: str,
+        limit: typing.Optional[int] = None,
+        exclude: typing.Optional[typing.Sequence[str]] = None,
+        offer_round: typing.Optional[int] = None,
+        gender: typing.Optional[typing.Sequence[VoiceGender]] = None,
+        age: typing.Optional[typing.Sequence[VoiceAge]] = None,
+        provider: typing.Optional[typing.Sequence[str]] = None,
+        model: typing.Optional[typing.Sequence[str]] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiListResponseVoiceRecommendedOut:
+        """
+        Recommend voices for a language — the ranked answer, not a catalogue page.
+
+        `GET /voices` is a browse: it answers "what exists" and orders by whatever `sort`
+        says, defaulting to newest-first. That is the right shape for a person scrolling a
+        catalogue and the wrong one for a caller that will put three voices in front of
+        someone — there, WHICH three is the entire recommendation, and "most recently added"
+        is not an opinion about quality.
+
+        This endpoint is the selection half of automatic voice choice, the same one the
+        in-product assistant's cards are built from, and it is deliberately a separate route
+        rather than a mode of the list: browse and recommend disagree about vendors on
+        purpose. A company may be excluded from what we OFFER automatically while staying
+        fully browsable and fully usable when a customer asks for it by name, so the policy
+        belongs to the surface that offers rather than the one that lists.
+
+        What it applies, and the list does not:
+
+        * **Measured quality floors and tier ranking.** Candidates clear the naturalness and
+          noise floors, then sort by quality tier first; price may only reorder within a
+          tier, so a cheaper voice never displaces a detectably better one. Which axis leads
+          inside a tier follows the workspace's Auto-route setting.
+        * **Spread across companies.** One large catalogue cannot sweep the slate.
+        * **Build re-resolution.** Every voice is re-resolved through the same gate a run
+          uses, and `recommended_model` is that gate's answer — so a recommendation cannot
+          name a pairing synthesis would then refuse.
+
+        `exclude` plus `offer_round` is how "show me different ones" works: pass the ids
+        already shown and raise the round. The slate is deterministic in its inputs, so the
+        same request returns the same voices — paging is the caller's to drive, not a
+        hidden cursor's.
+
+        `provider`, `model`, `gender` and `age` narrow the eligible pool without turning this
+        into a browse. Describing a SOUND ("warm, low, conversational") is not a filter here;
+        that is `GET /voices?search=`, which ranks by meaning. A future `similar_to` will add
+        the third route — voices near one the customer already chose — and is intentionally
+        not part of this first cut.
+
+        An empty `data` means nothing is buildable for this language under these constraints,
+        which is a real answer and not an error.
+
+        Parameters
+        ----------
+        language : str
+            Locale the voices must speak, e.g. `ko-kr`. A bare family widens to the product default.
+
+        limit : typing.Optional[int]
+            How many to recommend (1–6).
+
+        exclude : typing.Optional[typing.Sequence[str]]
+            Voice ids already offered. Repeat for each; newest kept when over the cap.
+
+        offer_round : typing.Optional[int]
+            Increment to draw a different slate of equally-ranked voices.
+
+        gender : typing.Optional[typing.Sequence[VoiceGender]]
+            Repeat for OR
+
+        age : typing.Optional[typing.Sequence[VoiceAge]]
+            Repeat for OR
+
+        provider : typing.Optional[typing.Sequence[str]]
+            Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
+
+        model : typing.Optional[typing.Sequence[str]]
+            Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiListResponseVoiceRecommendedOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.voices.recommend_voices(
+            language="language",
+        )
+        """
+        _response = self._raw_client.recommend_voices(
+            language=language,
+            limit=limit,
+            exclude=exclude,
+            offer_round=offer_round,
+            gender=gender,
+            age=age,
+            provider=provider,
+            model=model,
             workspace_id=workspace_id,
             request_options=request_options,
         )
@@ -695,7 +806,7 @@ class AsyncVoicesClient:
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[VoiceOut, ApiCountedListResponseVoiceOut]:
+    ) -> ApiCountedListResponseVoiceOut:
         """
         List TTS voices available to the current workspace.
 
@@ -828,7 +939,7 @@ class AsyncVoicesClient:
 
         Returns
         -------
-        AsyncPager[VoiceOut, ApiCountedListResponseVoiceOut]
+        ApiCountedListResponseVoiceOut
             Successful Response
 
         Examples
@@ -843,18 +954,12 @@ class AsyncVoicesClient:
 
 
         async def main() -> None:
-            response = await client.voices.list()
-            async for item in response:
-                yield item
-
-            # alternatively, you can paginate page-by-page
-            async for page in response.iter_pages():
-                yield page
+            await client.voices.list()
 
 
         asyncio.run(main())
         """
-        return await self._raw_client.list(
+        _response = await self._raw_client.list(
             offset=offset,
             limit=limit,
             favorites_only=favorites_only,
@@ -873,6 +978,7 @@ class AsyncVoicesClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
+        return _response.data
 
     async def get_voice_facets(
         self,
@@ -1025,6 +1131,130 @@ class AsyncVoicesClient:
             provider=provider,
             model=model,
             language=language,
+            workspace_id=workspace_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def recommend_voices(
+        self,
+        *,
+        language: str,
+        limit: typing.Optional[int] = None,
+        exclude: typing.Optional[typing.Sequence[str]] = None,
+        offer_round: typing.Optional[int] = None,
+        gender: typing.Optional[typing.Sequence[VoiceGender]] = None,
+        age: typing.Optional[typing.Sequence[VoiceAge]] = None,
+        provider: typing.Optional[typing.Sequence[str]] = None,
+        model: typing.Optional[typing.Sequence[str]] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiListResponseVoiceRecommendedOut:
+        """
+        Recommend voices for a language — the ranked answer, not a catalogue page.
+
+        `GET /voices` is a browse: it answers "what exists" and orders by whatever `sort`
+        says, defaulting to newest-first. That is the right shape for a person scrolling a
+        catalogue and the wrong one for a caller that will put three voices in front of
+        someone — there, WHICH three is the entire recommendation, and "most recently added"
+        is not an opinion about quality.
+
+        This endpoint is the selection half of automatic voice choice, the same one the
+        in-product assistant's cards are built from, and it is deliberately a separate route
+        rather than a mode of the list: browse and recommend disagree about vendors on
+        purpose. A company may be excluded from what we OFFER automatically while staying
+        fully browsable and fully usable when a customer asks for it by name, so the policy
+        belongs to the surface that offers rather than the one that lists.
+
+        What it applies, and the list does not:
+
+        * **Measured quality floors and tier ranking.** Candidates clear the naturalness and
+          noise floors, then sort by quality tier first; price may only reorder within a
+          tier, so a cheaper voice never displaces a detectably better one. Which axis leads
+          inside a tier follows the workspace's Auto-route setting.
+        * **Spread across companies.** One large catalogue cannot sweep the slate.
+        * **Build re-resolution.** Every voice is re-resolved through the same gate a run
+          uses, and `recommended_model` is that gate's answer — so a recommendation cannot
+          name a pairing synthesis would then refuse.
+
+        `exclude` plus `offer_round` is how "show me different ones" works: pass the ids
+        already shown and raise the round. The slate is deterministic in its inputs, so the
+        same request returns the same voices — paging is the caller's to drive, not a
+        hidden cursor's.
+
+        `provider`, `model`, `gender` and `age` narrow the eligible pool without turning this
+        into a browse. Describing a SOUND ("warm, low, conversational") is not a filter here;
+        that is `GET /voices?search=`, which ranks by meaning. A future `similar_to` will add
+        the third route — voices near one the customer already chose — and is intentionally
+        not part of this first cut.
+
+        An empty `data` means nothing is buildable for this language under these constraints,
+        which is a real answer and not an error.
+
+        Parameters
+        ----------
+        language : str
+            Locale the voices must speak, e.g. `ko-kr`. A bare family widens to the product default.
+
+        limit : typing.Optional[int]
+            How many to recommend (1–6).
+
+        exclude : typing.Optional[typing.Sequence[str]]
+            Voice ids already offered. Repeat for each; newest kept when over the cap.
+
+        offer_round : typing.Optional[int]
+            Increment to draw a different slate of equally-ranked voices.
+
+        gender : typing.Optional[typing.Sequence[VoiceGender]]
+            Repeat for OR
+
+        age : typing.Optional[typing.Sequence[VoiceAge]]
+            Repeat for OR
+
+        provider : typing.Optional[typing.Sequence[str]]
+            Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
+
+        model : typing.Optional[typing.Sequence[str]]
+            Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiListResponseVoiceRecommendedOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.voices.recommend_voices(
+                language="language",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.recommend_voices(
+            language=language,
+            limit=limit,
+            exclude=exclude,
+            offer_round=offer_round,
+            gender=gender,
+            age=age,
+            provider=provider,
+            model=model,
             workspace_id=workspace_id,
             request_options=request_options,
         )
