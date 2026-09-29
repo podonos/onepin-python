@@ -7,7 +7,6 @@ from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import encode_path_param
-from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
@@ -19,7 +18,6 @@ from ..types.api_response_template_estimate_response import ApiResponseTemplateE
 from ..types.api_response_template_out import ApiResponseTemplateOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
 from ..types.template_category import TemplateCategory
-from ..types.template_out import TemplateOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from .types.list_templates_request_sort import ListTemplatesRequestSort
 from pydantic import ValidationError
@@ -42,7 +40,7 @@ class RawTemplatesClient:
         limit: typing.Optional[int] = None,
         favorites_only: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[TemplateOut, ApiListResponseTemplateOut]:
+    ) -> HttpResponse[ApiListResponseTemplateOut]:
         """
         Browse the public template gallery across all workspaces.
 
@@ -81,11 +79,9 @@ class RawTemplatesClient:
 
         Returns
         -------
-        SyncPager[TemplateOut, ApiListResponseTemplateOut]
+        HttpResponse[ApiListResponseTemplateOut]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = self._client_wrapper.httpx_client.request(
             "api/v1/templates",
             method="GET",
@@ -101,25 +97,14 @@ class RawTemplatesClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiListResponseTemplateOut,
                     parse_obj_as(
                         type_=ApiListResponseTemplateOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-                _get_next = lambda: self.list(
-                    category=category,
-                    search=search,
-                    sort=sort,
-                    offset=offset + len(_items or []),
-                    limit=limit,
-                    favorites_only=favorites_only,
-                    request_options=request_options,
-                )
-                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -794,7 +779,7 @@ class AsyncRawTemplatesClient:
         limit: typing.Optional[int] = None,
         favorites_only: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[TemplateOut, ApiListResponseTemplateOut]:
+    ) -> AsyncHttpResponse[ApiListResponseTemplateOut]:
         """
         Browse the public template gallery across all workspaces.
 
@@ -833,11 +818,9 @@ class AsyncRawTemplatesClient:
 
         Returns
         -------
-        AsyncPager[TemplateOut, ApiListResponseTemplateOut]
+        AsyncHttpResponse[ApiListResponseTemplateOut]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = await self._client_wrapper.httpx_client.request(
             "api/v1/templates",
             method="GET",
@@ -853,28 +836,14 @@ class AsyncRawTemplatesClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiListResponseTemplateOut,
                     parse_obj_as(
                         type_=ApiListResponseTemplateOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-
-                async def _get_next():
-                    return await self.list(
-                        category=category,
-                        search=search,
-                        sort=sort,
-                        offset=offset + len(_items or []),
-                        limit=limit,
-                        favorites_only=favorites_only,
-                        request_options=request_options,
-                    )
-
-                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
