@@ -13,7 +13,7 @@ name: Regenerate SDK
 # A guard failure never blocks the PR. `tests/build` runs on both paths and reports into the
 # PR as a comment; when the failure is SDK -> CLI drift, the `autofix` job hands it to an agent
 # that adds the missing flag on the PR branch. The merge is gated by ci.yml, not by this file.
-# `autofix` is skipped, with a notice, when ANTHROPIC_API_KEY is not configured.
+# `autofix` is skipped, with a notice, when CLAUDE_CODE_OAUTH_TOKEN is not configured.
 #
 # Requires a GitHub App (org secrets PIPELINE_APP_ID / PIPELINE_APP_PRIVATE_KEY) and the
 # repo secret SPEC_REPO (name of the backend repo). Fetches public-spec.yaml -- the
@@ -343,10 +343,10 @@ jobs:
       - name: Check for the Claude credential
         id: key
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-            echo "::notice::ANTHROPIC_API_KEY is not configured; skipping autofix. The guard results are still on the PR."
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+            echo "::notice::CLAUDE_CODE_OAUTH_TOKEN is not configured; skipping autofix. The guard results are still on the PR."
             echo "present=false" >> "$GITHUB_OUTPUT"
           else
             echo "present=true" >> "$GITHUB_OUTPUT"
@@ -381,7 +381,10 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The org already provides this, so autofix needs no new secret. It bills the
+          # subscription rather than the API. Note it is tied to the account that ran
+          # `claude setup-token`: revoke or expire that and this job starts failing.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Authenticating as the pipeline App (not GITHUB_TOKEN) is what makes ci.yml re-run on
           # the agent's push -- the same reason the regenerate job uses it to open the PR.
           github_token: ${{ steps.app-token.outputs.token }}
