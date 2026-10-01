@@ -19,8 +19,12 @@ BE -> SDK half of the pipeline is automatic, so a new query parameter lands in
 half is hand-written, so it lands nowhere. Nothing was red while ``GET /voices`` grew
 ``age``/``category``/``accent`` and ``voices list`` kept offering four of its eight filters
 for months -- the discovery path was a user saying the agent behaved oddly, not a test. Since
-``.github/workflows/regen.yml`` already runs ``tests/build`` on every generated PR, asserting
-the reverse direction here turns that silence into a failing check on the regen PR itself.
+``ci.yml`` runs the whole suite on every PR, including the regen PRs, asserting the reverse
+direction here turns that silence into a failing check on the regen PR itself.
+
+That last sentence is load-bearing and was false for a while: ``tests/build`` is only reachable
+because ``pyproject.toml`` drops ``build`` from pytest's default ``norecursedirs``. See
+``tests/unit/test_collection.py``.
 
 Both directions are then repeated for the hand-written composites, which are not TABLE rows and
 which every parametrized check above therefore skips. See :data:`_COMPOSITE_CALLS`.
@@ -379,22 +383,129 @@ def test_composite_calls_covers_every_sdk_call_site() -> None:
     assert not unused, f"_COMPOSITE_CALLS lists {sorted(unused)}, which composites.py no longer calls — drop it"
 
 
-@pytest.mark.parametrize(
-    "method_path",
-    ("workflows.estimate_workflow", "workflows.preview_run", "workflows.runs.start"),
-)
-def test_run_input_reference_matches_flattened_signatures(method_path: str) -> None:
-    """The generated reference must expose the same flattened run-input kwargs as the clients."""
-    reference = (Path(__file__).parents[2] / "src" / "onepin" / "reference.md").read_text(encoding="utf-8")
-    method_name = method_path.rsplit(".", 1)[-1]
-    owner = method_path.removesuffix(f".{method_name}")
-    marker = rf"<details><summary><code>client\.{re.escape(owner)}(?:\.<a [^>]+>)?{method_name}</a>\(\.\.\.\)"
-    match = re.search(marker, reference)
-    assert match is not None, f"reference.md has no section for {method_path}"
-    section = reference[match.start() : reference.index("</details>", match.start())]
+# === generated reference.md vs the generated clients =====================================
+#
+# reference.md is written by the same generator, in the same run, from the same spec as the
+# code it documents, so the two cannot disagree without one of them being wrong. They do: the
+# "⚙️ Parameters" table is built from a pre-transform view of the method while the code — and
+# the "🔌 Usage" snippet in the same section — use the post-transform one. A reader who follows
+# the table gets a TypeError before a request is ever sent.
+#
+# Parametrizing over every documented method, rather than naming the few known-bad ones, is
+# the difference between catching this class of defect and catching one instance of it.
 
-    assert "**script_text:**" in section, f"{method_path} reference omits script_text"
-    assert "**source_language:**" in section, f"{method_path} reference omits source_language"
-    assert "**request:** `WorkflowRunStartIn`" not in section, (
-        f"{method_path} reference still documents the stale wrapped request model"
+_REFERENCE = Path(__file__).parents[2] / "src" / "onepin" / "reference.md"
+_PARAMS_HEADING = "#### ⚙️ Parameters"
+_SECTION_RE = re.compile(r"<details><summary><code>client\.([\w.]*?)(?:<a [^>]+>)?(\w+)</a>\(")
+_PARAM_RE = re.compile(r"\*\*(\w+):\*\*")
+
+
+def _reference_sections() -> list[tuple[str, tuple[str, ...]]]:
+    """Every documented method as (dotted SDK path, the params its table lists)."""
+    text = _REFERENCE.read_text(encoding="utf-8")
+    sections = []
+    for match in _SECTION_RE.finditer(text):
+        owner, name = match.group(1).rstrip("."), match.group(2)
+        body = text[match.start() : text.index("</details>", match.start())]
+        # Only the parameter table. Descriptions use `**Bold:**` for their own subheadings
+        # (`**Pagination:**`, `**Deprecated:**`), which are prose, not parameters.
+        heading = body.find(_PARAMS_HEADING)
+        documented = tuple(_PARAM_RE.findall(body[heading:])) if heading >= 0 else ()
+        sections.append((f"{owner}.{name}" if owner else name, documented))
+    return sections
+
+
+_REFERENCE_SECTIONS = _reference_sections()
+
+_INLINED_BODY = (
+    "Generator documents the pre-inlining wrapper model while generating a method that takes "
+    "the body's fields as flattened kwargs — no generated method accepts `request` at all."
+)
+_RESERVED_WORD = (
+    "Generator documents the wire name while generating `from_`, because `from` is a Python "
+    "keyword — the documented call is not even syntactically valid."
+)
+
+# Documented-vs-generated mismatches, keyed by dotted SDK path, valued by param -> reason.
+#
+# Same contract as _INTENTIONALLY_UNEXPOSED, and recorded here rather than fixed in place for a
+# reason beyond taste: reference.md is regenerated on every regen and is not in `.fernignore`,
+# so a local correction survives exactly until the next PR. The fix belongs in the generator —
+# which `fern/generators.yml` pins to `latest`, so this list doubles as the record of what the
+# current unpinned generator gets wrong.
+_REFERENCE_DEFECTS: dict[str, dict[str, str]] = {
+    "workflows.estimate_workflow": dict.fromkeys(("request", "script_text", "source_language"), _INLINED_BODY),
+    "workflows.preview_run": dict.fromkeys(("request", "script_text", "source_language"), _INLINED_BODY),
+    "workflows.runs.start": dict.fromkeys(("request", "script_text", "source_language"), _INLINED_BODY),
+    "workspace_members.update_member_role": dict.fromkeys(("request", "role"), _INLINED_BODY),
+    "workspace_members.update_invite_role": dict.fromkeys(("request", "role"), _INLINED_BODY),
+    "workflows.runs_summary": dict.fromkeys(("from", "from_"), _RESERVED_WORD),
+}
+
+
+def _reference_mismatch(dotted: str, documented: tuple[str, ...]) -> tuple[set[str], set[str]]:
+    """(params the table invents, params the table omits) for one documented method."""
+    accepted = set(inspect.signature(_resolve_method(OnePinClient(token="op_live_test"), dotted)).parameters)
+    accepted.discard("self")
+    return set(documented) - accepted, accepted - set(documented)
+
+
+@pytest.mark.parametrize(
+    ("dotted", "documented"),
+    _REFERENCE_SECTIONS,
+    ids=[dotted for dotted, _ in _REFERENCE_SECTIONS],
+)
+def test_reference_params_match_signature(dotted: str, documented: tuple[str, ...]) -> None:
+    """Each parameter table must name exactly the params its method takes.
+
+    Both directions are drift, but they are not equally bad: a param the table invents is a
+    documented call that raises, while one it omits is a capability users cannot discover.
+    """
+    invented, omitted = _reference_mismatch(dotted, documented)
+    excused = set(_REFERENCE_DEFECTS.get(dotted, {}))
+
+    assert not invented - excused, (
+        f"{dotted}: reference.md documents {sorted(invented - excused)}, which the method does not "
+        f"accept — following the docs raises TypeError. Fix the generator (reference.md is "
+        f"regenerated, so editing it here is lost), or record it in _REFERENCE_DEFECTS."
     )
+    assert not omitted - excused, (
+        f"{dotted}: the method accepts {sorted(omitted - excused)} but reference.md's parameter "
+        f"table omits it. Same two options as above."
+    )
+
+
+def test_reference_sections_are_discoverable() -> None:
+    """Guard the parse itself.
+
+    The check above is parametrized over whatever `_reference_sections` finds, so a generator
+    that reshapes the surrounding markup would empty the parametrization and leave the suite
+    green by vacuity — the exact silence this file exists to end. Anchor on the shape instead.
+    """
+    sections = dict(_REFERENCE_SECTIONS)
+
+    assert len(sections) >= 80, f"only {len(sections)} methods parsed out of reference.md — markup likely changed"
+    assert "workflows.runs.start" in sections, "reference.md parse no longer finds a known method path"
+    tableless = sorted(dotted for dotted, params in sections.items() if not params)
+    assert not tableless, f"{tableless} parsed with no parameters — the {_PARAMS_HEADING!r} heading likely moved"
+
+
+def test_reference_defect_allowlist_has_no_stale_entries() -> None:
+    """The allowlist may only name mismatches that are still mismatches.
+
+    This is what fails on the regen that fixes the generator: the defect is gone, the excuse is
+    not, and the excuse has to go with it.
+    """
+    documented_by_path = dict(_REFERENCE_SECTIONS)
+
+    for dotted, reasons in _REFERENCE_DEFECTS.items():
+        assert dotted in documented_by_path, f"_REFERENCE_DEFECTS names {dotted}, which reference.md does not document"
+        assert reasons, f"{dotted}: allowlist entry is empty — drop the key instead"
+        invented, omitted = _reference_mismatch(dotted, documented_by_path[dotted])
+        stale = set(reasons) - (invented | omitted)
+        assert not stale, (
+            f"{dotted}: allowlist still excuses {sorted(stale)}, which reference.md and the client "
+            f"now agree on — delete those entries"
+        )
+        for param, reason in reasons.items():
+            assert reason.strip(), f"{dotted}.{param}: allowlisted with no reason"
