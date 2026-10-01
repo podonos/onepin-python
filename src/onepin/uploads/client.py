@@ -96,6 +96,56 @@ class UploadsClient:
         )
         return _response.data
 
+    def put_upload_content(
+        self, upload_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponseUploadOut:
+        """
+        Send the file's bytes to this API instead of to the presigned URL (alternative step 1).
+
+        A substitute for the PUT to `upload_url`, not a new step: it writes the same staging
+        object that URL would have written, so `POST /uploads/{id}` confirms either one without
+        knowing which door the bytes came through. Use exactly one of the two.
+
+        Prefer the presigned URL. It uploads straight to object storage and costs this API
+        nothing, and it is what every client that can reach object storage should use. This
+        route exists for callers that **cannot** — a sandboxed agent whose network policy
+        permits this API's host and not the storage host. There the presigned PUT fails before
+        it gets any HTTP status at all, and no retry against the same URL can succeed.
+
+        Send the raw bytes as the request body with `Content-Type` set to the `content_type`
+        from `POST /uploads`, exactly as the presigned PUT requires — this route enforces the
+        same match, so a file is never stored under a format the confirm step will reject.
+        Not base64, not multipart. Unlike the presigned URL, this one does not expire: it
+        authenticates per request, so a slow upload cannot outlive its credential.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
+
+        Parameters
+        ----------
+        upload_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseUploadOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.uploads.put_upload_content(
+            upload_id="upload_id",
+        )
+        """
+        _response = self._raw_client.put_upload_content(upload_id, request_options=request_options)
+        return _response.data
+
     def confirm(
         self,
         upload_id: str,
@@ -136,7 +186,7 @@ class UploadsClient:
         upload_id : str
 
         context_type : UploadConfirmRequestContextType
-            Type of resource this upload is being attached to: `workflow`, `playground`, or `assistant_session`.
+            Type of resource this upload is being attached to: `workflow`, `playground`, `assistant_session`, or `mcp` (the MCP surface's workspace-scoped scratch space).
 
         context_id : str
             ID of the resource to attach this upload to. Must be an existing resource of the given `context_type` that the caller has access to.
@@ -319,6 +369,64 @@ class AsyncUploadsClient:
         )
         return _response.data
 
+    async def put_upload_content(
+        self, upload_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponseUploadOut:
+        """
+        Send the file's bytes to this API instead of to the presigned URL (alternative step 1).
+
+        A substitute for the PUT to `upload_url`, not a new step: it writes the same staging
+        object that URL would have written, so `POST /uploads/{id}` confirms either one without
+        knowing which door the bytes came through. Use exactly one of the two.
+
+        Prefer the presigned URL. It uploads straight to object storage and costs this API
+        nothing, and it is what every client that can reach object storage should use. This
+        route exists for callers that **cannot** — a sandboxed agent whose network policy
+        permits this API's host and not the storage host. There the presigned PUT fails before
+        it gets any HTTP status at all, and no retry against the same URL can succeed.
+
+        Send the raw bytes as the request body with `Content-Type` set to the `content_type`
+        from `POST /uploads`, exactly as the presigned PUT requires — this route enforces the
+        same match, so a file is never stored under a format the confirm step will reject.
+        Not base64, not multipart. Unlike the presigned URL, this one does not expire: it
+        authenticates per request, so a slow upload cannot outlive its credential.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
+
+        Parameters
+        ----------
+        upload_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseUploadOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.uploads.put_upload_content(
+                upload_id="upload_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.put_upload_content(upload_id, request_options=request_options)
+        return _response.data
+
     async def confirm(
         self,
         upload_id: str,
@@ -359,7 +467,7 @@ class AsyncUploadsClient:
         upload_id : str
 
         context_type : UploadConfirmRequestContextType
-            Type of resource this upload is being attached to: `workflow`, `playground`, or `assistant_session`.
+            Type of resource this upload is being attached to: `workflow`, `playground`, `assistant_session`, or `mcp` (the MCP surface's workspace-scoped scratch space).
 
         context_id : str
             ID of the resource to attach this upload to. Must be an existing resource of the given `context_type` that the caller has access to.

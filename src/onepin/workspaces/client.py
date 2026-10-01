@@ -395,7 +395,9 @@ class WorkspacesClient:
         member or an org admin. Use this instead of ``/users/me/subscription`` when rendering a
         workspace's plan, so an org workspace shows the ORGANIZATION's plan. Membership is
         existence-hidden (404); the org-admin fallback applies (an org admin with no materialized
-        member row can still read).
+        member row can still read). Before returning a locally active subscription, the endpoint
+        verifies it with Stripe; a Stripe-confirmed terminal subscription is persisted and returns
+        ``null``, while a verification failure returns 502 ``BILLING_ERROR``.
 
         Parameters
         ----------
@@ -955,7 +957,9 @@ class AsyncWorkspacesClient:
         member or an org admin. Use this instead of ``/users/me/subscription`` when rendering a
         workspace's plan, so an org workspace shows the ORGANIZATION's plan. Membership is
         existence-hidden (404); the org-admin fallback applies (an org admin with no materialized
-        member row can still read).
+        member row can still read). Before returning a locally active subscription, the endpoint
+        verifies it with Stripe; a Stripe-confirmed terminal subscription is persisted and returns
+        ``null``, while a verification failure returns 502 ``BILLING_ERROR``.
 
         Parameters
         ----------

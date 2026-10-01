@@ -21,6 +21,7 @@ if typing.TYPE_CHECKING:
     from .api_list_response_template_out import ApiListResponseTemplateOut
     from .api_list_response_upload_out import ApiListResponseUploadOut
     from .api_list_response_usage_activity_out import ApiListResponseUsageActivityOut
+    from .api_list_response_voice_recommended_out import ApiListResponseVoiceRecommendedOut
     from .api_list_response_voice_similar_out import ApiListResponseVoiceSimilarOut
     from .api_list_response_workspace_member_out import ApiListResponseWorkspaceMemberOut
     from .api_list_response_workspace_out import ApiListResponseWorkspaceOut
@@ -172,6 +173,7 @@ if typing.TYPE_CHECKING:
     from .voice_model_capability_out import VoiceModelCapabilityOut
     from .voice_out import VoiceOut
     from .voice_preview_out import VoicePreviewOut
+    from .voice_recommended_out import VoiceRecommendedOut
     from .voice_similar_out import VoiceSimilarOut
     from .voice_source import VoiceSource
     from .workflow_definition_input import WorkflowDefinitionInput
@@ -269,6 +271,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiListResponseTemplateOut": ".api_list_response_template_out",
     "ApiListResponseUploadOut": ".api_list_response_upload_out",
     "ApiListResponseUsageActivityOut": ".api_list_response_usage_activity_out",
+    "ApiListResponseVoiceRecommendedOut": ".api_list_response_voice_recommended_out",
     "ApiListResponseVoiceSimilarOut": ".api_list_response_voice_similar_out",
     "ApiListResponseWorkspaceMemberOut": ".api_list_response_workspace_member_out",
     "ApiListResponseWorkspaceOut": ".api_list_response_workspace_out",
@@ -416,6 +419,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VoiceModelCapabilityOut": ".voice_model_capability_out",
     "VoiceOut": ".voice_out",
     "VoicePreviewOut": ".voice_preview_out",
+    "VoiceRecommendedOut": ".voice_recommended_out",
     "VoiceSimilarOut": ".voice_similar_out",
     "VoiceSource": ".voice_source",
     "WorkflowDefinitionInput": ".workflow_definition_input",
@@ -537,6 +541,7 @@ __all__ = [
     "ApiListResponseTemplateOut",
     "ApiListResponseUploadOut",
     "ApiListResponseUsageActivityOut",
+    "ApiListResponseVoiceRecommendedOut",
     "ApiListResponseVoiceSimilarOut",
     "ApiListResponseWorkspaceMemberOut",
     "ApiListResponseWorkspaceOut",
@@ -684,6 +689,7 @@ __all__ = [
     "VoiceModelCapabilityOut",
     "VoiceOut",
     "VoicePreviewOut",
+    "VoiceRecommendedOut",
     "VoiceSimilarOut",
     "VoiceSource",
     "WorkflowDefinitionInput",
