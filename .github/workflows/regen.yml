@@ -10,6 +10,11 @@ name: Regenerate SDK
 #     environment=dev  -> generation smoke-check only, NO PR
 #   workflow_dispatch  -> manual regen PR from a given spec-repo SHA (default: main HEAD)
 #
+# A guard failure never blocks the PR. `tests/build` runs on both paths and reports into the
+# PR as a comment; when the failure is SDK -> CLI drift, the `autofix` job hands it to an agent
+# that adds the missing flag on the PR branch. The merge is gated by ci.yml, not by this file.
+# `autofix` is skipped, with a notice, when ANTHROPIC_API_KEY is not configured.
+#
 # Requires a GitHub App (org secrets PIPELINE_APP_ID / PIPELINE_APP_PRIVATE_KEY) and the
 # repo secret SPEC_REPO (name of the backend repo). Fetches public-spec.yaml -- the
 # narrowed customer-facing export; NOT api-spec.yaml, which is the backend's full
@@ -42,6 +47,9 @@ jobs:
     outputs:
       environment: ${{ steps.vars.outputs.env }}
       source_sha: ${{ steps.spec.outputs.resolved_sha }}
+      pr_number: ${{ steps.cpr.outputs.pull-request-number }}
+      pr_branch: fern-regen/${{ steps.spec.outputs.resolved_sha }}
+      guards_failed: ${{ steps.guards.outputs.failed }}
     steps:
       - name: Resolve trigger inputs
         id: vars
@@ -157,23 +165,35 @@ jobs:
           echo "CLI preserved + non-bare + shaped client confirmed."
 
       - name: Build/CLI guard tests
-        # Only on the dev smoke-check path, which opens no PR and so has no other place
-        # for these to run. On the PR-opening paths this step is deliberately skipped:
-        # ci.yml runs the very same `tests/build` on the regen PR, so gating here is
-        # duplicate coverage with a strictly worse failure mode. `tests/build` mixes two
-        # severities -- CLI->SDK breakage (a renamed/dropped method, which crashes the CLI)
-        # and SDK->CLI drift (a new param with no flag yet, which breaks nothing) -- and a
-        # failure of either kind used to run BEFORE "Open regen PR" and take the PR down
-        # with it. That deleted the spec update entirely: no branch, no diff, nothing to
-        # fix forward from, just a red run. Which is the exact silence test_sdk_contract.py
-        # was written to end. The regen PR is a proposal, not a release; gate the merge
-        # (branch protection + ci.yml), not the proposal. The pre-PR shell guard above
-        # still blocks the catastrophic case -- a clobbered _cli/ or a bare client.
-        if: steps.vars.outputs.open_pr != 'true'
+        id: guards
+        # Runs on BOTH paths and fails neither. The regen PR is a proposal, not a release, so
+        # a guard failure is information *about* the proposal: it is posted onto the PR below,
+        # and handed to the autofix job when it is the mechanical kind. Blocking PR creation on
+        # it -- the shape this step used to have -- deleted the spec update entirely: no branch,
+        # no diff, nothing to fix forward from, just a red run.
+        #
+        # What gates the merge is ci.yml, which runs this same `tests/build` on the PR. That was
+        # the intent all along but not the behaviour: pytest's default `norecursedirs` carries
+        # the pattern `build`, so ci.yml silently never collected the directory, and the step
+        # here was the only place these ran. `pyproject.toml` drops that pattern now.
+        #
+        # The hard gate stays the shell guard above: a clobbered `_cli/` or a bare client is not
+        # a proposal worth reviewing, it is a broken generation.
         run: |
+          set -euo pipefail
           pip install uv
           uv sync --all-extras
-          uv run pytest tests/build -q
+          set +e
+          uv run pytest tests/build -q > guards.log 2>&1
+          status=$?
+          set -e
+          tail -60 guards.log
+          {
+            echo "failed=$([ "$status" -eq 0 ] && echo false || echo true)"
+            echo 'summary<<GUARDS_EOF'
+            grep '^FAILED' guards.log || echo '(no FAILED lines -- see the run log)'
+            echo 'GUARDS_EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Record source spec sha (.spec-sha — consumed by promote-prod.yml)
         if: steps.vars.outputs.open_pr == 'true'
@@ -207,6 +227,7 @@ jobs:
           fi
 
       - name: Open regen PR
+        id: cpr
         if: steps.vars.outputs.open_pr == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
@@ -231,9 +252,192 @@ jobs:
             Review the diff, let CI run, then merge to ship the new SDK surface.
           labels: auto:sdk-regen
 
+      - name: Close superseded regen PRs
+        # Each regen PR is a whole-SDK snapshot of one spec commit, not an increment on the last
+        # one, so N of them open at once is N ways to regress the SDK by merging the wrong one.
+        # Only the newest can be right. Scoped three ways so a human PR can never be caught:
+        # the label this workflow applies, the branch prefix it owns, and a number lower than
+        # the PR just opened (so a concurrent newer regen is never closed by an older run).
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          NEW_PR: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          set -euo pipefail
+          gh pr list --repo "$REPO" --state open --label auto:sdk-regen \
+            --json number,headRefName --jq '.[] | "\(.number)\t\(.headRefName)"' > open-regens.tsv
+          while IFS=$'\t' read -r num branch; do
+            [ -n "${num:-}" ] || continue
+            [ "$num" -lt "$NEW_PR" ] || continue
+            case "$branch" in fern-regen/*) ;; *) continue ;; esac
+            echo "Closing #$num ($branch), superseded by #$NEW_PR"
+            gh pr comment "$num" --repo "$REPO" \
+              --body "Superseded by #${NEW_PR}, which regenerates the SDK from a newer spec commit. Each regen PR is a full snapshot rather than an increment, so this one can only take the SDK backwards now. Closing and deleting the branch."
+            gh pr close "$num" --repo "$REPO" --delete-branch
+          done < open-regens.tsv
+          rm -f open-regens.tsv
+
+      - name: Report guard results on the regen PR
+        # The PR is where the diff is, so it is where the verdict belongs -- including when the
+        # verdict is "clean", which is the difference between a check that ran and one that was
+        # skipped. That difference is exactly what went unnoticed for two weeks.
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.cpr.outputs.pull-request-number }}
+          FAILED: ${{ steps.guards.outputs.failed }}
+          SUMMARY: ${{ steps.guards.outputs.summary }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ "$FAILED" != "true" ]; then
+            printf '%s\n' "**Regen guards: clean.** \`tests/build\` passed against the freshly generated SDK." \
+              "" "[run log]($RUN_URL)" > comment.md
+          else
+            {
+              printf '%s\n' "**Regen guards: failing.** \`tests/build\` is red against the freshly generated SDK:" ""
+              printf '```\n%s\n```\n' "$SUMMARY"
+              printf '%s\n' "" \
+                "This does not block the PR -- the diff is here to fix forward from. \`ci.yml\` runs the same suite as a required check, so the merge is gated on it being green." \
+                "" "[run log]($RUN_URL)"
+            } > comment.md
+          fi
+          gh pr comment "$PR" --repo "$REPO" --body-file comment.md
+          rm -f comment.md
+
       - name: Smoke-check note (dev — no PR)
         if: steps.vars.outputs.open_pr != 'true'
-        run: echo "::notice::dev smoke-check passed — generation clean, CLI preserved. No PR (publish gated on prod)."
+        run: |
+          if [ "${{ steps.guards.outputs.failed }}" = "true" ]; then
+            echo "::warning::dev smoke-check: tests/build is red. No PR on this path, so there is nothing to fix forward from here — the prod regen PR is where this gets handled."
+          else
+            echo "::notice::dev smoke-check passed — generation clean, CLI preserved. No PR (publish gated on prod)."
+          fi
+
+  autofix:
+    # Close the SDK -> CLI half of the pipeline, which is the half that has no automation.
+    # BE -> SDK is automatic (the spec regenerates the client), so a new API parameter lands in
+    # the generated code with nobody in the loop; the hand-written CLI never follows, and the
+    # gap sat unnoticed for months at a time. The work to close it is mechanical and fully
+    # specified by the failing test -- add the flag, regenerate the docs, update the snapshot --
+    # so it is work an agent can do and a human can review in a diff.
+    #
+    # Deliberately NOT given the other failure classes. A generator defect (reference.md
+    # documenting params the client does not accept) is unfixable in this repo: the file is
+    # regenerated and not in `.fernignore`. And silencing a guard by allowlisting it is the one
+    # move that must stay human -- an agent that can turn its own alarm off is how two weeks of
+    # red guards reached main on green CI.
+    needs: regenerate
+    if: needs.regenerate.outputs.guards_failed == 'true' && needs.regenerate.outputs.pr_number != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Check for the Claude credential
+        id: key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "::notice::ANTHROPIC_API_KEY is not configured; skipping autofix. The guard results are still on the PR."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Mint GitHub App token
+        id: app-token
+        if: steps.key.outputs.present == 'true'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.PIPELINE_APP_ID }}
+          private-key: ${{ secrets.PIPELINE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Checkout the regen PR branch
+        if: steps.key.outputs.present == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.regenerate.outputs.pr_branch }}
+          token: ${{ steps.app-token.outputs.token }}
+          # Credentials stay persisted here, unlike the regenerate job: the agent commits and
+          # pushes with the git CLI rather than through create-pull-request.
+          # hatch-vcs needs the history + tags or the wheel the guard tests build gets a bogus
+          # version and trips the version-sanity assertions.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Let Claude close the drift
+        if: steps.key.outputs.present == 'true'
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Authenticating as the pipeline App (not GITHUB_TOKEN) is what makes ci.yml re-run on
+          # the agent's push -- the same reason the regenerate job uses it to open the PR.
+          github_token: ${{ steps.app-token.outputs.token }}
+          # This workflow is triggered by repository_dispatch from the backend, so the actor is
+          # always this App and the action's human-actor check would reject every run. Named
+          # explicitly rather than `*`: the repo is public, where `*` lets any external App in.
+          allowed_bots: "onepin-pipeline-bot[bot]"
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 40
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash"
+          prompt: |
+            `tests/build` is failing on regen PR #${{ needs.regenerate.outputs.pr_number }},
+            which you have checked out. Read AGENTS.md first — it is authoritative here.
+
+            Run `uv sync --all-extras && uv run pytest tests/build -q` to see the failures.
+            Read them from that output, not from anything quoted to you.
+
+            Fix EXACTLY ONE class of failure: SDK -> CLI drift, which is
+            `test_no_unexposed_sdk_params` or `test_no_unexposed_composite_sdk_params` reporting
+            that the generated client accepts a parameter no CLI flag reaches. The fix is to
+            expose it:
+
+            1. Add an `Opt(...)` to the command's row in `src/onepin/_cli/_spec.py`, matching the
+               style and `transform=` of the neighbouring filters. For a composite, add the
+               option in `src/onepin/_cli/commands/composites.py` and the param to
+               `_COMPOSITE_CALLS` in the test.
+            2. The CLI surface changed, so regenerate the docs and the snapshot or two other
+               tests fail: `uv run python scripts/gen_cli_docs.py` and
+               `UPDATE_SNAPSHOT=1 uv run pytest tests/cli/test_cli_manifest.py`.
+            3. Add a test under `tests/cli/` that exercises the new flag. PRs are gated on 90%
+               diff coverage.
+            4. Verify before you finish: `uv run ruff check src/onepin/_cli tests`,
+               `uv run ruff format src/onepin/_cli tests`, `uv run mypy -p onepin._cli`,
+               `uv run pytest -q`. All must pass.
+            5. Commit to this branch with a `feat(cli):` subject describing the flag.
+
+            Never do any of the following. Each one hides the problem instead of fixing it, and
+            a human has to make the call:
+            - Adding an entry to `_INTENTIONALLY_UNEXPOSED`, `_COMPOSITE_UNEXPOSED` or
+              `_REFERENCE_DEFECTS`. Deciding NOT to expose something is a product decision.
+            - Weakening, skipping, deleting or `xfail`-ing any test.
+            - Editing anything under `src/onepin/` outside `_cli/`, including `reference.md`.
+              It is Fern-generated and your edit is lost on the next regen.
+
+            If the failures are NOT drift — a `test_reference_params_match_signature` mismatch, a
+            renamed or dropped SDK method, anything else — do not attempt a fix. Post a PR
+            comment with `gh pr comment` explaining what the failure is and why it needs a human,
+            and stop.
+
+            One more thing to raise rather than decide: if the parameter you exposed is a filter
+            whose absence changes what the response MEANS, an API older than the parameter
+            ignores it and answers 200 with an ungated result, so nothing errors and the rows
+            silently describe something else. AGENTS.md calls this out; `--buildable` needed a
+            `Cmd(gate=)` handler in `_gates.py` for it. Say in your PR comment whether you think
+            this parameter needs one, and ask for a human decision — do not add a gate yourself.
 
   notify-failure:
     if: failure()
