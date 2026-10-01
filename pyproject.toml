@@ -125,7 +125,17 @@ ignore_errors = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-addopts = "-q --strict-markers"
+# `--ignore=build` pairs with `norecursedirs` below: it keeps the `./build/` tree that
+# `python -m build` leaves behind out of collection, which the stock `norecursedirs` used to
+# cover for free.
+addopts = "-q --strict-markers --ignore=build"
 # Restrict collection to top-level tests/ — Fern-generated SDK ships its own
 # tests under src/onepin/tests/ with markers we don't register.
 testpaths = ["tests"]
+# pytest's *default* norecursedirs contains the bare pattern `build`, which matches by
+# basename — so it skipped `tests/build/` along with the artifact dir, and every guard in
+# there (`test_sdk_contract.py`, `test_cli_preserved.py`) silently never ran under
+# `pytest -q`. They only ran where regen.yml names the path explicitly, which is why red
+# guards reached main through green PRs. This is the stock list with `build` dropped;
+# `tests/unit/test_collection.py` fails if the directory stops being collected again.
+norecursedirs = ["*.egg", ".*", "_darcs", "CVS", "dist", "node_modules", "venv", "{arch}"]

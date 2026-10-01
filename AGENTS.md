@@ -126,6 +126,7 @@ Comments must **never**:
 - **Editing `src/onepin/` outside `_cli/`** → lost on next Fern regen. Change the OpenAPI spec instead.
 - **`ruff check .`** → silently skips `_cli/` due to the prefix exclude. Use the scoped invocation.
 - **Adding tests under `src/onepin/tests/`** → not collected. Put project tests in `tests/`.
+- **Dropping the `norecursedirs` override in `pyproject.toml`** → `tests/build/` stops being collected, because pytest's default list contains the bare pattern `build`. Every regen guard in there goes silently dead while CI stays green. `tests/unit/test_collection.py` guards it.
 - **Forgetting `scripts/post_fern.sh`** after a manual Fern regen → `py.typed` markers vanish; downstream type-checkers stop treating `onepin` as typed.
 - **`twine delete`** on a bad release → irrevocable. Use `twine yank` (see RUNBOOK).
 - **Changing the CLI surface** (e.g. adding the `skill` group) → regenerate the README block (`python scripts/gen_cli_docs.py`) and the manifest snapshot (`UPDATE_SNAPSHOT=1 pytest tests/cli/test_cli_manifest.py`), or `test_readme_in_sync.py` / `test_cli_manifest.py` fail.
