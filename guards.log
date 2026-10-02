@@ -1,0 +1,33 @@
+........................................................................ [ 17%]
+..................................................................s..... [ 34%]
+........................................................................ [ 51%]
+.........F.............................................................. [ 68%]
+........................................................................ [ 85%]
+...............................................................          [100%]
+=================================== FAILURES ===================================
+__________________ test_no_unexposed_sdk_params[voices.list] ___________________
+
+cmd = Cmd(group='voices', name='list', method='voices.list', help='List available voices.', subgroup=None, args=[], options=...ider', 'gender', 'category'], success_msg=None, destructive=False, redact=False, fallback_methods=(), gate='buildable')
+
+    @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))
+    def test_no_unexposed_sdk_params(cmd: Cmd) -> None:
+        """Every param the SDK accepts is reachable from the CLI, or allowlisted with a reason.
+    
+        This is the drift check the regen PR runs: the generated client gains a param, no
+        hand-written flag gains with it, and this goes red naming the command and the param
+        instead of leaving the gap to be found in use months later.
+        """
+        missing = _unexposed_params(cmd) - set(_INTENTIONALLY_UNEXPOSED.get(cmd.path, {}))
+    
+>       assert not missing, (
+            f"{'.'.join(cmd.path)}: {cmd.method} accepts {sorted(missing)} but the CLI has no flag "
+            f"for it. Either add an Opt(...) to the row in _spec.py, or record the decision in "
+            f"_INTENTIONALLY_UNEXPOSED with the reason."
+        )
+E       AssertionError: voices.list: voices.list accepts ['provider_voice_id'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+E       assert not {'provider_voice_id'}
+
+tests/build/test_sdk_contract.py:233: AssertionError
+=========================== short test summary info ============================
+FAILED tests/build/test_sdk_contract.py::test_no_unexposed_sdk_params[voices.list] - AssertionError: voices.list: voices.list accepts ['provider_voice_id'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+assert not {'provider_voice_id'}

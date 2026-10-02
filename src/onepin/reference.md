@@ -2611,6 +2611,14 @@ unavailable, or the embed call fails, `search` transparently falls back to the
 lexical name/tag/descriptor match described below — the response shape
 (`ApiCountedListResponse[VoiceOut]`) is identical either way.
 
+`provider_voice_id` is the exact vendor wire id and is a FILTER, not a search: it is
+never matched by `search` (see the repository predicate for why an ILIKE arm on that
+column would rewrite the ranking of every name query), and sending it takes the lexical
+path — there is nothing for a semantic ranking to order. It ANDs with every other
+filter, including `search`, and the same wire id may be held by more than one visible
+row (your own imported voice and the platform catalog row are both admitted, by
+design), so it can return several voices; add `provider` to narrow to one vendor.
+
 `language` matches a voice when any of its declared locales matches any
 requested value. A voice with no declared locales matches NO `language`
 filter — it must positively declare a locale to surface under it. This holds
@@ -2771,6 +2779,14 @@ client.voices.list()
 <dd>
 
 **search:** `typing.Optional[str]` — Searches name, tags, and the voice's summary-derived descriptor text (closely tracks the served description; summary beyond 200 chars is not searched).
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**provider_voice_id:** `typing.Optional[str]` — Exact vendor wire id (the value submitted to the provider for synthesis). Case- and whitespace-sensitive apart from surrounding blanks; not a substring match and not part of `search`. Pair with `provider` to disambiguate: a wire id may be held by more than one row (your own imported voice and the platform catalog row), so this filter can legitimately return several voices. Ranking is skipped — an exact id has nothing to rank — so `sort`/`order` apply as on a plain browse.
     
 </dd>
 </dl>
@@ -3033,6 +3049,200 @@ client.voices.get_voice_facets()
 <dd>
 
 **language:** `typing.Optional[typing.List[str]]` — Repeat for OR, e.g. ?language=en-us&language=ko-kr
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.voices.<a href="src/onepin/voices/client.py">recommend_voices</a>(...) -> ApiListResponseVoiceRecommendedOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Recommend voices for a language — the ranked answer, not a catalogue page.
+
+`GET /voices` is a browse: it answers "what exists" and orders by whatever `sort`
+says, defaulting to newest-first. That is the right shape for a person scrolling a
+catalogue and the wrong one for a caller that will put three voices in front of
+someone — there, WHICH three is the entire recommendation, and "most recently added"
+is not an opinion about quality.
+
+This endpoint is the selection half of automatic voice choice, the same one the
+in-product assistant's cards are built from, and it is deliberately a separate route
+rather than a mode of the list: browse and recommend disagree about vendors on
+purpose. A company may be excluded from what we OFFER automatically while staying
+fully browsable and fully usable when a customer asks for it by name, so the policy
+belongs to the surface that offers rather than the one that lists.
+
+What it applies, and the list does not:
+
+* **Measured quality floors, as a GATE.** Every voice offered clears the naturalness
+  and noise floors. Tier-lexicographic ranking then decides, per voice, which of its
+  models it is offered under — quality tier first, price only within a tier, which
+  axis leads following the workspace's Auto-route setting.
+* **Spread across companies — and the returned ORDER is that spread, not a quality
+  ranking.** Companies are taken in turn in a seed-derived order, and within a
+  company the voices are seed-shuffled too, so one large catalogue cannot sweep the
+  slate. Do not present the first row as the best one: three voices that all clear
+  the floors sit inside one tier width, which is below what the measurement can
+  resolve, so ordering them by score would claim a precision that is not there. The
+  order is stable for the same request, which is what makes `exclude`/`offer_round`
+  the way to get different ones rather than re-asking and hoping.
+* **Build re-resolution.** Every voice is re-resolved through the same gate a run
+  uses, and `recommended_model` is that gate's answer — so a recommendation cannot
+  name a pairing synthesis would then refuse.
+
+`exclude` plus `offer_round` is how "show me different ones" works: pass the ids
+already shown and raise the round. The slate is deterministic in its inputs, so the
+same request returns the same voices — paging is the caller's to drive, not a
+hidden cursor's.
+
+`provider`, `model`, `gender` and `age` narrow the eligible pool without turning this
+into a browse.
+
+`style` is how the customer said it should SOUND, in their words. It ranks by meaning
+inside the same eligibility, and it is not the same request as `GET /voices?search=`,
+which fuses a NAME-matching arm into the ranking and applies neither the vendor
+steer-away nor the hard gender filter a stated style implies. Ask for a name there and
+for a sound here. A future `similar_to` will add the third route — voices near one the
+customer already chose — and is intentionally not part of this cut.
+
+An empty `data` means nothing is buildable for this language under these constraints,
+which is a real answer and not an error.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.voices.recommend_voices(
+    language="language",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**language:** `str` — Locale the voices must speak, e.g. `ko-kr`. A bare family widens to the product default.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**limit:** `typing.Optional[int]` — How many to recommend (1–6).
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**exclude:** `typing.Optional[typing.List[str]]` — Voice ids already offered. Repeat for each; newest kept when over the cap.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**offer_round:** `typing.Optional[int]` — Increment to draw a different slate of equally-ranked voices.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**gender:** `typing.Optional[typing.List[VoiceGender]]` — Repeat for OR
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**age:** `typing.Optional[typing.List[VoiceAge]]` — Repeat for OR
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**style:** `typing.Optional[str]` — How it should SOUND, in the customer's words — 'a calm professional woman'. Not a name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**provider:** `typing.Optional[typing.List[str]]` — Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**model:** `typing.Optional[typing.List[str]]` — Repeat for OR. Filters platform voices by TTS model, e.g. ?model=arcana&model=sonic-2
     
 </dd>
 </dl>
@@ -4651,8 +4861,8 @@ client.workspaces.get_workspace(
 <dl>
 <dd>
 
-**workspace_id:** `str`
-
+**workspace_id:** `str` 
+    
 </dd>
 </dl>
 
@@ -4660,7 +4870,7 @@ client.workspaces.get_workspace(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-
+    
 </dd>
 </dl>
 </dd>
@@ -4971,12 +5181,21 @@ client.workspaces.get_workspace_plan_limits(
 The active subscription governing THIS workspace — the workspace-scoped counterpart of
 ``/users/me/subscription``.
 
-Personal workspace → the owning user's subscription, readable **only by the owner**; **org**
-workspace → the **organization's** subscription (or ``null`` on free tier), readable by any
-member or an org admin. Use this instead of ``/users/me/subscription`` when rendering a
-workspace's plan, so an org workspace shows the ORGANIZATION's plan. Membership is
-existence-hidden (404); the org-admin fallback applies (an org admin with no materialized
-member row can still read).
+Readable by any member (existence-hidden 404 for non-members; the org-admin fallback applies).
+Personal workspace → the owning user's subscription, shown **read-only** to members so the Plan
+page reflects the plan that actually governs the workspace (the one its credits are billed
+against), consistent with an org workspace showing the ORGANIZATION's subscription to its members.
+Use this instead of ``/users/me/subscription`` when rendering a workspace's plan. This surface
+exposes the plan and its lifecycle status only; payment methods and invoices stay owner/admin
+gated on their own endpoints.
+
+Stripe live-verification (which persists a confirmed-terminal subscription as ``null`` and
+returns 502 ``BILLING_ERROR`` on a verification failure) runs for the **owner's own read** and
+for org members (unchanged), but NOT for a personal workspace's non-owner member: a member read
+is a plain local read, so a guest's page load never triggers a Stripe call or terminal
+reconcile-write on the owner's subscription. (With the off-by-default ``BILLING_ACCOUNT_READS_ENABLED``
+flag on, the shared resolver may still lazily materialize the owner's ``billing_accounts`` mirror
+row — an idempotent local insert, not a Stripe call or a subscription write.)
 </dd>
 </dl>
 </dd>
@@ -5099,8 +5318,8 @@ client.workspaces.get_workspace_credits(
 <dl>
 <dd>
 
-**workspace_id:** `str`
-
+**workspace_id:** `str` 
+    
 </dd>
 </dl>
 
@@ -5108,7 +5327,7 @@ client.workspaces.get_workspace_credits(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-
+    
 </dd>
 </dl>
 </dd>
@@ -5336,6 +5555,97 @@ client.uploads.create(
 </dl>
 </details>
 
+<details><summary><code>client.uploads.<a href="src/onepin/uploads/client.py">put_upload_content</a>(...) -> ApiResponseUploadOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Send the file's bytes to this API instead of to the presigned URL (alternative step 1).
+
+A substitute for the PUT to `upload_url`, not a new step: it writes the same staging
+object that URL would have written, so `POST /uploads/{id}` confirms either one without
+knowing which door the bytes came through. Use exactly one of the two.
+
+Prefer the presigned URL. It uploads straight to object storage and costs this API
+nothing, and it is what every client that can reach object storage should use. This
+route exists for callers that **cannot** — a sandboxed agent whose network policy
+permits this API's host and not the storage host. There the presigned PUT fails before
+it gets any HTTP status at all, and no retry against the same URL can succeed.
+
+Send the raw bytes as the request body with `Content-Type` set to the `content_type`
+from `POST /uploads`, exactly as the presigned PUT requires — this route enforces the
+same match, so a file is never stored under a format the confirm step will reject.
+Not base64, not multipart. Unlike the presigned URL, this one does not expire: it
+authenticates per request, so a slow upload cannot outlive its credential.
+
+Dual-auth: Bearer JWT or API key (scope `uploads:write`).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.uploads.put_upload_content(
+    upload_id="upload_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**upload_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.uploads.<a href="src/onepin/uploads/client.py">confirm</a>(...) -> ApiResponseUploadOut</code></summary>
 <dl>
 <dd>
@@ -5422,7 +5732,7 @@ client.uploads.confirm(
 <dl>
 <dd>
 
-**context_type:** `UploadConfirmRequestContextType` — Type of resource this upload is being attached to: `workflow`, `playground`, or `assistant_session`.
+**context_type:** `UploadConfirmRequestContextType` — Type of resource this upload is being attached to: `workflow`, `playground`, `assistant_session`, or `mcp` (the MCP surface's workspace-scoped scratch space).
     
 </dd>
 </dl>
@@ -7405,7 +7715,7 @@ client.workflows.estimate_workflow(
 <dl>
 <dd>
 
-**request:** `WorkflowRunStartIn`
+**request:** `WorkflowRunStartIn` 
     
 </dd>
 </dl>
@@ -7413,7 +7723,7 @@ client.workflows.estimate_workflow(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]`
+**workspace_id:** `typing.Optional[str]` 
     
 </dd>
 </dl>
@@ -7503,7 +7813,7 @@ client.workflows.preview_run(
 <dl>
 <dd>
 
-**request:** `WorkflowRunStartIn`
+**request:** `WorkflowRunStartIn` 
     
 </dd>
 </dl>
@@ -7511,7 +7821,7 @@ client.workflows.preview_run(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]`
+**workspace_id:** `typing.Optional[str]` 
     
 </dd>
 </dl>
@@ -9065,7 +9375,7 @@ client.workflows.runs.start(
 <dl>
 <dd>
 
-**request:** `WorkflowRunStartIn`
+**request:** `WorkflowRunStartIn` 
     
 </dd>
 </dl>
@@ -9073,7 +9383,7 @@ client.workflows.runs.start(
 <dl>
 <dd>
 
-**workspace_id:** `typing.Optional[str]`
+**workspace_id:** `typing.Optional[str]` 
     
 </dd>
 </dl>
@@ -9535,3 +9845,4 @@ client.workflows.runs.cancel(
 </dd>
 </dl>
 </details>
+

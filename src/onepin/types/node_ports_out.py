@@ -21,6 +21,10 @@ class NodePortsOut(UniversalBaseModel):
     outputs: typing.List[PortOut]
     input_schema: typing.Optional[typing.Dict[str, typing.Any]] = None
     config_schema: typing.Optional[typing.Dict[str, typing.Any]] = None
+    usage: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Model-facing guidance for placing and wiring this node (and, for a scored node, what its score means). Read from the live catalog per request; may be null. The static examples in this spec do not carry it.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

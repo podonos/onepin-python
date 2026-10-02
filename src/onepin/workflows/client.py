@@ -6,7 +6,6 @@ import datetime as dt
 import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.api_counted_list_response_workflow_list_item import ApiCountedListResponseWorkflowListItem
 from ..types.api_list_response_upload_out import ApiListResponseUploadOut
@@ -23,7 +22,6 @@ from ..types.api_response_workflow_run_outputs_out import ApiResponseWorkflowRun
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
 from ..types.api_response_workflow_validate_out import ApiResponseWorkflowValidateOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
-from ..types.workflow_list_item import WorkflowListItem
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
 from .raw_client import AsyncRawWorkflowsClient, RawWorkflowsClient
@@ -68,7 +66,7 @@ class WorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
+    ) -> ApiCountedListResponseWorkflowListItem:
         """
         List workflows in the current workspace.
 
@@ -146,7 +144,7 @@ class WorkflowsClient:
 
         Returns
         -------
-        SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
+        ApiCountedListResponseWorkflowListItem
             Successful Response
 
         Examples
@@ -156,14 +154,9 @@ class WorkflowsClient:
         client = OnePinClient(
             token="YOUR_TOKEN",
         )
-        response = client.workflows.list()
-        for item in response:
-            yield item
-        # alternatively, you can paginate page-by-page
-        for page in response.iter_pages():
-            yield page
+        client.workflows.list()
         """
-        return self._raw_client.list(
+        _response = self._raw_client.list(
             status=status,
             search=search,
             sort=sort,
@@ -177,6 +170,7 @@ class WorkflowsClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
+        return _response.data
 
     def create_workflow(
         self,
@@ -1532,7 +1526,7 @@ class AsyncWorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
+    ) -> ApiCountedListResponseWorkflowListItem:
         """
         List workflows in the current workspace.
 
@@ -1610,7 +1604,7 @@ class AsyncWorkflowsClient:
 
         Returns
         -------
-        AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
+        ApiCountedListResponseWorkflowListItem
             Successful Response
 
         Examples
@@ -1625,18 +1619,12 @@ class AsyncWorkflowsClient:
 
 
         async def main() -> None:
-            response = await client.workflows.list()
-            async for item in response:
-                yield item
-
-            # alternatively, you can paginate page-by-page
-            async for page in response.iter_pages():
-                yield page
+            await client.workflows.list()
 
 
         asyncio.run(main())
         """
-        return await self._raw_client.list(
+        _response = await self._raw_client.list(
             status=status,
             search=search,
             sort=sort,
@@ -1650,6 +1638,7 @@ class AsyncWorkflowsClient:
             workspace_id=workspace_id,
             request_options=request_options,
         )
+        return _response.data
 
     async def create_workflow(
         self,

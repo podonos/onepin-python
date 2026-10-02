@@ -9,7 +9,6 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.datetime_utils import serialize_datetime
 from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import encode_path_param
-from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
@@ -32,7 +31,6 @@ from ..types.api_response_workflow_run_outputs_out import ApiResponseWorkflowRun
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
 from ..types.api_response_workflow_validate_out import ApiResponseWorkflowValidateOut
 from ..types.workflow_definition_input import WorkflowDefinitionInput
-from ..types.workflow_list_item import WorkflowListItem
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
 from .types.list_workflows_request_order_item import ListWorkflowsRequestOrderItem
@@ -62,7 +60,7 @@ class RawWorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
+    ) -> HttpResponse[ApiCountedListResponseWorkflowListItem]:
         """
         List workflows in the current workspace.
 
@@ -140,11 +138,9 @@ class RawWorkflowsClient:
 
         Returns
         -------
-        SyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
+        HttpResponse[ApiCountedListResponseWorkflowListItem]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = self._client_wrapper.httpx_client.request(
             "api/v1/workflows",
             method="GET",
@@ -167,30 +163,14 @@ class RawWorkflowsClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiCountedListResponseWorkflowListItem,
                     parse_obj_as(
                         type_=ApiCountedListResponseWorkflowListItem,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-                _get_next = lambda: self.list(
-                    status=status,
-                    search=search,
-                    sort=sort,
-                    order=order,
-                    last_run_after=last_run_after,
-                    last_run_before=last_run_before,
-                    has_failed_run=has_failed_run,
-                    include_definition=include_definition,
-                    offset=offset + len(_items or []),
-                    limit=limit,
-                    workspace_id=workspace_id,
-                    request_options=request_options,
-                )
-                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -2109,7 +2089,7 @@ class AsyncRawWorkflowsClient:
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]:
+    ) -> AsyncHttpResponse[ApiCountedListResponseWorkflowListItem]:
         """
         List workflows in the current workspace.
 
@@ -2187,11 +2167,9 @@ class AsyncRawWorkflowsClient:
 
         Returns
         -------
-        AsyncPager[WorkflowListItem, ApiCountedListResponseWorkflowListItem]
+        AsyncHttpResponse[ApiCountedListResponseWorkflowListItem]
             Successful Response
         """
-        offset = offset if offset is not None else 0
-
         _response = await self._client_wrapper.httpx_client.request(
             "api/v1/workflows",
             method="GET",
@@ -2214,33 +2192,14 @@ class AsyncRawWorkflowsClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _parsed_response = typing.cast(
+                _data = typing.cast(
                     ApiCountedListResponseWorkflowListItem,
                     parse_obj_as(
                         type_=ApiCountedListResponseWorkflowListItem,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                _items = _parsed_response.data
-                _has_next = len(_items or []) > 0
-
-                async def _get_next():
-                    return await self.list(
-                        status=status,
-                        search=search,
-                        sort=sort,
-                        order=order,
-                        last_run_after=last_run_after,
-                        last_run_before=last_run_before,
-                        has_failed_run=has_failed_run,
-                        include_definition=include_definition,
-                        offset=offset + len(_items or []),
-                        limit=limit,
-                        workspace_id=workspace_id,
-                        request_options=request_options,
-                    )
-
-                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),

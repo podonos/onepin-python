@@ -613,12 +613,21 @@ class RawWorkspacesClient:
         The active subscription governing THIS workspace — the workspace-scoped counterpart of
         ``/users/me/subscription``.
 
-        Personal workspace → the owning user's subscription, readable **only by the owner**; **org**
-        workspace → the **organization's** subscription (or ``null`` on free tier), readable by any
-        member or an org admin. Use this instead of ``/users/me/subscription`` when rendering a
-        workspace's plan, so an org workspace shows the ORGANIZATION's plan. Membership is
-        existence-hidden (404); the org-admin fallback applies (an org admin with no materialized
-        member row can still read).
+        Readable by any member (existence-hidden 404 for non-members; the org-admin fallback applies).
+        Personal workspace → the owning user's subscription, shown **read-only** to members so the Plan
+        page reflects the plan that actually governs the workspace (the one its credits are billed
+        against), consistent with an org workspace showing the ORGANIZATION's subscription to its members.
+        Use this instead of ``/users/me/subscription`` when rendering a workspace's plan. This surface
+        exposes the plan and its lifecycle status only; payment methods and invoices stay owner/admin
+        gated on their own endpoints.
+
+        Stripe live-verification (which persists a confirmed-terminal subscription as ``null`` and
+        returns 502 ``BILLING_ERROR`` on a verification failure) runs for the **owner's own read** and
+        for org members (unchanged), but NOT for a personal workspace's non-owner member: a member read
+        is a plain local read, so a guest's page load never triggers a Stripe call or terminal
+        reconcile-write on the owner's subscription. (With the off-by-default ``BILLING_ACCOUNT_READS_ENABLED``
+        flag on, the shared resolver may still lazily materialize the owner's ``billing_accounts`` mirror
+        row — an idempotent local insert, not a Stripe call or a subscription write.)
 
         Parameters
         ----------
@@ -1447,12 +1456,21 @@ class AsyncRawWorkspacesClient:
         The active subscription governing THIS workspace — the workspace-scoped counterpart of
         ``/users/me/subscription``.
 
-        Personal workspace → the owning user's subscription, readable **only by the owner**; **org**
-        workspace → the **organization's** subscription (or ``null`` on free tier), readable by any
-        member or an org admin. Use this instead of ``/users/me/subscription`` when rendering a
-        workspace's plan, so an org workspace shows the ORGANIZATION's plan. Membership is
-        existence-hidden (404); the org-admin fallback applies (an org admin with no materialized
-        member row can still read).
+        Readable by any member (existence-hidden 404 for non-members; the org-admin fallback applies).
+        Personal workspace → the owning user's subscription, shown **read-only** to members so the Plan
+        page reflects the plan that actually governs the workspace (the one its credits are billed
+        against), consistent with an org workspace showing the ORGANIZATION's subscription to its members.
+        Use this instead of ``/users/me/subscription`` when rendering a workspace's plan. This surface
+        exposes the plan and its lifecycle status only; payment methods and invoices stay owner/admin
+        gated on their own endpoints.
+
+        Stripe live-verification (which persists a confirmed-terminal subscription as ``null`` and
+        returns 502 ``BILLING_ERROR`` on a verification failure) runs for the **owner's own read** and
+        for org members (unchanged), but NOT for a personal workspace's non-owner member: a member read
+        is a plain local read, so a guest's page load never triggers a Stripe call or terminal
+        reconcile-write on the owner's subscription. (With the off-by-default ``BILLING_ACCOUNT_READS_ENABLED``
+        flag on, the shared resolver may still lazily materialize the owner's ``billing_accounts`` mirror
+        row — an idempotent local insert, not a Stripe call or a subscription write.)
 
         Parameters
         ----------
