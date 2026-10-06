@@ -1272,6 +1272,13 @@
         },
         {
           "default": null,
+          "flag": "--provider-voice-id",
+          "help": "Filter to the exact vendor wire id (the value submitted to the provider for synthesis). An exact match, not a substring, and invisible to --search: the two AND rather than one widening the other. The same id can be held by more than one visible row \u2014 your own imported voice and the platform catalog row \u2014 so this can still return several voices; add --provider to narrow to one vendor. Ranking is skipped, so --sort/--order apply as on a plain browse.",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "default": null,
           "flag": "--sort",
           "help": "Sort field. Ignored while --search is ranking by relevance.",
           "required": false,

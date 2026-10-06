@@ -3,5 +3,5 @@
 import typing
 
 UploadConfirmRequestContextType = typing.Union[
-    typing.Literal["workflow", "playground", "assistant_session"], typing.Any
+    typing.Literal["workflow", "playground", "assistant_session", "mcp"], typing.Any
 ]

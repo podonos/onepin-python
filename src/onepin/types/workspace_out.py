@@ -38,6 +38,11 @@ class WorkspaceOut(UniversalBaseModel):
     Owning organization when this is an enterprise org workspace, else null.
     """
 
+    is_billing_owner: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether the current caller is this workspace's billing owner — i.e. a personal workspace whose `created_by` is the caller. False for org workspaces (billing there is role-gated, not owner-gated) and for non-owner members. The console uses this to gate the Billing/Plan management surfaces: non-owner members of a personal workspace see the plan read-only and cannot manage it.
+    """
+
     created_at: dt.datetime = pydantic.Field()
     """
     When the workspace was created (UTC).

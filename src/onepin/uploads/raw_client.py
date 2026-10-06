@@ -119,6 +119,77 @@ class RawUploadsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def put_upload_content(
+        self, upload_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ApiResponseUploadOut]:
+        """
+        Send the file's bytes to this API instead of to the presigned URL (alternative step 1).
+
+        A substitute for the PUT to `upload_url`, not a new step: it writes the same staging
+        object that URL would have written, so `POST /uploads/{id}` confirms either one without
+        knowing which door the bytes came through. Use exactly one of the two.
+
+        Prefer the presigned URL. It uploads straight to object storage and costs this API
+        nothing, and it is what every client that can reach object storage should use. This
+        route exists for callers that **cannot** — a sandboxed agent whose network policy
+        permits this API's host and not the storage host. There the presigned PUT fails before
+        it gets any HTTP status at all, and no retry against the same URL can succeed.
+
+        Send the raw bytes as the request body with `Content-Type` set to the `content_type`
+        from `POST /uploads`, exactly as the presigned PUT requires — this route enforces the
+        same match, so a file is never stored under a format the confirm step will reject.
+        Not base64, not multipart. Unlike the presigned URL, this one does not expire: it
+        authenticates per request, so a slow upload cannot outlive its credential.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
+
+        Parameters
+        ----------
+        upload_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseUploadOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/uploads/{encode_path_param(upload_id)}/content",
+            method="PUT",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseUploadOut,
+                    parse_obj_as(
+                        type_=ApiResponseUploadOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def confirm(
         self,
         upload_id: str,
@@ -159,7 +230,7 @@ class RawUploadsClient:
         upload_id : str
 
         context_type : UploadConfirmRequestContextType
-            Type of resource this upload is being attached to: `workflow`, `playground`, or `assistant_session`.
+            Type of resource this upload is being attached to: `workflow`, `playground`, `assistant_session`, or `mcp` (the MCP surface's workspace-scoped scratch space).
 
         context_id : str
             ID of the resource to attach this upload to. Must be an existing resource of the given `context_type` that the caller has access to.
@@ -396,6 +467,77 @@ class AsyncRawUploadsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def put_upload_content(
+        self, upload_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ApiResponseUploadOut]:
+        """
+        Send the file's bytes to this API instead of to the presigned URL (alternative step 1).
+
+        A substitute for the PUT to `upload_url`, not a new step: it writes the same staging
+        object that URL would have written, so `POST /uploads/{id}` confirms either one without
+        knowing which door the bytes came through. Use exactly one of the two.
+
+        Prefer the presigned URL. It uploads straight to object storage and costs this API
+        nothing, and it is what every client that can reach object storage should use. This
+        route exists for callers that **cannot** — a sandboxed agent whose network policy
+        permits this API's host and not the storage host. There the presigned PUT fails before
+        it gets any HTTP status at all, and no retry against the same URL can succeed.
+
+        Send the raw bytes as the request body with `Content-Type` set to the `content_type`
+        from `POST /uploads`, exactly as the presigned PUT requires — this route enforces the
+        same match, so a file is never stored under a format the confirm step will reject.
+        Not base64, not multipart. Unlike the presigned URL, this one does not expire: it
+        authenticates per request, so a slow upload cannot outlive its credential.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
+
+        Parameters
+        ----------
+        upload_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseUploadOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/uploads/{encode_path_param(upload_id)}/content",
+            method="PUT",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseUploadOut,
+                    parse_obj_as(
+                        type_=ApiResponseUploadOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def confirm(
         self,
         upload_id: str,
@@ -436,7 +578,7 @@ class AsyncRawUploadsClient:
         upload_id : str
 
         context_type : UploadConfirmRequestContextType
-            Type of resource this upload is being attached to: `workflow`, `playground`, or `assistant_session`.
+            Type of resource this upload is being attached to: `workflow`, `playground`, `assistant_session`, or `mcp` (the MCP surface's workspace-scoped scratch space).
 
         context_id : str
             ID of the resource to attach this upload to. Must be an existing resource of the given `context_type` that the caller has access to.

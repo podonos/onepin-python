@@ -41,6 +41,54 @@ class TestCommaListAndCapture:
         assert captured.get("language") == ["en-us", "ko-kr"]
 
 
+class TestProviderVoiceIdForwarding:
+    def test_forwarded_unwrapped_beside_wrapped_provider(self, monkeypatch, tmp_home) -> None:
+        # --provider-voice-id sits next to --provider but takes no `wrap_list`: the SDK keyword is
+        # a single `str`. Asserting both in one call is what pins that difference -- wrapping the
+        # id would be accepted by the dispatcher and only fail server-side.
+        captured = {}
+        from onepin.core.pagination import SyncPager
+
+        class Voices:
+            def list(self, **kw):
+                captured.update(kw)
+                return SyncPager(get_next=None, has_next=False, items=[], response=None)
+
+        client = type("C", (), {"voices": Voices()})()
+        monkeypatch.setattr(_dispatch, "get_client", lambda: client)
+        result = runner.invoke(
+            app,
+            [
+                "--api-key",
+                "op_live_x",
+                "voices",
+                "list",
+                "--provider-voice-id",
+                "21m00Tcm4TlvDq8ikWAM",
+                "--provider",
+                "elevenlabs",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert captured["provider_voice_id"] == "21m00Tcm4TlvDq8ikWAM"
+        assert captured["provider"] == ["elevenlabs"]
+
+    def test_absent_when_not_passed(self, monkeypatch, tmp_home) -> None:
+        captured = {}
+        from onepin.core.pagination import SyncPager
+
+        class Voices:
+            def list(self, **kw):
+                captured.update(kw)
+                return SyncPager(get_next=None, has_next=False, items=[], response=None)
+
+        client = type("C", (), {"voices": Voices()})()
+        monkeypatch.setattr(_dispatch, "get_client", lambda: client)
+        result = runner.invoke(app, ["--api-key", "op_live_x", "voices", "list"])
+        assert result.exit_code == 0, result.output
+        assert captured.get("provider_voice_id") is None
+
+
 class TestWorkspaceForwarding:
     def test_workspace_forwarded_when_method_accepts(self, monkeypatch, tmp_home) -> None:
         captured = {}
