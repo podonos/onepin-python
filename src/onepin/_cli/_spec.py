@@ -633,6 +633,21 @@ TABLE: list[Cmd] = [
                 ),
             ),
             Opt(
+                # Plain string, no `wrap_list`: unlike --provider next to it, the SDK keyword is a
+                # single `str`, because one wire id is one id. Two rows may still answer to it.
+                "--provider-voice-id",
+                "str",
+                None,
+                help=(
+                    "Filter to the exact vendor wire id (the value submitted to the provider for "
+                    "synthesis). An exact match, not a substring, and invisible to --search: the "
+                    "two AND rather than one widening the other. The same id can be held by more "
+                    "than one visible row — your own imported voice and the platform catalog row "
+                    "— so this can still return several voices; add --provider to narrow to one "
+                    "vendor. Ranking is skipped, so --sort/--order apply as on a plain browse."
+                ),
+            ),
+            Opt(
                 "--sort",
                 _literals(ListVoicesRequestSortItem),
                 None,
