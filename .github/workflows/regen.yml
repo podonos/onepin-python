@@ -368,8 +368,8 @@ jobs:
         with:
           ref: ${{ needs.regenerate.outputs.pr_branch }}
           token: ${{ steps.app-token.outputs.token }}
-          # Credentials stay persisted here, unlike the regenerate job: the agent commits and
-          # pushes with the git CLI rather than through create-pull-request.
+          # Credentials stay persisted here, unlike the regenerate job: the commit reaches the PR
+          # through the git CLI in the push step below rather than through create-pull-request.
           # hatch-vcs needs the history + tags or the wheel the guard tests build gets a bogus
           # version and trips the version-sanity assertions.
           fetch-depth: 0
@@ -420,7 +420,9 @@ jobs:
             4. Verify before you finish: `uv run ruff check src/onepin/_cli tests`,
                `uv run ruff format src/onepin/_cli tests`, `uv run mypy -p onepin._cli`,
                `uv run pytest -q`. All must pass.
-            5. Commit to this branch with a `feat(cli):` subject describing the flag.
+            5. Commit to this branch with a `feat(cli):` subject describing the flag. Do not push —
+               the workflow pushes your commit for you once you finish. Work that you leave
+               uncommitted never reaches the PR.
 
             Never do any of the following. Each one hides the problem instead of fixing it, and
             a human has to make the call:
@@ -441,6 +443,33 @@ jobs:
             silently describe something else. AGENTS.md calls this out; `--buildable` needed a
             `Cmd(gate=)` handler in `_gates.py` for it. Say in your PR comment whether you think
             this parameter needs one, and ask for a human decision — do not add a gate yourself.
+
+      - name: Push the agent's commit
+        # The agent works in this runner's checkout, so nothing it did reaches the PR until this
+        # step pushes. Leaving the push to the agent is how a fix gets lost: it committed, posted a
+        # comment describing the flag it added, and the commit died with the runner while the PR
+        # kept the stale red check and a comment claiming it was fixed.
+        #
+        # Pushing as the App (not GITHUB_TOKEN) is what makes ci.yml re-run on the new commit --
+        # the merge gate is ci.yml, so a push that triggers nothing leaves the PR red either way.
+        if: steps.key.outputs.present == 'true'
+        env:
+          BRANCH: ${{ needs.regenerate.outputs.pr_branch }}
+        run: |
+          set -euo pipefail
+          # A no-op commit count is not a failure: the agent declines non-drift failures by design
+          # and only posts a comment. A dirty tree, though, means it stopped mid-fix -- say so
+          # loudly, because the PR is about to look untouched for no visible reason.
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "::warning::the agent left uncommitted changes behind; they are NOT being pushed"
+            git status --short
+          fi
+          if [ -z "$(git log --format=%H "origin/${BRANCH}..HEAD")" ]; then
+            echo "::notice::the agent left no commit to push; the guard results stay on the PR"
+            exit 0
+          fi
+          git log --oneline "origin/${BRANCH}..HEAD"
+          git push origin "HEAD:refs/heads/${BRANCH}"
 
   notify-failure:
     if: failure()
