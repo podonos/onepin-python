@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.18.0](https://github.com/podonos/onepin-python/compare/v0.17.0...v0.18.0) (2026-10-06)
+
+
+### Features
+
+* sync SDK to OnePin API v0.41.137 ([#119](https://github.com/podonos/onepin-python/issues/119)) ([e2af8ad](https://github.com/podonos/onepin-python/commit/e2af8ad29c5c49b8dd9a9cae0421143507777bc3))
+* sync SDK to OnePin API v0.41.147 ([#128](https://github.com/podonos/onepin-python/issues/128)) ([c999b87](https://github.com/podonos/onepin-python/commit/c999b8794231276b9fd315153190e5cd54344e2d))
+
+
+### Bug Fixes
+
+* **ci:** push the autofix commit instead of losing it with the runner ([#129](https://github.com/podonos/onepin-python/issues/129)) ([efbc4f9](https://github.com/podonos/onepin-python/commit/efbc4f974d2a8519b721cafb989d180bc6b2ab3b))
+* **ci:** tell a TestPyPI outage apart from a refused artifact ([#130](https://github.com/podonos/onepin-python/issues/130)) ([5f8c053](https://github.com/podonos/onepin-python/commit/5f8c05331687cedffed0c6ac9e97d81b9c338aa9))
+
 ## [0.17.0](https://github.com/podonos/onepin-python/compare/v0.16.1...v0.17.0) (2026-09-18)
 
 
