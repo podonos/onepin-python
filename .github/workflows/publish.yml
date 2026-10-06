@@ -104,10 +104,19 @@ jobs:
     runs-on: ubuntu-latest
     environment: testpypi
     permissions: { id-token: write }
+    outputs:
+      uploaded: ${{ steps.publish.outcome == 'success' }}
     steps:
       - uses: actions/download-artifact@v8
         with: { name: dist, path: dist }
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - id: publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # Tolerated, not ignored -- the next step decides what the failure meant. The two
+        # failures that land here are not remotely the same thing: "Warehouse refused this
+        # artifact" is the finding this whole lane exists to surface, and "TestPyPI was not
+        # there" is somebody else's outage. Reporting them as one red X is what turns this
+        # job into noise, and a noisy gate is one nobody reads on the day it matters.
+        continue-on-error: true
         with:
           repository-url: https://test.pypi.org/legacy/
           # Allow re-runs on the same ref: TestPyPI rejects identical-version
@@ -115,8 +124,48 @@ jobs:
           # cause the whole publish chain to fail. (Each main push yields a fresh
           # .devN, so collisions are limited to genuine re-runs / retags.)
           skip-existing: true
+
+      - name: Judge the failure
+        if: steps.publish.outcome == 'failure'
+        env:
+          # A manual replay names the release tag in an input rather than in `github.ref`, and it
+          # is the same rehearsal as the tag push it replays -- so it gets the same strictness.
+          IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/') || github.event.inputs.tag != '' }}
+        run: |
+          set -euo pipefail
+          # The audience endpoint is the action's own first request and takes no credentials, so
+          # its answer is a clean read on the index itself: nothing about this repo, this
+          # environment or the Trusted Publisher binding is even transmitted. A 200 here
+          # therefore means the index was reachable and still said no -- that is our artifact.
+          # `|| true` only keeps `set -e` from firing: curl already prints 000 for a connection
+          # failure, so a second fallback echo would concatenate into 000000.
+          probe="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
+                   https://test.pypi.org/_/oidc/audience || true)"
+          if [ "$probe" = "200" ]; then
+            echo "::error::TestPyPI is reachable (audience probe 200) and still refused the upload."
+            echo "::error::This is the artifact, not an outage -- read the publish step's own error."
+            echo "::error::Local checks cannot see Warehouse's upload validator, which is the point of this lane."
+            exit 1
+          fi
+          # A release tag is the last rehearsal before the PyPI publish that cannot be undone:
+          # a yanked version keeps its number forever, so a metadata defect found there costs a
+          # burned release instead of nothing. That rehearsal may not be waived for convenience.
+          if [ "$IS_RELEASE" = "true" ]; then
+            echo "::error::TestPyPI is unavailable (audience probe ${probe}) and this ref is a release."
+            echo "::error::The pre-prod rehearsal cannot be skipped here. Re-run once the index is back."
+            exit 1
+          fi
+          # A main push publishes a .devN that gates nothing and that nobody installs. Failing it
+          # on a third-party index's uptime trains everyone to ignore a red main, which costs more
+          # than the few days of early warning the continuous rehearsal buys.
+          echo "::warning::TestPyPI is unavailable (audience probe ${probe}); the .devN rehearsal did not run."
+          echo "::warning::Not failed: nothing consumes the .devN, and the release tag runs this for real."
   testpypi-smoke:
     needs: [build, test-pypi]
+    # Nothing was uploaded, so there is nothing to install: without this the job spends five
+    # minutes retrying an index that never received the file and reports the outage a second
+    # time, as a different failure, in a job whose name points at the wrong thing.
+    if: needs.test-pypi.outputs.uploaded == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-python@v7
