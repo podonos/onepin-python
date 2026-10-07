@@ -2,4 +2,6 @@
 
 import typing
 
-WorkflowListStatus = typing.Union[typing.Literal["draft", "running", "completed", "failed", "paused"], typing.Any]
+WorkflowListStatus = typing.Union[
+    typing.Literal["draft", "running", "active", "completed", "failed", "paused"], typing.Any
+]
