@@ -46,7 +46,8 @@ class RawUploadsClient:
 
         `category` controls which file formats are accepted:
         - `script` — text-based formats (txt, pdf)
-        - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+        - `dictionary` — pronunciation audio (mp3, wav, m4a, ogg, webm)
+        - `audio` — bring-your-own-audio source clips (wav, mp3)
 
         The presigned URL expires within a short window (see `upload_url` TTL in the
         response). If the URL expires before the PUT completes, discard this upload
@@ -63,7 +64,7 @@ class RawUploadsClient:
             Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
-            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for pronunciation audio (mp3, wav, m4a, ogg, webm); `audio` for bring-your-own-audio source clips (wav, mp3).
 
         workspace_id : typing.Optional[str]
 
@@ -394,7 +395,8 @@ class AsyncRawUploadsClient:
 
         `category` controls which file formats are accepted:
         - `script` — text-based formats (txt, pdf)
-        - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+        - `dictionary` — pronunciation audio (mp3, wav, m4a, ogg, webm)
+        - `audio` — bring-your-own-audio source clips (wav, mp3)
 
         The presigned URL expires within a short window (see `upload_url` TTL in the
         response). If the URL expires before the PUT completes, discard this upload
@@ -411,7 +413,7 @@ class AsyncRawUploadsClient:
             Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
-            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for pronunciation audio (mp3, wav, m4a, ogg, webm); `audio` for bring-your-own-audio source clips (wav, mp3).
 
         workspace_id : typing.Optional[str]
 

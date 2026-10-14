@@ -30,7 +30,7 @@ class UploadOut(UniversalBaseModel):
 
     category: str = pydantic.Field()
     """
-    Upload category: `script` or `dictionary`.
+    Upload category: `script`, `dictionary`, or `audio`.
     """
 
     content_type: str = pydantic.Field()
