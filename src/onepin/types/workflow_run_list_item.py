@@ -42,6 +42,10 @@ class WorkflowRunListItem(UniversalBaseModel):
     triggered_by: typing.Optional[TriggeredByOut] = None
     output_line_count: typing.Optional[int] = None
     delivered_audio_ms: typing.Optional[int] = None
+    script_first_line: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The run's first script line, cut at 500 characters. Null until the run's source step has parsed the script.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

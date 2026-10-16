@@ -33,6 +33,9 @@ from ..types.api_response_workflow_validate_out import ApiResponseWorkflowValida
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
+from .types.list_workflow_uploads_api_v1workflows_workflow_id_uploads_get_request_category import (
+    ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory,
+)
 from .types.list_workflows_request_order_item import ListWorkflowsRequestOrderItem
 from .types.list_workflows_request_sort_item import ListWorkflowsRequestSortItem
 from pydantic import ValidationError
@@ -56,6 +59,7 @@ class RawWorkflowsClient:
         last_run_before: typing.Optional[dt.datetime] = None,
         has_failed_run: typing.Optional[bool] = None,
         include_definition: typing.Optional[bool] = None,
+        exclude_empty: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -66,8 +70,9 @@ class RawWorkflowsClient:
 
         Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
         header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
-        `last_run_status`, `run_status_counts`) computed over all runs for that
-        workflow. `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
+        `last_run_status`, `run_status_counts`, `last_activity_at`) computed over all
+        runs (and, for `last_activity_at`, the chat) of that workflow.
+        `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
         `runs_count` and are NOT affected by the `status` filter below, so a collapsed
         row can render an accurate per-tab total without a separate runs query.
 
@@ -75,15 +80,15 @@ class RawWorkflowsClient:
         most recent run. `completed` matches only workflows whose latest run succeeded
         (completed-only), and `failed` matches only workflows whose latest run failed —
         the two buckets are disjoint. A workflow whose latest run was `cancelled` matches
-        neither bucket and surfaces only in the unfiltered list. `running` matches active
-        (running or paused) workflows. `draft` matches workflows with no runs yet.
-        `paused` is accepted but currently returns no results.
+        neither bucket and surfaces only in the unfiltered list. `running` matches a latest
+        run that is pending, running or paused; `active` matches pending or running only,
+        and `paused` matches paused only. `draft` matches workflows with no runs yet.
 
         **Multi-sort:** `sort` and `order` are parallel query lists.
         `?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
         `runs_count DESC`, then by `name ASC`. When `order` has fewer entries than
         `sort`, missing positions use per-field defaults (`name=asc`,
-        `updated_at=desc`, `runs_count=desc`). Omitting `sort` defaults to
+        `updated_at=desc`, `runs_count=desc`, `last_activity_at=desc`). Omitting `sort` defaults to
         `updated_at DESC`. A stable `id ASC` tiebreaker is always appended so
         offset/limit pagination is consistent when sort keys tie.
 
@@ -97,12 +102,15 @@ class RawWorkflowsClient:
         completed still matches if an earlier run failed. It composes with the other
         filters (AND). `cancelled` runs do not count as failures.
 
+        **Empty workflows:** `exclude_empty=true` hides workflows that are still
+        placeholder-named with no nodes, no user chat message and no runs.
+
         `pagination.total` reflects the filtered count for the current query.
 
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `running` matches a latest run that is pending, running or paused; `active` is the same minus paused, and `paused` is paused only.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -124,6 +132,9 @@ class RawWorkflowsClient:
 
         include_definition : typing.Optional[bool]
             Include each workflow's full `definition` graph in the response. Off by default because the graphs dominate the payload and a list view does not render them; turn it on to compare what the listed workflows do without a per-workflow GET.
+
+        exclude_empty : typing.Optional[bool]
+            Hide empty workflows: still placeholder-named, no nodes, no user message in the chat, and no runs. Any one of those ending lists the workflow again. Counted in `pagination.total`.
 
         offset : typing.Optional[int]
             Zero-based pagination offset.
@@ -153,6 +164,7 @@ class RawWorkflowsClient:
                 "last_run_before": serialize_datetime(last_run_before) if last_run_before is not None else None,
                 "has_failed_run": has_failed_run,
                 "include_definition": include_definition,
+                "exclude_empty": exclude_empty,
                 "offset": offset,
                 "limit": limit,
             },
@@ -764,6 +776,7 @@ class RawWorkflowsClient:
         *,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
+        category: typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiListResponseUploadOut]:
@@ -777,6 +790,10 @@ class RawWorkflowsClient:
         uploads are excluded. Each item includes a short-lived download URL for the
         uploaded file.
 
+        Pass `category` to list just one kind of upload. The filter is applied in
+        the query before pagination, so a single audio clip is still returned even
+        when it sits behind more than `limit` script or dictionary uploads.
+
         Parameters
         ----------
         workflow_id : str
@@ -786,6 +803,9 @@ class RawWorkflowsClient:
 
         limit : typing.Optional[int]
             Maximum items to return (1–100).
+
+        category : typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory]
+            Restrict to one upload category (`script`, `dictionary`, or `audio`). Applied before pagination, so `limit` bounds the chosen category rather than the mixed total. Omit for all.
 
         workspace_id : typing.Optional[str]
 
@@ -803,6 +823,7 @@ class RawWorkflowsClient:
             params={
                 "offset": offset,
                 "limit": limit,
+                "category": category,
             },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
@@ -2085,6 +2106,7 @@ class AsyncRawWorkflowsClient:
         last_run_before: typing.Optional[dt.datetime] = None,
         has_failed_run: typing.Optional[bool] = None,
         include_definition: typing.Optional[bool] = None,
+        exclude_empty: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -2095,8 +2117,9 @@ class AsyncRawWorkflowsClient:
 
         Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
         header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
-        `last_run_status`, `run_status_counts`) computed over all runs for that
-        workflow. `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
+        `last_run_status`, `run_status_counts`, `last_activity_at`) computed over all
+        runs (and, for `last_activity_at`, the chat) of that workflow.
+        `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
         `runs_count` and are NOT affected by the `status` filter below, so a collapsed
         row can render an accurate per-tab total without a separate runs query.
 
@@ -2104,15 +2127,15 @@ class AsyncRawWorkflowsClient:
         most recent run. `completed` matches only workflows whose latest run succeeded
         (completed-only), and `failed` matches only workflows whose latest run failed —
         the two buckets are disjoint. A workflow whose latest run was `cancelled` matches
-        neither bucket and surfaces only in the unfiltered list. `running` matches active
-        (running or paused) workflows. `draft` matches workflows with no runs yet.
-        `paused` is accepted but currently returns no results.
+        neither bucket and surfaces only in the unfiltered list. `running` matches a latest
+        run that is pending, running or paused; `active` matches pending or running only,
+        and `paused` matches paused only. `draft` matches workflows with no runs yet.
 
         **Multi-sort:** `sort` and `order` are parallel query lists.
         `?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
         `runs_count DESC`, then by `name ASC`. When `order` has fewer entries than
         `sort`, missing positions use per-field defaults (`name=asc`,
-        `updated_at=desc`, `runs_count=desc`). Omitting `sort` defaults to
+        `updated_at=desc`, `runs_count=desc`, `last_activity_at=desc`). Omitting `sort` defaults to
         `updated_at DESC`. A stable `id ASC` tiebreaker is always appended so
         offset/limit pagination is consistent when sort keys tie.
 
@@ -2126,12 +2149,15 @@ class AsyncRawWorkflowsClient:
         completed still matches if an earlier run failed. It composes with the other
         filters (AND). `cancelled` runs do not count as failures.
 
+        **Empty workflows:** `exclude_empty=true` hides workflows that are still
+        placeholder-named with no nodes, no user chat message and no runs.
+
         `pagination.total` reflects the filtered count for the current query.
 
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `running` matches a latest run that is pending, running or paused; `active` is the same minus paused, and `paused` is paused only.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -2153,6 +2179,9 @@ class AsyncRawWorkflowsClient:
 
         include_definition : typing.Optional[bool]
             Include each workflow's full `definition` graph in the response. Off by default because the graphs dominate the payload and a list view does not render them; turn it on to compare what the listed workflows do without a per-workflow GET.
+
+        exclude_empty : typing.Optional[bool]
+            Hide empty workflows: still placeholder-named, no nodes, no user message in the chat, and no runs. Any one of those ending lists the workflow again. Counted in `pagination.total`.
 
         offset : typing.Optional[int]
             Zero-based pagination offset.
@@ -2182,6 +2211,7 @@ class AsyncRawWorkflowsClient:
                 "last_run_before": serialize_datetime(last_run_before) if last_run_before is not None else None,
                 "has_failed_run": has_failed_run,
                 "include_definition": include_definition,
+                "exclude_empty": exclude_empty,
                 "offset": offset,
                 "limit": limit,
             },
@@ -2793,6 +2823,7 @@ class AsyncRawWorkflowsClient:
         *,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
+        category: typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiListResponseUploadOut]:
@@ -2806,6 +2837,10 @@ class AsyncRawWorkflowsClient:
         uploads are excluded. Each item includes a short-lived download URL for the
         uploaded file.
 
+        Pass `category` to list just one kind of upload. The filter is applied in
+        the query before pagination, so a single audio clip is still returned even
+        when it sits behind more than `limit` script or dictionary uploads.
+
         Parameters
         ----------
         workflow_id : str
@@ -2815,6 +2850,9 @@ class AsyncRawWorkflowsClient:
 
         limit : typing.Optional[int]
             Maximum items to return (1–100).
+
+        category : typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory]
+            Restrict to one upload category (`script`, `dictionary`, or `audio`). Applied before pagination, so `limit` bounds the chosen category rather than the mixed total. Omit for all.
 
         workspace_id : typing.Optional[str]
 
@@ -2832,6 +2870,7 @@ class AsyncRawWorkflowsClient:
             params={
                 "offset": offset,
                 "limit": limit,
+                "category": category,
             },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
