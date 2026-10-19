@@ -46,7 +46,8 @@ class RawUploadsClient:
 
         `category` controls which file formats are accepted:
         - `script` — text-based formats (txt, pdf)
-        - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+        - `dictionary` — pronunciation audio (mp3, wav, m4a, ogg, webm)
+        - `audio` — bring-your-own-audio source clips (wav, mp3, flac)
 
         The presigned URL expires within a short window (see `upload_url` TTL in the
         response). If the URL expires before the PUT completes, discard this upload
@@ -63,7 +64,7 @@ class RawUploadsClient:
             Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
-            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for pronunciation audio (mp3, wav, m4a, ogg, webm); `audio` for bring-your-own-audio source clips (wav, mp3, flac).
 
         workspace_id : typing.Optional[str]
 
@@ -293,6 +294,7 @@ class RawUploadsClient:
         self,
         upload_id: str,
         *,
+        if_unreferenced: typing.Optional[bool] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseDict]:
@@ -315,11 +317,27 @@ class RawUploadsClient:
         workspace-role gate applies — a caller can only remove their own upload, never another
         member's workspace content.
 
+        Pass `if_unreferenced=true` to make the delete reference-aware: if any live
+        (non-deleted) workflow in the upload's workspace, or any in-flight (pending, running
+        or paused) run's frozen definition, still names the upload, it is retained and the
+        response is `{"deleted": false, "retained": "referenced"}` with no storage change;
+        otherwise it is deleted as above and the response is `{"deleted": true}`. Without
+        the flag the behavior and the empty `{}` response are unchanged.
+
+        Unlike the plain delete, the flagged path additionally requires the `editor` role in
+        the upload's workspace (non-members get 404, checked first; members below editor get
+        403), since it reads the workspace's workflow definitions and runs. API-key callers
+        are workspace-scoped already and bypass the role check. An upload not bound to any
+        workspace has no role to check and is deleted as before.
+
         Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------
         upload_id : str
+
+        if_unreferenced : typing.Optional[bool]
+            When true, delete only if nothing in the upload's workspace still uses it: no live workflow and no in-flight (pending, running or paused) run references it (a `source_audio` line's `audio_upload_id` or a `source_script` node's `upload_ids`). A referenced upload is kept: nothing is deleted and no storage is released. Default false deletes unconditionally.
 
         workspace_id : typing.Optional[str]
 
@@ -334,6 +352,9 @@ class RawUploadsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/uploads/{encode_path_param(upload_id)}",
             method="DELETE",
+            params={
+                "if_unreferenced": if_unreferenced,
+            },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },
@@ -394,7 +415,8 @@ class AsyncRawUploadsClient:
 
         `category` controls which file formats are accepted:
         - `script` — text-based formats (txt, pdf)
-        - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+        - `dictionary` — pronunciation audio (mp3, wav, m4a, ogg, webm)
+        - `audio` — bring-your-own-audio source clips (wav, mp3, flac)
 
         The presigned URL expires within a short window (see `upload_url` TTL in the
         response). If the URL expires before the PUT completes, discard this upload
@@ -411,7 +433,7 @@ class AsyncRawUploadsClient:
             Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
-            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for pronunciation audio (mp3, wav, m4a, ogg, webm); `audio` for bring-your-own-audio source clips (wav, mp3, flac).
 
         workspace_id : typing.Optional[str]
 
@@ -641,6 +663,7 @@ class AsyncRawUploadsClient:
         self,
         upload_id: str,
         *,
+        if_unreferenced: typing.Optional[bool] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseDict]:
@@ -663,11 +686,27 @@ class AsyncRawUploadsClient:
         workspace-role gate applies — a caller can only remove their own upload, never another
         member's workspace content.
 
+        Pass `if_unreferenced=true` to make the delete reference-aware: if any live
+        (non-deleted) workflow in the upload's workspace, or any in-flight (pending, running
+        or paused) run's frozen definition, still names the upload, it is retained and the
+        response is `{"deleted": false, "retained": "referenced"}` with no storage change;
+        otherwise it is deleted as above and the response is `{"deleted": true}`. Without
+        the flag the behavior and the empty `{}` response are unchanged.
+
+        Unlike the plain delete, the flagged path additionally requires the `editor` role in
+        the upload's workspace (non-members get 404, checked first; members below editor get
+        403), since it reads the workspace's workflow definitions and runs. API-key callers
+        are workspace-scoped already and bypass the role check. An upload not bound to any
+        workspace has no role to check and is deleted as before.
+
         Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------
         upload_id : str
+
+        if_unreferenced : typing.Optional[bool]
+            When true, delete only if nothing in the upload's workspace still uses it: no live workflow and no in-flight (pending, running or paused) run references it (a `source_audio` line's `audio_upload_id` or a `source_script` node's `upload_ids`). A referenced upload is kept: nothing is deleted and no storage is released. Default false deletes unconditionally.
 
         workspace_id : typing.Optional[str]
 
@@ -682,6 +721,9 @@ class AsyncRawUploadsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/uploads/{encode_path_param(upload_id)}",
             method="DELETE",
+            params={
+                "if_unreferenced": if_unreferenced,
+            },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },

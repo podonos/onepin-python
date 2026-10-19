@@ -301,7 +301,11 @@ if typing.TYPE_CHECKING:
         ListVoicesRequestSourceItem,
         PreviewVoicesRequestLanguage,
     )
-    from .workflows import ListWorkflowsRequestOrderItem, ListWorkflowsRequestSortItem
+    from .workflows import (
+        ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory,
+        ListWorkflowsRequestOrderItem,
+        ListWorkflowsRequestSortItem,
+    )
 _dynamic_imports: typing.Dict[str, str] = {
     "ApiCountedListResponseCatalogVoiceOut": ".types",
     "ApiCountedListResponseVoiceOut": ".types",
@@ -404,6 +408,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListVoicesRequestOrderItem": ".voices",
     "ListVoicesRequestSortItem": ".voices",
     "ListVoicesRequestSourceItem": ".voices",
+    "ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory": ".workflows",
     "ListWorkflowsRequestOrderItem": ".workflows",
     "ListWorkflowsRequestSortItem": ".workflows",
     "Meta": ".types",
@@ -726,6 +731,7 @@ __all__ = [
     "ListVoicesRequestOrderItem",
     "ListVoicesRequestSortItem",
     "ListVoicesRequestSourceItem",
+    "ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory",
     "ListWorkflowsRequestOrderItem",
     "ListWorkflowsRequestSortItem",
     "Meta",
