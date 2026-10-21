@@ -39,7 +39,9 @@ if typing.TYPE_CHECKING:
     from .api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
     from .api_response_node_detail_out import ApiResponseNodeDetailOut
     from .api_response_plan_limits import ApiResponsePlanLimits
-    from .api_response_pronunciation_suggestion import ApiResponsePronunciationSuggestion
+    from .api_response_pronunciation_preview_out import ApiResponsePronunciationPreviewOut
+    from .api_response_pronunciation_readings_out import ApiResponsePronunciationReadingsOut
+    from .api_response_pronunciation_suggestions_out import ApiResponsePronunciationSuggestionsOut
     from .api_response_runs_summary_out import ApiResponseRunsSummaryOut
     from .api_response_slug_availability_out import ApiResponseSlugAvailabilityOut
     from .api_response_template_estimate_response import ApiResponseTemplateEstimateResponse
@@ -79,7 +81,6 @@ if typing.TYPE_CHECKING:
     from .customer_plan_response import CustomerPlanResponse
     from .customer_subscription_response import CustomerSubscriptionResponse
     from .dictionary_language_out import DictionaryLanguageOut
-    from .dictionary_method import DictionaryMethod
     from .dictionary_out import DictionaryOut
     from .download_url_out import DownloadUrlOut
     from .email_notification_preferences_out import EmailNotificationPreferencesOut
@@ -119,7 +120,11 @@ if typing.TYPE_CHECKING:
     from .plan_limits_credits_renewal import PlanLimitsCreditsRenewal
     from .plan_tier import PlanTier
     from .port_out import PortOut
-    from .pronunciation_suggestion import PronunciationSuggestion
+    from .pronunciation_candidate import PronunciationCandidate
+    from .pronunciation_candidate_source import PronunciationCandidateSource
+    from .pronunciation_preview_out import PronunciationPreviewOut
+    from .pronunciation_readings_out import PronunciationReadingsOut
+    from .pronunciation_suggestions_out import PronunciationSuggestionsOut
     from .provider_group_out import ProviderGroupOut
     from .run_share_origin_out import RunShareOriginOut
     from .run_status_counts import RunStatusCounts
@@ -289,7 +294,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiResponseListWorkflowRunStepOut": ".api_response_list_workflow_run_step_out",
     "ApiResponseNodeDetailOut": ".api_response_node_detail_out",
     "ApiResponsePlanLimits": ".api_response_plan_limits",
-    "ApiResponsePronunciationSuggestion": ".api_response_pronunciation_suggestion",
+    "ApiResponsePronunciationPreviewOut": ".api_response_pronunciation_preview_out",
+    "ApiResponsePronunciationReadingsOut": ".api_response_pronunciation_readings_out",
+    "ApiResponsePronunciationSuggestionsOut": ".api_response_pronunciation_suggestions_out",
     "ApiResponseRunsSummaryOut": ".api_response_runs_summary_out",
     "ApiResponseSlugAvailabilityOut": ".api_response_slug_availability_out",
     "ApiResponseTemplateEstimateResponse": ".api_response_template_estimate_response",
@@ -327,7 +334,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CustomerPlanResponse": ".customer_plan_response",
     "CustomerSubscriptionResponse": ".customer_subscription_response",
     "DictionaryLanguageOut": ".dictionary_language_out",
-    "DictionaryMethod": ".dictionary_method",
     "DictionaryOut": ".dictionary_out",
     "DownloadUrlOut": ".download_url_out",
     "EmailNotificationPreferencesOut": ".email_notification_preferences_out",
@@ -365,7 +371,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PlanLimitsCreditsRenewal": ".plan_limits_credits_renewal",
     "PlanTier": ".plan_tier",
     "PortOut": ".port_out",
-    "PronunciationSuggestion": ".pronunciation_suggestion",
+    "PronunciationCandidate": ".pronunciation_candidate",
+    "PronunciationCandidateSource": ".pronunciation_candidate_source",
+    "PronunciationPreviewOut": ".pronunciation_preview_out",
+    "PronunciationReadingsOut": ".pronunciation_readings_out",
+    "PronunciationSuggestionsOut": ".pronunciation_suggestions_out",
     "ProviderGroupOut": ".provider_group_out",
     "RunShareOriginOut": ".run_share_origin_out",
     "RunStatusCounts": ".run_status_counts",
@@ -559,7 +569,9 @@ __all__ = [
     "ApiResponseListWorkflowRunStepOut",
     "ApiResponseNodeDetailOut",
     "ApiResponsePlanLimits",
-    "ApiResponsePronunciationSuggestion",
+    "ApiResponsePronunciationPreviewOut",
+    "ApiResponsePronunciationReadingsOut",
+    "ApiResponsePronunciationSuggestionsOut",
     "ApiResponseRunsSummaryOut",
     "ApiResponseSlugAvailabilityOut",
     "ApiResponseTemplateEstimateResponse",
@@ -597,7 +609,6 @@ __all__ = [
     "CustomerPlanResponse",
     "CustomerSubscriptionResponse",
     "DictionaryLanguageOut",
-    "DictionaryMethod",
     "DictionaryOut",
     "DownloadUrlOut",
     "EmailNotificationPreferencesOut",
@@ -635,7 +646,11 @@ __all__ = [
     "PlanLimitsCreditsRenewal",
     "PlanTier",
     "PortOut",
-    "PronunciationSuggestion",
+    "PronunciationCandidate",
+    "PronunciationCandidateSource",
+    "PronunciationPreviewOut",
+    "PronunciationReadingsOut",
+    "PronunciationSuggestionsOut",
     "ProviderGroupOut",
     "RunShareOriginOut",
     "RunStatusCounts",

@@ -6,15 +6,15 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
-class PronunciationSuggestion(UniversalBaseModel):
-    pronunciation: str = pydantic.Field()
+class PronunciationPreviewOut(UniversalBaseModel):
+    audio_url: str = pydantic.Field()
     """
-    Suggested phonetic respelling, suitable for use as the `pronunciation` field when creating a `spelled`-method entry.
+    Short-lived URL to a WAV of the IPA spoken by MOSS-TTS. Do not cache across sessions.
     """
 
-    ipa: typing.Optional[str] = pydantic.Field(default=None)
+    cached: bool = pydantic.Field()
     """
-    IPA transcription. Always `null` in this version; automatic generation is a planned enhancement.
+    `true` when this IPA was rendered before and the stored audio was returned.
     """
 
     if IS_PYDANTIC_V2:

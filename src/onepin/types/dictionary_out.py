@@ -5,7 +5,6 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .dictionary_method import DictionaryMethod
 
 
 class DictionaryOut(UniversalBaseModel):
@@ -19,39 +18,29 @@ class DictionaryOut(UniversalBaseModel):
     The surface form of the word or phrase as it appears in a script.
     """
 
+    locale: str = pydantic.Field()
+    """
+    BCP-47 locale this entry applies to (e.g. `ko-kr`, `en-us`).
+    """
+
+    ipa: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    How the word is pronounced, in IPA, exactly as it was saved. Nothing fills or rewrites it: candidates come from `POST /dictionary/suggestions` and a person picks one.
+    """
+
+    type: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Free-text category of the entry (e.g. `brand`, `person`, `loanword`).
+    """
+
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
     Optional human-readable note about the entry (e.g. context, source).
     """
 
-    pronunciation: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Phonetic respelling used when `method` is `spelled`.
-    """
-
-    audio_url: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Short-lived presigned URL to the reference audio clip; only present when `method` is `recorded`. Do not cache across sessions.
-    """
-
-    method: DictionaryMethod = pydantic.Field()
-    """
-    How the pronunciation is specified: `spelled` (phonetic respelling), `recorded` (reference audio), or `ipa` (IPA transcription).
-    """
-
-    language: str = pydantic.Field()
-    """
-    BCP-47 locale this entry applies to (e.g. `ko-kr`, `en-us`).
-    """
-
     uses_count: int = pydantic.Field()
     """
-    Number of times this entry has been matched and applied during workflow execution.
-    """
-
-    ipa: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    IPA transcription of the word. Supplied by the caller; automatic generation is a planned enhancement.
+    Always `0`. Retained so `?sort=uses_count` keeps working, but nothing increments it: no workflow node reads dictionary entries today, so there is no match to count. It will mean what its name says once the phoneme layer consumes entries.
     """
 
     created_by: typing.Optional[str] = pydantic.Field(default=None)

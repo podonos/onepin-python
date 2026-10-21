@@ -88,14 +88,11 @@ client.auth.whoami()
 
 List dictionary entries for a single locale in the current workspace.
 
-Returns a paginated list of entries for the BCP-47 `language` locale
-specified via the `?language=` query parameter (required, e.g. `ko-kr`).
-Use `GET /dictionary/search` instead when you need to match by word text
-across multiple locales, or `GET /dictionary/languages` to discover which
-locales have entries before filtering here.
-
-`audio_url` on entries with `method=recorded` is a short-lived presigned URL
-— do not cache it across sessions.
+Returns a paginated list of entries for the BCP-47 locale given in
+`?locale=` (required, e.g. `ko-kr`), optionally narrowed to categories with
+`?type=`. Use `GET /dictionary/search` instead when you need to match by word
+text across multiple locales, or `GET /dictionary/languages` to discover
+which locales have entries before filtering here.
 </dd>
 </dl>
 </dd>
@@ -119,7 +116,7 @@ client = OnePinClient(
 )
 
 client.dictionary.list_dictionary_entries(
-    language="de-de",
+    locale="de-de",
 )
 
 ```
@@ -136,7 +133,7 @@ client.dictionary.list_dictionary_entries(
 <dl>
 <dd>
 
-**language:** `ListDictionaryEntriesApiV1DictionaryGetRequestLanguage` — BCP-47 language code, e.g. en-us, ko-kr
+**locale:** `ListDictionaryEntriesApiV1DictionaryGetRequestLocale` — BCP-47 locale, e.g. en-us, ko-kr
     
 </dd>
 </dl>
@@ -144,7 +141,7 @@ client.dictionary.list_dictionary_entries(
 <dl>
 <dd>
 
-**method:** `typing.Optional[typing.List[DictionaryMethod]]` — Filter by one or more entry methods. Repeat to OR: `?method=spelled&method=recorded`. Omit to return all methods.
+**type:** `typing.Optional[typing.List[str]]` — Filter by one or more categories, matched exactly. Repeat to OR: `?type=brand&type=person`. Omit to return every entry, categorised or not; a blank `?type=` reads the same way, as no category preference. Selects only categorised entries — there is no value that matches an entry with no category.
     
 </dd>
 </dl>
@@ -220,8 +217,14 @@ Create a pronunciation dictionary entry in the current workspace.
 
 Dictionary entries record how words should be pronounced that the synthesis
 pipeline would otherwise handle incorrectly — brand names, acronyms,
-technical terms, proper nouns, and foreign loanwords. Each entry is scoped to
-a single BCP-47 locale.
+technical terms, proper nouns, and foreign loanwords. An entry is a `word`
+in one BCP-47 `locale`, its pronunciation in `ipa`, an optional free-text
+category in `type`, and an optional `description`.
+
+`ipa` is stored exactly as given and is never generated on save: get
+candidates from `POST /dictionary/suggestions`, hear them with
+`POST /dictionary/preview`, and save the one a person confirms. An entry
+saved without `ipa` keeps it `null`.
 
 **Not currently applied at synthesis time.** Entries are stored and returned
 by this API but no workflow node reads them today. Pronunciation control is
@@ -230,19 +233,10 @@ verbalization only) and the replacement path through the phoneme layer has
 not yet been wired to workspace entries. Creating an entry will not change
 generated audio until it is.
 
-Three methods are supported via the `method` field:
-
-- `spelled` — provide a phonetic respelling in `pronunciation` (e.g.
-  `"Poh-doh-nohs"`). `pronunciation` is required for this method.
-- `recorded` — attach a reference audio clip by supplying an `upload_id`
-  from a completed `/uploads` staging upload with category `dictionary`.
-  The audio is copied to permanent storage on create; the upload slot is
-  consumed and cannot be reused for a different entry.
-- `ipa` — supply an IPA transcription in `ipa`. `pronunciation` is optional
-  as a human-readable gloss alongside the IPA.
-
-Returns 409 if a `(word, language)` pair already exists in the workspace.
-Requires `editor` workspace role and the `dictionary:write` scope.
+Returns 409 if a `(word, locale)` pair already exists in the workspace, and
+422 naming the replacement if the body still carries a field removed in
+2026-10 (`language`, `method`, `pronunciation`, `upload_id`). Requires
+`editor` workspace role and the `dictionary:write` scope.
 </dd>
 </dl>
 </dd>
@@ -267,8 +261,7 @@ client = OnePinClient(
 
 client.dictionary.create_dictionary_entry(
     word="word",
-    method="spelled",
-    language="language",
+    locale="locale",
 )
 
 ```
@@ -293,15 +286,7 @@ client.dictionary.create_dictionary_entry(
 <dl>
 <dd>
 
-**method:** `DictionaryMethod` — Pronunciation method: `spelled` (phonetic respelling), `recorded` (reference audio clip), or `ipa` (IPA transcription).
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**language:** `str` — BCP-47 locale this entry applies to (e.g. `ko-kr`). Case-insensitive; stored lowercase.
+**locale:** `str` — BCP-47 locale this entry applies to (e.g. `ko-kr`). Case-insensitive; stored lowercase.
     
 </dd>
 </dl>
@@ -317,31 +302,23 @@ client.dictionary.create_dictionary_entry(
 <dl>
 <dd>
 
+**ipa:** `typing.Optional[str]` — How the word is pronounced, in IPA. Stored exactly as given: nothing normalises, rewrites or fills it. Get candidates from `POST /dictionary/suggestions` and hear one with `POST /dictionary/preview` before saving it. A blank string is rejected — `null` is how an entry carries no pronunciation.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**type:** `typing.Optional[str]` — Free-text category of the entry (e.g. `brand`, `person`, `loanword`). Up to 100 characters; surrounding whitespace is trimmed. Filter on it with `GET /dictionary?type=`.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **description:** `typing.Optional[str]` — Optional human-readable note about the entry (e.g. context, source).
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**pronunciation:** `typing.Optional[str]` — Phonetic respelling. Required when `method` is `spelled`.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**upload_id:** `typing.Optional[str]` — ID of a completed staging upload (category `dictionary`). Required when `method` is `recorded`; consumed on create.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**ipa:** `typing.Optional[str]` — IPA transcription of the word. Supplied by the caller; automatic generation is a planned enhancement.
     
 </dd>
 </dl>
@@ -376,8 +353,8 @@ client.dictionary.create_dictionary_entry(
 Search dictionary entries by word text across one or more locales.
 
 Performs a case-insensitive substring match on the `word` field. Optionally
-narrow to one or more BCP-47 locales by repeating `?language=` (OR logic).
-Omitting `language` searches across all locales in the workspace.
+narrow to one or more BCP-47 locales by repeating `?locale=` (OR logic).
+Omitting `locale` searches across all locales in the workspace.
 
 Use `GET /dictionary` (locale-scoped list) when you want the full entry list
 for a specific locale; use this endpoint when you need to find how a word
@@ -462,7 +439,7 @@ client.dictionary.search_dictionary_entries(
 <dl>
 <dd>
 
-**language:** `typing.Optional[typing.List[SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem]]` — Repeat for OR, e.g. ?language=en-us&language=ko-kr
+**locale:** `typing.Optional[typing.List[SearchDictionaryEntriesApiV1DictionarySearchGetRequestLocaleItem]]` — Repeat for OR, e.g. ?locale=en-us&locale=ko-kr
     
 </dd>
 </dl>
@@ -506,7 +483,7 @@ Return all locales that have at least one dictionary entry, with entry counts.
 
 Results are ordered by entry count descending, then BCP-47 locale code
 ascending. Use this endpoint to populate a locale filter dropdown before
-calling `GET /dictionary?language=`, rather than hard-coding the supported
+calling `GET /dictionary?locale=`, rather than hard-coding the supported
 locale list in your client.
 </dd>
 </dl>
@@ -566,7 +543,7 @@ client.dictionary.list_dictionary_languages()
 </dl>
 </details>
 
-<details><summary><code>client.dictionary.<a href="src/onepin/dictionary/client.py">suggest_pronunciation</a>(...) -> ApiResponsePronunciationSuggestion</code></summary>
+<details><summary><code>client.dictionary.<a href="src/onepin/dictionary/client.py">suggest_pronunciations</a>(...) -> ApiResponsePronunciationSuggestionsOut</code></summary>
 <dl>
 <dd>
 
@@ -578,17 +555,26 @@ client.dictionary.list_dictionary_languages()
 <dl>
 <dd>
 
-Generate a pronunciation suggestion for a word before saving it as a dictionary entry.
+Suggest IPA pronunciations for a word, for a person to choose between.
 
-Returns a `pronunciation` string suitable for use as the `pronunciation` field
-when creating a `spelled`-method dictionary entry. The suggestion is
-deterministic (same word always returns the same result) and is intended as a
-starting point for human review, not as a production-ready transcription.
+Returns several candidate readings of `word` in `locale`. Each one perturbs
+the spelling a deliberate way, so the candidates disagree on purpose:
+rule-based standard pronunciation (`ko-kr`, `ja-jp`, `zh-cn`), other accents of
+the same language, numbers and initials read another way, a silent final -e
+said aloud, the stress moved, and other languages' readings. A candidate is a
+draft, not an answer. Play it with `POST /dictionary/preview` and save the one
+a person confirms as the entry's `ipa`. Nothing is saved by this call.
 
-`language` is accepted to maintain a consistent request shape for future
-per-locale phonetic rules; it does not affect the current output. `ipa` is
-always `null` in this version — automatic IPA generation is a planned
-enhancement.
+With `upload_id` — a staged `dictionary` upload of someone saying the word —
+what the phoneme recognizer hears in it comes first, `source` `recording`,
+best reading first. The recording is deleted once read, or once the recognizer
+refuses it (422). A 503 keeps it: send the same `upload_id` again after
+`Retry-After`. Reading a recording is bounded per user (429 past the limit);
+the spelling candidates below are not.
+
+The spelling candidates are not ranked and carry no confidence score.
+Identical readings appear once. Returns 422 for a locale with no
+pronunciation engine. Requires the `dictionary:read` scope.
 </dd>
 </dl>
 </dd>
@@ -611,9 +597,9 @@ client = OnePinClient(
     environment=OnePinClientEnvironment.PROD,
 )
 
-client.dictionary.suggest_pronunciation(
+client.dictionary.suggest_pronunciations(
     word="word",
-    language="language",
+    locale="locale",
 )
 
 ```
@@ -630,7 +616,7 @@ client.dictionary.suggest_pronunciation(
 <dl>
 <dd>
 
-**word:** `str` — The word or phrase to generate a pronunciation suggestion for.
+**word:** `str` — The word or phrase to suggest pronunciations for, as it appears in a script.
     
 </dd>
 </dl>
@@ -638,7 +624,7 @@ client.dictionary.suggest_pronunciation(
 <dl>
 <dd>
 
-**language:** `str` — BCP-47 locale of the word. Reserved for future per-locale phonetic rules; does not affect current output.
+**locale:** `str` — BCP-47 locale of the word (e.g. `ko-kr`, `en-us`). Case-insensitive. Supported: `en-us`, `en-gb`, `de-de`, `fr-fr`, `es-es`, `es-mx`, `it-it`, `pt-pt`, `pt-br`, `ko-kr`, `ja-jp`, `zh-cn`; any other locale returns 422.
     
 </dd>
 </dl>
@@ -647,6 +633,226 @@ client.dictionary.suggest_pronunciation(
 <dd>
 
 **workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**upload_id:** `typing.Optional[str]` — A staged upload (category `dictionary`, not yet confirmed) holding a recording of someone saying the word. What the recognizer hears in it is offered first, with `source` `recording`. The recording is used for nothing else and is deleted once read; after a retryable 503 it is kept so the same `upload_id` can be sent again.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.dictionary.<a href="src/onepin/dictionary/client.py">read_pronunciations</a>(...) -> ApiResponsePronunciationReadingsOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Read a run of letters someone selected inside a pronunciation field.
+
+`POST /dictionary/suggestions` answers a question about a whole word. This
+answers one about a FRAGMENT being typed: `nye kee` where IPA belongs is
+ambiguous between a respelling, an initialism to spell out, and a spelling for
+the voice's own letter-to-sound rules, so all three are offered and the chosen
+IPA replaces the letters it was about.
+
+Readings that agree on the IPA collapse to one row, and a reading espeak-ng
+answered by switching languages is dropped — it is a reading of someone else's
+word. The fragment's own script picks the voice, so Latin letters in a `ko-kr`
+entry are read as Latin and the label says whose rules were used. A respelling
+is an English reader's convention and is offered for Latin script only.
+
+Nothing is saved. Play a reading with `POST /dictionary/preview`. Returns 422
+for a locale with no pronunciation engine. Requires the `dictionary:read` scope.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.dictionary.read_pronunciations(
+    text="text",
+    locale="locale",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**text:** `str` — The selected letters to read. At least two: one letter has no syllable to stress and no digraph to resolve, so every reading of it is the same.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**locale:** `str` — BCP-47 locale of the entry the fragment belongs to. Case-insensitive. Same supported set as `POST /dictionary/suggestions`; any other locale returns 422. The fragment's own script still decides which voice reads it, so Latin letters in a `ko-kr` entry are read as Latin.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**word:** `typing.Optional[str]` — The whole word the fragment belongs to, when the caller knows it. Supplies the language's IPA-to-phoneme pairs, which is what lets a respelling be checked against the locale's own table rather than a fixed one. Optional.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.dictionary.<a href="src/onepin/dictionary/client.py">preview_pronunciation</a>(...) -> ApiResponsePronunciationPreviewOut</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Speak an IPA string so a person can hear a pronunciation before saving it.
+
+Renders `ipa` with MOSS-TTS, one fixed voice that reads IPA directly, so a
+candidate from `POST /dictionary/suggestions` or a hand-edited IPA is heard
+exactly as written. Returns a short-lived `audio_url` to a WAV file.
+
+A rendering is stored and reused for the same `ipa` and `n_vq`, so replaying
+is instant and is not counted against the per-user preview limit (429 past
+it). The engine scales to zero when idle. A preview that misses the deadline
+while it boots returns 503 with `Retry-After`; retry a few seconds later.
+Previews cost no credits. Requires the `dictionary:read` scope.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from onepin import OnePinClient
+from onepin.environment import OnePinClientEnvironment
+
+client = OnePinClient(
+    token="<token>",
+    environment=OnePinClientEnvironment.PROD,
+)
+
+client.dictionary.preview_pronunciation(
+    ipa="ipa",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**ipa:** `str` — The IPA to speak. Sent exactly as given — stress and length marks included.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**workspace_id:** `typing.Optional[str]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**n_vq:** `typing.Optional[int]` — Quality against speed: `8` fastest, `32` best. Default `16`.
     
 </dd>
 </dl>
@@ -681,17 +887,15 @@ client.dictionary.suggest_pronunciation(
 Update fields on an existing dictionary entry in the current workspace.
 
 Supports partial updates — only the fields included in the request body are
-changed; omitted fields retain their current values. Passing `null` for
-`word`, `method`, or `language` is rejected with 422, as these fields are
-required on the stored entry.
+changed; omitted fields retain their current values. `ipa`, `type` and
+`description` can be cleared with an explicit `null`; `null` for `word` or
+`locale` is rejected with 422, as these fields are required on the stored
+entry. `ipa` is stored exactly as given.
 
-To replace the reference audio on a `recorded`-method entry, supply a new
-`upload_id` pointing to a completed staging upload. The previous audio is
-orphaned (not deleted from storage) and the new file is copied to permanent
-storage atomically.
-
-Returns 409 if the new `(word, language)` combination already exists in the
-workspace. Requires `editor` workspace role and the `dictionary:write` scope.
+Returns 409 if the new `(word, locale)` combination already exists in the
+workspace, and 422 naming the replacement if the body still carries a field
+removed in 2026-10 (`language`, `method`, `pronunciation`, `upload_id`).
+Requires `editor` workspace role and the `dictionary:write` scope.
 </dd>
 </dl>
 </dd>
@@ -756,7 +960,7 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-**description:** `typing.Optional[str]` — Updated human-readable note. Omit to leave unchanged.
+**locale:** `typing.Optional[str]` — Updated BCP-47 locale. Omit to leave unchanged.
     
 </dd>
 </dl>
@@ -764,7 +968,7 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-**pronunciation:** `typing.Optional[str]` — Updated phonetic respelling. Required when changing `method` to `spelled`.
+**ipa:** `typing.Optional[str]` — How the word is pronounced, in IPA. Stored exactly as given: nothing normalises, rewrites or fills it. Get candidates from `POST /dictionary/suggestions` and hear one with `POST /dictionary/preview` before saving it. A blank string is rejected — `null` is how an entry carries no pronunciation. Omit to leave unchanged; send `null` to clear.
     
 </dd>
 </dl>
@@ -772,7 +976,7 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-**upload_id:** `typing.Optional[str]` — New staging upload ID to replace the reference audio. Required when changing `method` to `recorded`.
+**type:** `typing.Optional[str]` — Free-text category of the entry (e.g. `brand`, `person`, `loanword`). Up to 100 characters; surrounding whitespace is trimmed. Filter on it with `GET /dictionary?type=`. Omit to leave unchanged; send `null` to clear.
     
 </dd>
 </dl>
@@ -780,23 +984,7 @@ client.dictionary.update_dictionary_entry(
 <dl>
 <dd>
 
-**method:** `typing.Optional[DictionaryMethod]` — Updated pronunciation method. Omit to leave unchanged.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**language:** `typing.Optional[str]` — Updated BCP-47 locale. Omit to leave unchanged.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**ipa:** `typing.Optional[str]` — Updated IPA transcription. Omit to leave unchanged; supply `null` explicitly to clear.
+**description:** `typing.Optional[str]` — Updated human-readable note. Omit to leave unchanged; send `null` to clear.
     
 </dd>
 </dl>
@@ -5468,7 +5656,9 @@ The two-step upload flow:
 
 `category` controls which file formats are accepted:
 - `script` — text-based formats (txt, pdf)
-- `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+- `dictionary` — pronunciation audio (mp3, wav, m4a, ogg, webm): a recording read
+  once by `POST /dictionary/suggestions` (`upload_id`), then deleted; not confirmed
+- `audio` — bring-your-own-audio source clips (wav, mp3, flac)
 
 The presigned URL expires within a short window (see `upload_url` TTL in the
 response). If the URL expires before the PUT completes, discard this upload
@@ -5527,7 +5717,7 @@ client.uploads.create(
 <dl>
 <dd>
 
-**category:** `UploadRequestCategory` — File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+**category:** `UploadRequestCategory` — File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for pronunciation audio (mp3, wav, m4a, ogg, webm); `audio` for bring-your-own-audio source clips (wav, mp3, flac).
     
 </dd>
 </dl>
@@ -5798,6 +5988,19 @@ Delete is owner-scoped: the lookup is limited to the caller's own uploads, so no
 workspace-role gate applies — a caller can only remove their own upload, never another
 member's workspace content.
 
+Pass `if_unreferenced=true` to make the delete reference-aware: if any live
+(non-deleted) workflow in the upload's workspace, or any in-flight (pending, running
+or paused) run's frozen definition, still names the upload, it is retained and the
+response is `{"deleted": false, "retained": "referenced"}` with no storage change;
+otherwise it is deleted as above and the response is `{"deleted": true}`. Without
+the flag the behavior and the empty `{}` response are unchanged.
+
+Unlike the plain delete, the flagged path additionally requires the `editor` role in
+the upload's workspace (non-members get 404, checked first; members below editor get
+403), since it reads the workspace's workflow definitions and runs. API-key callers
+are workspace-scoped already and bypass the role check. An upload not bound to any
+workspace has no role to check and is deleted as before.
+
 Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 </dd>
 </dl>
@@ -5840,6 +6043,14 @@ client.uploads.delete(
 <dd>
 
 **upload_id:** `str` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**if_unreferenced:** `typing.Optional[bool]` — When true, delete only if nothing in the upload's workspace still uses it: no live workflow and no in-flight (pending, running or paused) run references it (a `source_audio` line's `audio_upload_id` or a `source_script` node's `upload_ids`). A referenced upload is kept: nothing is deleted and no storage is released. Default false deletes unconditionally.
     
 </dd>
 </dl>
@@ -6668,8 +6879,9 @@ List workflows in the current workspace.
 
 Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
 header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
-`last_run_status`, `run_status_counts`) computed over all runs for that
-workflow. `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
+`last_run_status`, `run_status_counts`, `last_activity_at`) computed over all
+runs (and, for `last_activity_at`, the chat) of that workflow.
+`run_status_counts` is a per-raw-`RunStatus` map whose values sum to
 `runs_count` and are NOT affected by the `status` filter below, so a collapsed
 row can render an accurate per-tab total without a separate runs query.
 
@@ -6677,15 +6889,15 @@ row can render an accurate per-tab total without a separate runs query.
 most recent run. `completed` matches only workflows whose latest run succeeded
 (completed-only), and `failed` matches only workflows whose latest run failed —
 the two buckets are disjoint. A workflow whose latest run was `cancelled` matches
-neither bucket and surfaces only in the unfiltered list. `running` matches active
-(running or paused) workflows. `draft` matches workflows with no runs yet.
-`paused` is accepted but currently returns no results.
+neither bucket and surfaces only in the unfiltered list. `running` matches a latest
+run that is pending, running or paused; `active` matches pending or running only,
+and `paused` matches paused only. `draft` matches workflows with no runs yet.
 
 **Multi-sort:** `sort` and `order` are parallel query lists.
 `?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
 `runs_count DESC`, then by `name ASC`. When `order` has fewer entries than
 `sort`, missing positions use per-field defaults (`name=asc`,
-`updated_at=desc`, `runs_count=desc`). Omitting `sort` defaults to
+`updated_at=desc`, `runs_count=desc`, `last_activity_at=desc`). Omitting `sort` defaults to
 `updated_at DESC`. A stable `id ASC` tiebreaker is always appended so
 offset/limit pagination is consistent when sort keys tie.
 
@@ -6698,6 +6910,9 @@ keys off the latest run only; `has_failed_run=true` matches workflows with a
 `failed` run *anywhere* in their history, so a workflow whose latest run
 completed still matches if an earlier run failed. It composes with the other
 filters (AND). `cancelled` runs do not count as failures.
+
+**Empty workflows:** `exclude_empty=true` hides workflows that are still
+placeholder-named with no nodes, no user chat message and no runs.
 
 `pagination.total` reflects the filtered count for the current query.
 </dd>
@@ -6738,7 +6953,7 @@ client.workflows.list()
 <dl>
 <dd>
 
-**status:** `typing.Optional[WorkflowListStatus]` — UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `paused` is accepted for forward compatibility and currently returns no rows.
+**status:** `typing.Optional[WorkflowListStatus]` — UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `running` matches a latest run that is pending, running or paused; `active` is the same minus paused, and `paused` is paused only.
     
 </dd>
 </dl>
@@ -6795,6 +7010,14 @@ client.workflows.list()
 <dd>
 
 **include_definition:** `typing.Optional[bool]` — Include each workflow's full `definition` graph in the response. Off by default because the graphs dominate the payload and a list view does not render them; turn it on to compare what the listed workflows do without a per-workflow GET.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**exclude_empty:** `typing.Optional[bool]` — Hide empty workflows: still placeholder-named, no nodes, no user message in the chat, and no runs. Any one of those ending lists the workflow again. Counted in `pagination.total`.
     
 </dd>
 </dl>
@@ -7561,6 +7784,10 @@ Script Input nodes reference by id (e.g. a file attached in the assistant
 chat, which stays bound to its assistant session). In-progress or abandoned
 uploads are excluded. Each item includes a short-lived download URL for the
 uploaded file.
+
+Pass `category` to list just one kind of upload. The filter is applied in
+the query before pagination, so a single audio clip is still returned even
+when it sits behind more than `limit` script or dictionary uploads.
 </dd>
 </dl>
 </dd>
@@ -7618,6 +7845,14 @@ client.workflows.list_workflow_uploads(
 <dd>
 
 **limit:** `typing.Optional[int]` — Maximum items to return (1–100).
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**category:** `typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory]` — Restrict to one upload category (`script`, `dictionary`, or `audio`). Applied before pagination, so `limit` bounds the chosen category rather than the mixed total. Omit for all.
     
 </dd>
 </dl>
