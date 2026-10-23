@@ -2,7 +2,7 @@
 
 import typing
 
-SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem = typing.Union[
+SearchDictionaryEntriesApiV1DictionarySearchGetRequestLocaleItem = typing.Union[
     typing.Literal["de-de", "en-gb", "en-us", "es-es", "es-mx", "fr-fr", "ja-jp", "ko-kr", "pt-br", "pt-pt", "zh-cn"],
     typing.Any,
 ]

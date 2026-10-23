@@ -53,6 +53,7 @@ class RawVoicesClient:
         sort: typing.Optional[typing.Sequence[ListVoicesRequestSortItem]] = None,
         order: typing.Optional[typing.Sequence[ListVoicesRequestOrderItem]] = None,
         buildable: typing.Optional[bool] = None,
+        min_naturalness: typing.Optional[int] = None,
         provider: typing.Optional[typing.Sequence[str]] = None,
         model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
@@ -186,6 +187,9 @@ class RawVoicesClient:
         buildable : typing.Optional[bool]
             Return only voices that can actually be synthesized for `language`: the measured quality floors, a provider/model that is enabled AND currently routable, and a billable rate (or your own BYOK key). Requires `language`; each repeated value is judged on its own. Voices your workspace owns are always returned.
 
+        min_naturalness : typing.Optional[int]
+            Keep only voices rated at least this naturalness band (1-5) in ANY of the requested `language` values — or in any of their languages when no `language` is given — rated on the requested `model`(s) when set. Unrated voices (including every voice your workspace owns) are excluded. Rows then carry `naturalness_match`, the locale each voice qualified on.
+
         provider : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
@@ -222,6 +226,7 @@ class RawVoicesClient:
                 "sort": sort,
                 "order": order,
                 "buildable": buildable,
+                "min_naturalness": min_naturalness,
                 "provider": provider,
                 "model": model,
                 "language": language,
@@ -271,6 +276,7 @@ class RawVoicesClient:
         category: typing.Optional[typing.Sequence[VoiceCategory]] = None,
         accent: typing.Optional[typing.Sequence[VoiceAccent]] = None,
         search: typing.Optional[str] = None,
+        min_naturalness: typing.Optional[int] = None,
         provider: typing.Optional[typing.Sequence[str]] = None,
         model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[str]] = None,
@@ -365,6 +371,9 @@ class RawVoicesClient:
 
         search : typing.Optional[str]
 
+        min_naturalness : typing.Optional[int]
+            Keep only voices rated at least this naturalness band (1-5) in ANY of the requested `language` values — or in any of their languages when no `language` is given — rated on the requested `model`(s) when set. Unrated voices (including every voice your workspace owns) are excluded. Rows then carry `naturalness_match`, the locale each voice qualified on.
+
         provider : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
@@ -395,6 +404,7 @@ class RawVoicesClient:
                 "category": category,
                 "accent": accent,
                 "search": search,
+                "min_naturalness": min_naturalness,
                 "provider": provider,
                 "model": model,
                 "language": language,
@@ -770,7 +780,9 @@ class RawVoicesClient:
         time-limited presigned URL valid for 1 hour; regenerate it by calling this
         endpoint again rather than caching it long-term. Pass `model` to prefer a
         specific TTS model; a preview from another model is still returned when
-        that model has none.
+        that model has none. Without `model`, the preview prefers the model the
+        voice's naturalness rating in that language describes (its best-rated
+        model), so the clip matches the band shown beside the voice.
 
         `language` accepts a bare family (`ko`, `en`) as well as an exact locale
         (`ko-kr`, `en-gb`). A bare family expands to every supported locale in it,
@@ -1008,6 +1020,7 @@ class AsyncRawVoicesClient:
         sort: typing.Optional[typing.Sequence[ListVoicesRequestSortItem]] = None,
         order: typing.Optional[typing.Sequence[ListVoicesRequestOrderItem]] = None,
         buildable: typing.Optional[bool] = None,
+        min_naturalness: typing.Optional[int] = None,
         provider: typing.Optional[typing.Sequence[str]] = None,
         model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
@@ -1141,6 +1154,9 @@ class AsyncRawVoicesClient:
         buildable : typing.Optional[bool]
             Return only voices that can actually be synthesized for `language`: the measured quality floors, a provider/model that is enabled AND currently routable, and a billable rate (or your own BYOK key). Requires `language`; each repeated value is judged on its own. Voices your workspace owns are always returned.
 
+        min_naturalness : typing.Optional[int]
+            Keep only voices rated at least this naturalness band (1-5) in ANY of the requested `language` values — or in any of their languages when no `language` is given — rated on the requested `model`(s) when set. Unrated voices (including every voice your workspace owns) are excluded. Rows then carry `naturalness_match`, the locale each voice qualified on.
+
         provider : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
@@ -1177,6 +1193,7 @@ class AsyncRawVoicesClient:
                 "sort": sort,
                 "order": order,
                 "buildable": buildable,
+                "min_naturalness": min_naturalness,
                 "provider": provider,
                 "model": model,
                 "language": language,
@@ -1226,6 +1243,7 @@ class AsyncRawVoicesClient:
         category: typing.Optional[typing.Sequence[VoiceCategory]] = None,
         accent: typing.Optional[typing.Sequence[VoiceAccent]] = None,
         search: typing.Optional[str] = None,
+        min_naturalness: typing.Optional[int] = None,
         provider: typing.Optional[typing.Sequence[str]] = None,
         model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[str]] = None,
@@ -1320,6 +1338,9 @@ class AsyncRawVoicesClient:
 
         search : typing.Optional[str]
 
+        min_naturalness : typing.Optional[int]
+            Keep only voices rated at least this naturalness band (1-5) in ANY of the requested `language` values — or in any of their languages when no `language` is given — rated on the requested `model`(s) when set. Unrated voices (including every voice your workspace owns) are excluded. Rows then carry `naturalness_match`, the locale each voice qualified on.
+
         provider : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
@@ -1350,6 +1371,7 @@ class AsyncRawVoicesClient:
                 "category": category,
                 "accent": accent,
                 "search": search,
+                "min_naturalness": min_naturalness,
                 "provider": provider,
                 "model": model,
                 "language": language,
@@ -1725,7 +1747,9 @@ class AsyncRawVoicesClient:
         time-limited presigned URL valid for 1 hour; regenerate it by calling this
         endpoint again rather than caching it long-term. Pass `model` to prefer a
         specific TTS model; a preview from another model is still returned when
-        that model has none.
+        that model has none. Without `model`, the preview prefers the model the
+        voice's naturalness rating in that language describes (its best-rated
+        model), so the clip matches the band shown beside the voice.
 
         `language` accepts a bare family (`ko`, `en`) as well as an exact locale
         (`ko-kr`, `en-gb`). A bare family expands to every supported locale in it,
