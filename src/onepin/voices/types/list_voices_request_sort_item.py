@@ -2,4 +2,4 @@
 
 import typing
 
-ListVoicesRequestSortItem = typing.Union[typing.Literal["name", "created_at", "uses_count"], typing.Any]
+ListVoicesRequestSortItem = typing.Union[typing.Literal["name", "created_at", "uses_count", "naturalness"], typing.Any]

@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .run_dictionary_selection_in import RunDictionarySelectionIn
 
 
 class WorkflowRunStartIn(UniversalBaseModel):
@@ -24,6 +25,11 @@ class WorkflowRunStartIn(UniversalBaseModel):
     source_language: typing.Optional[str] = pydantic.Field(default=None)
     """
     BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
+    """
+
+    dictionary: typing.Optional[RunDictionarySelectionIn] = pydantic.Field(default=None)
+    """
+    Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
     """
 
     if IS_PYDANTIC_V2:

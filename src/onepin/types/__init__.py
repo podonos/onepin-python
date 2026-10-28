@@ -7,6 +7,7 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .api_counted_list_response_catalog_voice_out import ApiCountedListResponseCatalogVoiceOut
+    from .api_counted_list_response_dictionary_out import ApiCountedListResponseDictionaryOut
     from .api_counted_list_response_voice_out import ApiCountedListResponseVoiceOut
     from .api_counted_list_response_workflow_list_item import ApiCountedListResponseWorkflowListItem
     from .api_counted_list_response_workflow_run_list_item import ApiCountedListResponseWorkflowRunListItem
@@ -31,7 +32,9 @@ if typing.TYPE_CHECKING:
     from .api_response_catalog_provider_out import ApiResponseCatalogProviderOut
     from .api_response_checkout_response import ApiResponseCheckoutResponse
     from .api_response_dict import ApiResponseDict
+    from .api_response_dictionary_bulk_create_out import ApiResponseDictionaryBulkCreateOut
     from .api_response_dictionary_out import ApiResponseDictionaryOut
+    from .api_response_dictionary_scan_out import ApiResponseDictionaryScanOut
     from .api_response_download_url_out import ApiResponseDownloadUrlOut
     from .api_response_email_notification_preferences_out import ApiResponseEmailNotificationPreferencesOut
     from .api_response_estimate_response import ApiResponseEstimateResponse
@@ -39,7 +42,10 @@ if typing.TYPE_CHECKING:
     from .api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
     from .api_response_node_detail_out import ApiResponseNodeDetailOut
     from .api_response_plan_limits import ApiResponsePlanLimits
-    from .api_response_pronunciation_suggestion import ApiResponsePronunciationSuggestion
+    from .api_response_pronunciation_preview_out import ApiResponsePronunciationPreviewOut
+    from .api_response_pronunciation_readings_out import ApiResponsePronunciationReadingsOut
+    from .api_response_pronunciation_recognition_out import ApiResponsePronunciationRecognitionOut
+    from .api_response_pronunciation_suggestions_out import ApiResponsePronunciationSuggestionsOut
     from .api_response_runs_summary_out import ApiResponseRunsSummaryOut
     from .api_response_slug_availability_out import ApiResponseSlugAvailabilityOut
     from .api_response_template_estimate_response import ApiResponseTemplateEstimateResponse
@@ -54,6 +60,7 @@ if typing.TYPE_CHECKING:
     from .api_response_voice_facets_out import ApiResponseVoiceFacetsOut
     from .api_response_voice_out import ApiResponseVoiceOut
     from .api_response_voice_preview_out import ApiResponseVoicePreviewOut
+    from .api_response_workflow_dictionary_exclusions_out import ApiResponseWorkflowDictionaryExclusionsOut
     from .api_response_workflow_markdown_out import ApiResponseWorkflowMarkdownOut
     from .api_response_workflow_name_availability_out import ApiResponseWorkflowNameAvailabilityOut
     from .api_response_workflow_out import ApiResponseWorkflowOut
@@ -78,9 +85,15 @@ if typing.TYPE_CHECKING:
     from .counted_pagination_meta import CountedPaginationMeta
     from .customer_plan_response import CustomerPlanResponse
     from .customer_subscription_response import CustomerSubscriptionResponse
+    from .dictionary_bulk_create_out import DictionaryBulkCreateOut
+    from .dictionary_bulk_skipped import DictionaryBulkSkipped
+    from .dictionary_bulk_skipped_reason import DictionaryBulkSkippedReason
+    from .dictionary_create import DictionaryCreate
     from .dictionary_language_out import DictionaryLanguageOut
-    from .dictionary_method import DictionaryMethod
     from .dictionary_out import DictionaryOut
+    from .dictionary_scan_match import DictionaryScanMatch
+    from .dictionary_scan_occurrence import DictionaryScanOccurrence
+    from .dictionary_scan_out import DictionaryScanOut
     from .download_url_out import DownloadUrlOut
     from .email_notification_preferences_out import EmailNotificationPreferencesOut
     from .enum_option import EnumOption
@@ -119,8 +132,15 @@ if typing.TYPE_CHECKING:
     from .plan_limits_credits_renewal import PlanLimitsCreditsRenewal
     from .plan_tier import PlanTier
     from .port_out import PortOut
-    from .pronunciation_suggestion import PronunciationSuggestion
+    from .pronunciation_candidate import PronunciationCandidate
+    from .pronunciation_candidate_source import PronunciationCandidateSource
+    from .pronunciation_preview_out import PronunciationPreviewOut
+    from .pronunciation_readings_out import PronunciationReadingsOut
+    from .pronunciation_recognition_out import PronunciationRecognitionOut
+    from .pronunciation_suggestions_out import PronunciationSuggestionsOut
     from .provider_group_out import ProviderGroupOut
+    from .run_dictionary_selection_in import RunDictionarySelectionIn
+    from .run_dictionary_selection_in_mode import RunDictionarySelectionInMode
     from .run_share_origin_out import RunShareOriginOut
     from .run_status_counts import RunStatusCounts
     from .runs_summary_out import RunsSummaryOut
@@ -171,6 +191,7 @@ if typing.TYPE_CHECKING:
     from .voice_gender import VoiceGender
     from .voice_import_state import VoiceImportState
     from .voice_model_capability_out import VoiceModelCapabilityOut
+    from .voice_naturalness_rating_out import VoiceNaturalnessRatingOut
     from .voice_out import VoiceOut
     from .voice_preview_out import VoicePreviewOut
     from .voice_recommended_out import VoiceRecommendedOut
@@ -178,6 +199,7 @@ if typing.TYPE_CHECKING:
     from .voice_source import VoiceSource
     from .workflow_definition_input import WorkflowDefinitionInput
     from .workflow_definition_output import WorkflowDefinitionOutput
+    from .workflow_dictionary_exclusions_out import WorkflowDictionaryExclusionsOut
     from .workflow_list_item import WorkflowListItem
     from .workflow_list_status import WorkflowListStatus
     from .workflow_markdown_out import WorkflowMarkdownOut
@@ -257,6 +279,7 @@ if typing.TYPE_CHECKING:
     from .workspace_settings_out import WorkspaceSettingsOut
 _dynamic_imports: typing.Dict[str, str] = {
     "ApiCountedListResponseCatalogVoiceOut": ".api_counted_list_response_catalog_voice_out",
+    "ApiCountedListResponseDictionaryOut": ".api_counted_list_response_dictionary_out",
     "ApiCountedListResponseVoiceOut": ".api_counted_list_response_voice_out",
     "ApiCountedListResponseWorkflowListItem": ".api_counted_list_response_workflow_list_item",
     "ApiCountedListResponseWorkflowRunListItem": ".api_counted_list_response_workflow_run_list_item",
@@ -281,7 +304,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiResponseCatalogProviderOut": ".api_response_catalog_provider_out",
     "ApiResponseCheckoutResponse": ".api_response_checkout_response",
     "ApiResponseDict": ".api_response_dict",
+    "ApiResponseDictionaryBulkCreateOut": ".api_response_dictionary_bulk_create_out",
     "ApiResponseDictionaryOut": ".api_response_dictionary_out",
+    "ApiResponseDictionaryScanOut": ".api_response_dictionary_scan_out",
     "ApiResponseDownloadUrlOut": ".api_response_download_url_out",
     "ApiResponseEmailNotificationPreferencesOut": ".api_response_email_notification_preferences_out",
     "ApiResponseEstimateResponse": ".api_response_estimate_response",
@@ -289,7 +314,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiResponseListWorkflowRunStepOut": ".api_response_list_workflow_run_step_out",
     "ApiResponseNodeDetailOut": ".api_response_node_detail_out",
     "ApiResponsePlanLimits": ".api_response_plan_limits",
-    "ApiResponsePronunciationSuggestion": ".api_response_pronunciation_suggestion",
+    "ApiResponsePronunciationPreviewOut": ".api_response_pronunciation_preview_out",
+    "ApiResponsePronunciationReadingsOut": ".api_response_pronunciation_readings_out",
+    "ApiResponsePronunciationRecognitionOut": ".api_response_pronunciation_recognition_out",
+    "ApiResponsePronunciationSuggestionsOut": ".api_response_pronunciation_suggestions_out",
     "ApiResponseRunsSummaryOut": ".api_response_runs_summary_out",
     "ApiResponseSlugAvailabilityOut": ".api_response_slug_availability_out",
     "ApiResponseTemplateEstimateResponse": ".api_response_template_estimate_response",
@@ -302,6 +330,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiResponseVoiceFacetsOut": ".api_response_voice_facets_out",
     "ApiResponseVoiceOut": ".api_response_voice_out",
     "ApiResponseVoicePreviewOut": ".api_response_voice_preview_out",
+    "ApiResponseWorkflowDictionaryExclusionsOut": ".api_response_workflow_dictionary_exclusions_out",
     "ApiResponseWorkflowMarkdownOut": ".api_response_workflow_markdown_out",
     "ApiResponseWorkflowNameAvailabilityOut": ".api_response_workflow_name_availability_out",
     "ApiResponseWorkflowOut": ".api_response_workflow_out",
@@ -326,9 +355,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CountedPaginationMeta": ".counted_pagination_meta",
     "CustomerPlanResponse": ".customer_plan_response",
     "CustomerSubscriptionResponse": ".customer_subscription_response",
+    "DictionaryBulkCreateOut": ".dictionary_bulk_create_out",
+    "DictionaryBulkSkipped": ".dictionary_bulk_skipped",
+    "DictionaryBulkSkippedReason": ".dictionary_bulk_skipped_reason",
+    "DictionaryCreate": ".dictionary_create",
     "DictionaryLanguageOut": ".dictionary_language_out",
-    "DictionaryMethod": ".dictionary_method",
     "DictionaryOut": ".dictionary_out",
+    "DictionaryScanMatch": ".dictionary_scan_match",
+    "DictionaryScanOccurrence": ".dictionary_scan_occurrence",
+    "DictionaryScanOut": ".dictionary_scan_out",
     "DownloadUrlOut": ".download_url_out",
     "EmailNotificationPreferencesOut": ".email_notification_preferences_out",
     "EnumOption": ".enum_option",
@@ -365,8 +400,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PlanLimitsCreditsRenewal": ".plan_limits_credits_renewal",
     "PlanTier": ".plan_tier",
     "PortOut": ".port_out",
-    "PronunciationSuggestion": ".pronunciation_suggestion",
+    "PronunciationCandidate": ".pronunciation_candidate",
+    "PronunciationCandidateSource": ".pronunciation_candidate_source",
+    "PronunciationPreviewOut": ".pronunciation_preview_out",
+    "PronunciationReadingsOut": ".pronunciation_readings_out",
+    "PronunciationRecognitionOut": ".pronunciation_recognition_out",
+    "PronunciationSuggestionsOut": ".pronunciation_suggestions_out",
     "ProviderGroupOut": ".provider_group_out",
+    "RunDictionarySelectionIn": ".run_dictionary_selection_in",
+    "RunDictionarySelectionInMode": ".run_dictionary_selection_in_mode",
     "RunShareOriginOut": ".run_share_origin_out",
     "RunStatusCounts": ".run_status_counts",
     "RunsSummaryOut": ".runs_summary_out",
@@ -417,6 +459,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VoiceGender": ".voice_gender",
     "VoiceImportState": ".voice_import_state",
     "VoiceModelCapabilityOut": ".voice_model_capability_out",
+    "VoiceNaturalnessRatingOut": ".voice_naturalness_rating_out",
     "VoiceOut": ".voice_out",
     "VoicePreviewOut": ".voice_preview_out",
     "VoiceRecommendedOut": ".voice_recommended_out",
@@ -424,6 +467,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VoiceSource": ".voice_source",
     "WorkflowDefinitionInput": ".workflow_definition_input",
     "WorkflowDefinitionOutput": ".workflow_definition_output",
+    "WorkflowDictionaryExclusionsOut": ".workflow_dictionary_exclusions_out",
     "WorkflowListItem": ".workflow_list_item",
     "WorkflowListStatus": ".workflow_list_status",
     "WorkflowMarkdownOut": ".workflow_markdown_out",
@@ -527,6 +571,7 @@ def __dir__():
 
 __all__ = [
     "ApiCountedListResponseCatalogVoiceOut",
+    "ApiCountedListResponseDictionaryOut",
     "ApiCountedListResponseVoiceOut",
     "ApiCountedListResponseWorkflowListItem",
     "ApiCountedListResponseWorkflowRunListItem",
@@ -551,7 +596,9 @@ __all__ = [
     "ApiResponseCatalogProviderOut",
     "ApiResponseCheckoutResponse",
     "ApiResponseDict",
+    "ApiResponseDictionaryBulkCreateOut",
     "ApiResponseDictionaryOut",
+    "ApiResponseDictionaryScanOut",
     "ApiResponseDownloadUrlOut",
     "ApiResponseEmailNotificationPreferencesOut",
     "ApiResponseEstimateResponse",
@@ -559,7 +606,10 @@ __all__ = [
     "ApiResponseListWorkflowRunStepOut",
     "ApiResponseNodeDetailOut",
     "ApiResponsePlanLimits",
-    "ApiResponsePronunciationSuggestion",
+    "ApiResponsePronunciationPreviewOut",
+    "ApiResponsePronunciationReadingsOut",
+    "ApiResponsePronunciationRecognitionOut",
+    "ApiResponsePronunciationSuggestionsOut",
     "ApiResponseRunsSummaryOut",
     "ApiResponseSlugAvailabilityOut",
     "ApiResponseTemplateEstimateResponse",
@@ -572,6 +622,7 @@ __all__ = [
     "ApiResponseVoiceFacetsOut",
     "ApiResponseVoiceOut",
     "ApiResponseVoicePreviewOut",
+    "ApiResponseWorkflowDictionaryExclusionsOut",
     "ApiResponseWorkflowMarkdownOut",
     "ApiResponseWorkflowNameAvailabilityOut",
     "ApiResponseWorkflowOut",
@@ -596,9 +647,15 @@ __all__ = [
     "CountedPaginationMeta",
     "CustomerPlanResponse",
     "CustomerSubscriptionResponse",
+    "DictionaryBulkCreateOut",
+    "DictionaryBulkSkipped",
+    "DictionaryBulkSkippedReason",
+    "DictionaryCreate",
     "DictionaryLanguageOut",
-    "DictionaryMethod",
     "DictionaryOut",
+    "DictionaryScanMatch",
+    "DictionaryScanOccurrence",
+    "DictionaryScanOut",
     "DownloadUrlOut",
     "EmailNotificationPreferencesOut",
     "EnumOption",
@@ -635,8 +692,15 @@ __all__ = [
     "PlanLimitsCreditsRenewal",
     "PlanTier",
     "PortOut",
-    "PronunciationSuggestion",
+    "PronunciationCandidate",
+    "PronunciationCandidateSource",
+    "PronunciationPreviewOut",
+    "PronunciationReadingsOut",
+    "PronunciationRecognitionOut",
+    "PronunciationSuggestionsOut",
     "ProviderGroupOut",
+    "RunDictionarySelectionIn",
+    "RunDictionarySelectionInMode",
     "RunShareOriginOut",
     "RunStatusCounts",
     "RunsSummaryOut",
@@ -687,6 +751,7 @@ __all__ = [
     "VoiceGender",
     "VoiceImportState",
     "VoiceModelCapabilityOut",
+    "VoiceNaturalnessRatingOut",
     "VoiceOut",
     "VoicePreviewOut",
     "VoiceRecommendedOut",
@@ -694,6 +759,7 @@ __all__ = [
     "VoiceSource",
     "WorkflowDefinitionInput",
     "WorkflowDefinitionOutput",
+    "WorkflowDictionaryExclusionsOut",
     "WorkflowListItem",
     "WorkflowListStatus",
     "WorkflowMarkdownOut",

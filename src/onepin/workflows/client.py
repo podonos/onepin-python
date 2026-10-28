@@ -13,6 +13,7 @@ from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_download_url_out import ApiResponseDownloadUrlOut
 from ..types.api_response_estimate_response import ApiResponseEstimateResponse
 from ..types.api_response_runs_summary_out import ApiResponseRunsSummaryOut
+from ..types.api_response_workflow_dictionary_exclusions_out import ApiResponseWorkflowDictionaryExclusionsOut
 from ..types.api_response_workflow_markdown_out import ApiResponseWorkflowMarkdownOut
 from ..types.api_response_workflow_name_availability_out import ApiResponseWorkflowNameAvailabilityOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
@@ -21,10 +22,14 @@ from ..types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ..types.api_response_workflow_run_outputs_out import ApiResponseWorkflowRunOutputsOut
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
 from ..types.api_response_workflow_validate_out import ApiResponseWorkflowValidateOut
+from ..types.run_dictionary_selection_in import RunDictionarySelectionIn
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
 from .raw_client import AsyncRawWorkflowsClient, RawWorkflowsClient
+from .types.list_workflow_uploads_api_v1workflows_workflow_id_uploads_get_request_category import (
+    ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory,
+)
 from .types.list_workflows_request_order_item import ListWorkflowsRequestOrderItem
 from .types.list_workflows_request_sort_item import ListWorkflowsRequestSortItem
 
@@ -62,6 +67,7 @@ class WorkflowsClient:
         last_run_before: typing.Optional[dt.datetime] = None,
         has_failed_run: typing.Optional[bool] = None,
         include_definition: typing.Optional[bool] = None,
+        exclude_empty: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -72,8 +78,9 @@ class WorkflowsClient:
 
         Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
         header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
-        `last_run_status`, `run_status_counts`) computed over all runs for that
-        workflow. `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
+        `last_run_status`, `run_status_counts`, `last_activity_at`) computed over all
+        runs (and, for `last_activity_at`, the chat) of that workflow.
+        `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
         `runs_count` and are NOT affected by the `status` filter below, so a collapsed
         row can render an accurate per-tab total without a separate runs query.
 
@@ -81,15 +88,15 @@ class WorkflowsClient:
         most recent run. `completed` matches only workflows whose latest run succeeded
         (completed-only), and `failed` matches only workflows whose latest run failed —
         the two buckets are disjoint. A workflow whose latest run was `cancelled` matches
-        neither bucket and surfaces only in the unfiltered list. `running` matches active
-        (running or paused) workflows. `draft` matches workflows with no runs yet.
-        `paused` is accepted but currently returns no results.
+        neither bucket and surfaces only in the unfiltered list. `running` matches a latest
+        run that is pending, running or paused; `active` matches pending or running only,
+        and `paused` matches paused only. `draft` matches workflows with no runs yet.
 
         **Multi-sort:** `sort` and `order` are parallel query lists.
         `?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
         `runs_count DESC`, then by `name ASC`. When `order` has fewer entries than
         `sort`, missing positions use per-field defaults (`name=asc`,
-        `updated_at=desc`, `runs_count=desc`). Omitting `sort` defaults to
+        `updated_at=desc`, `runs_count=desc`, `last_activity_at=desc`). Omitting `sort` defaults to
         `updated_at DESC`. A stable `id ASC` tiebreaker is always appended so
         offset/limit pagination is consistent when sort keys tie.
 
@@ -103,12 +110,15 @@ class WorkflowsClient:
         completed still matches if an earlier run failed. It composes with the other
         filters (AND). `cancelled` runs do not count as failures.
 
+        **Empty workflows:** `exclude_empty=true` hides workflows that are still
+        placeholder-named with no nodes, no user chat message and no runs.
+
         `pagination.total` reflects the filtered count for the current query.
 
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `running` matches a latest run that is pending, running or paused; `active` is the same minus paused, and `paused` is paused only.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -130,6 +140,9 @@ class WorkflowsClient:
 
         include_definition : typing.Optional[bool]
             Include each workflow's full `definition` graph in the response. Off by default because the graphs dominate the payload and a list view does not render them; turn it on to compare what the listed workflows do without a per-workflow GET.
+
+        exclude_empty : typing.Optional[bool]
+            Hide empty workflows: still placeholder-named, no nodes, no user message in the chat, and no runs. Any one of those ending lists the workflow again. Counted in `pagination.total`.
 
         offset : typing.Optional[int]
             Zero-based pagination offset.
@@ -165,6 +178,7 @@ class WorkflowsClient:
             last_run_before=last_run_before,
             has_failed_run=has_failed_run,
             include_definition=include_definition,
+            exclude_empty=exclude_empty,
             offset=offset,
             limit=limit,
             workspace_id=workspace_id,
@@ -572,6 +586,7 @@ class WorkflowsClient:
         *,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
+        category: typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiListResponseUploadOut:
@@ -585,6 +600,10 @@ class WorkflowsClient:
         uploads are excluded. Each item includes a short-lived download URL for the
         uploaded file.
 
+        Pass `category` to list just one kind of upload. The filter is applied in
+        the query before pagination, so a single audio clip is still returned even
+        when it sits behind more than `limit` script or dictionary uploads.
+
         Parameters
         ----------
         workflow_id : str
@@ -594,6 +613,9 @@ class WorkflowsClient:
 
         limit : typing.Optional[int]
             Maximum items to return (1–100).
+
+        category : typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory]
+            Restrict to one upload category (`script`, `dictionary`, or `audio`). Applied before pagination, so `limit` bounds the chosen category rather than the mixed total. Omit for all.
 
         workspace_id : typing.Optional[str]
 
@@ -617,7 +639,124 @@ class WorkflowsClient:
         )
         """
         _response = self._raw_client.list_workflow_uploads(
-            workflow_id, offset=offset, limit=limit, workspace_id=workspace_id, request_options=request_options
+            workflow_id,
+            offset=offset,
+            limit=limit,
+            category=category,
+            workspace_id=workspace_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def get_workflow_dictionary_exclusions(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseWorkflowDictionaryExclusionsOut:
+        """
+        Which of this workspace's dictionary entries this workflow will NOT apply.
+
+        The persisted answer to "all of them except this one" — the thing the phoneme injector's
+        `workspace_dictionary` policy (`all` / `none`) cannot say and a run-scoped `dictionary`
+        selection can only say for one run. Every run of this workflow that does not send its own
+        `dictionary` body applies every entry its script mentions EXCEPT these, and the same set is
+        what the assistant reports and pre-ticks its dictionary card from, so one answer comes out
+        of every surface.
+
+        Stored beside the definition rather than in it: entry ids inside a definition would be
+        published through templates and the node catalog, carrying one workspace's data into every
+        copy. Cloning a template therefore starts with an empty set.
+
+        Ids belonging to deleted entries are omitted (the write path refuses them, so echoing one
+        would hand back a payload this API would then reject). An empty list means every matching
+        entry applies. Membership is the whole gate; reads need the `workflows:read` scope.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseWorkflowDictionaryExclusionsOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workflows.get_workflow_dictionary_exclusions(
+            workflow_id="workflow_id",
+        )
+        """
+        _response = self._raw_client.get_workflow_dictionary_exclusions(
+            workflow_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    def replace_workflow_dictionary_exclusions(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        entry_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseWorkflowDictionaryExclusionsOut:
+        """
+        Replace the set of dictionary entries this workflow refuses.
+
+        `entry_ids` is the COMPLETE set, so an empty list clears it and a client never has to send
+        a diff — read the current set from the matching `GET`, change the ticks, send the result.
+        The workflow's `definition` is untouched: this is a setting beside the graph, so saving it
+        neither moves the definition hash nor invalidates a pending run approval.
+
+        Takes effect on the NEXT run; a run already started carries its own snapshot. A run that
+        sends its own `dictionary` body still wins outright for that run — a caller naming its own
+        selection means it.
+
+        Returns 422 naming any id this workspace does not have (an id from another workspace is
+        indistinguishable from one that never existed), and 404 for a workflow this workspace
+        cannot see. Requires at least `editor` role and the `workflows:write` scope.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        entry_ids : typing.Optional[typing.Sequence[str]]
+            Entry ids this workflow must NOT apply, even where the script says the word. The complete set — an empty list clears it. Every id must be a live entry in this workspace (422 otherwise).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseWorkflowDictionaryExclusionsOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.workflows.replace_workflow_dictionary_exclusions(
+            workflow_id="workflow_id",
+        )
+        """
+        _response = self._raw_client.replace_workflow_dictionary_exclusions(
+            workflow_id, workspace_id=workspace_id, entry_ids=entry_ids, request_options=request_options
         )
         return _response.data
 
@@ -628,6 +767,7 @@ class WorkflowsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -654,6 +794,9 @@ class WorkflowsClient:
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -678,6 +821,7 @@ class WorkflowsClient:
             workspace_id=workspace_id,
             script_text=script_text,
             source_language=source_language,
+            dictionary=dictionary,
             request_options=request_options,
         )
         return _response.data
@@ -689,6 +833,7 @@ class WorkflowsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -715,6 +860,9 @@ class WorkflowsClient:
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -739,6 +887,7 @@ class WorkflowsClient:
             workspace_id=workspace_id,
             script_text=script_text,
             source_language=source_language,
+            dictionary=dictionary,
             request_options=request_options,
         )
         return _response.data
@@ -1451,9 +1600,9 @@ class WorkflowsClient:
         Create a copy of an existing workflow in the same workspace.
 
         The new workflow inherits the source's `name` (suffixed with " (Copy)"),
-        `description`, and `definition`. Runs from the original workflow are not
-        copied — the duplicate starts with zero runs. Requires at least `editor`
-        role. Returns 201 with the new workflow on success.
+        `description`, `definition`, and its dictionary exclusions. Runs from the
+        original workflow are not copied — the duplicate starts with zero runs.
+        Requires at least `editor` role. Returns 201 with the new workflow on success.
 
         Parameters
         ----------
@@ -1522,6 +1671,7 @@ class AsyncWorkflowsClient:
         last_run_before: typing.Optional[dt.datetime] = None,
         has_failed_run: typing.Optional[bool] = None,
         include_definition: typing.Optional[bool] = None,
+        exclude_empty: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -1532,8 +1682,9 @@ class AsyncWorkflowsClient:
 
         Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
         header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
-        `last_run_status`, `run_status_counts`) computed over all runs for that
-        workflow. `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
+        `last_run_status`, `run_status_counts`, `last_activity_at`) computed over all
+        runs (and, for `last_activity_at`, the chat) of that workflow.
+        `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
         `runs_count` and are NOT affected by the `status` filter below, so a collapsed
         row can render an accurate per-tab total without a separate runs query.
 
@@ -1541,15 +1692,15 @@ class AsyncWorkflowsClient:
         most recent run. `completed` matches only workflows whose latest run succeeded
         (completed-only), and `failed` matches only workflows whose latest run failed —
         the two buckets are disjoint. A workflow whose latest run was `cancelled` matches
-        neither bucket and surfaces only in the unfiltered list. `running` matches active
-        (running or paused) workflows. `draft` matches workflows with no runs yet.
-        `paused` is accepted but currently returns no results.
+        neither bucket and surfaces only in the unfiltered list. `running` matches a latest
+        run that is pending, running or paused; `active` matches pending or running only,
+        and `paused` matches paused only. `draft` matches workflows with no runs yet.
 
         **Multi-sort:** `sort` and `order` are parallel query lists.
         `?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
         `runs_count DESC`, then by `name ASC`. When `order` has fewer entries than
         `sort`, missing positions use per-field defaults (`name=asc`,
-        `updated_at=desc`, `runs_count=desc`). Omitting `sort` defaults to
+        `updated_at=desc`, `runs_count=desc`, `last_activity_at=desc`). Omitting `sort` defaults to
         `updated_at DESC`. A stable `id ASC` tiebreaker is always appended so
         offset/limit pagination is consistent when sort keys tie.
 
@@ -1563,12 +1714,15 @@ class AsyncWorkflowsClient:
         completed still matches if an earlier run failed. It composes with the other
         filters (AND). `cancelled` runs do not count as failures.
 
+        **Empty workflows:** `exclude_empty=true` hides workflows that are still
+        placeholder-named with no nodes, no user chat message and no runs.
+
         `pagination.total` reflects the filtered count for the current query.
 
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `running` matches a latest run that is pending, running or paused; `active` is the same minus paused, and `paused` is paused only.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -1590,6 +1744,9 @@ class AsyncWorkflowsClient:
 
         include_definition : typing.Optional[bool]
             Include each workflow's full `definition` graph in the response. Off by default because the graphs dominate the payload and a list view does not render them; turn it on to compare what the listed workflows do without a per-workflow GET.
+
+        exclude_empty : typing.Optional[bool]
+            Hide empty workflows: still placeholder-named, no nodes, no user message in the chat, and no runs. Any one of those ending lists the workflow again. Counted in `pagination.total`.
 
         offset : typing.Optional[int]
             Zero-based pagination offset.
@@ -1633,6 +1790,7 @@ class AsyncWorkflowsClient:
             last_run_before=last_run_before,
             has_failed_run=has_failed_run,
             include_definition=include_definition,
+            exclude_empty=exclude_empty,
             offset=offset,
             limit=limit,
             workspace_id=workspace_id,
@@ -2096,6 +2254,7 @@ class AsyncWorkflowsClient:
         *,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
+        category: typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiListResponseUploadOut:
@@ -2109,6 +2268,10 @@ class AsyncWorkflowsClient:
         uploads are excluded. Each item includes a short-lived download URL for the
         uploaded file.
 
+        Pass `category` to list just one kind of upload. The filter is applied in
+        the query before pagination, so a single audio clip is still returned even
+        when it sits behind more than `limit` script or dictionary uploads.
+
         Parameters
         ----------
         workflow_id : str
@@ -2118,6 +2281,9 @@ class AsyncWorkflowsClient:
 
         limit : typing.Optional[int]
             Maximum items to return (1–100).
+
+        category : typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory]
+            Restrict to one upload category (`script`, `dictionary`, or `audio`). Applied before pagination, so `limit` bounds the chosen category rather than the mixed total. Omit for all.
 
         workspace_id : typing.Optional[str]
 
@@ -2149,7 +2315,140 @@ class AsyncWorkflowsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.list_workflow_uploads(
-            workflow_id, offset=offset, limit=limit, workspace_id=workspace_id, request_options=request_options
+            workflow_id,
+            offset=offset,
+            limit=limit,
+            category=category,
+            workspace_id=workspace_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def get_workflow_dictionary_exclusions(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseWorkflowDictionaryExclusionsOut:
+        """
+        Which of this workspace's dictionary entries this workflow will NOT apply.
+
+        The persisted answer to "all of them except this one" — the thing the phoneme injector's
+        `workspace_dictionary` policy (`all` / `none`) cannot say and a run-scoped `dictionary`
+        selection can only say for one run. Every run of this workflow that does not send its own
+        `dictionary` body applies every entry its script mentions EXCEPT these, and the same set is
+        what the assistant reports and pre-ticks its dictionary card from, so one answer comes out
+        of every surface.
+
+        Stored beside the definition rather than in it: entry ids inside a definition would be
+        published through templates and the node catalog, carrying one workspace's data into every
+        copy. Cloning a template therefore starts with an empty set.
+
+        Ids belonging to deleted entries are omitted (the write path refuses them, so echoing one
+        would hand back a payload this API would then reject). An empty list means every matching
+        entry applies. Membership is the whole gate; reads need the `workflows:read` scope.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseWorkflowDictionaryExclusionsOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workflows.get_workflow_dictionary_exclusions(
+                workflow_id="workflow_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_workflow_dictionary_exclusions(
+            workflow_id, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    async def replace_workflow_dictionary_exclusions(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        entry_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ApiResponseWorkflowDictionaryExclusionsOut:
+        """
+        Replace the set of dictionary entries this workflow refuses.
+
+        `entry_ids` is the COMPLETE set, so an empty list clears it and a client never has to send
+        a diff — read the current set from the matching `GET`, change the ticks, send the result.
+        The workflow's `definition` is untouched: this is a setting beside the graph, so saving it
+        neither moves the definition hash nor invalidates a pending run approval.
+
+        Takes effect on the NEXT run; a run already started carries its own snapshot. A run that
+        sends its own `dictionary` body still wins outright for that run — a caller naming its own
+        selection means it.
+
+        Returns 422 naming any id this workspace does not have (an id from another workspace is
+        indistinguishable from one that never existed), and 404 for a workflow this workspace
+        cannot see. Requires at least `editor` role and the `workflows:write` scope.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        entry_ids : typing.Optional[typing.Sequence[str]]
+            Entry ids this workflow must NOT apply, even where the script says the word. The complete set — an empty list clears it. Every id must be a live entry in this workspace (422 otherwise).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseWorkflowDictionaryExclusionsOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.workflows.replace_workflow_dictionary_exclusions(
+                workflow_id="workflow_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.replace_workflow_dictionary_exclusions(
+            workflow_id, workspace_id=workspace_id, entry_ids=entry_ids, request_options=request_options
         )
         return _response.data
 
@@ -2160,6 +2459,7 @@ class AsyncWorkflowsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -2185,6 +2485,9 @@ class AsyncWorkflowsClient:
 
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
+
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2218,6 +2521,7 @@ class AsyncWorkflowsClient:
             workspace_id=workspace_id,
             script_text=script_text,
             source_language=source_language,
+            dictionary=dictionary,
             request_options=request_options,
         )
         return _response.data
@@ -2229,6 +2533,7 @@ class AsyncWorkflowsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseEstimateResponse:
         """
@@ -2254,6 +2559,9 @@ class AsyncWorkflowsClient:
 
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
+
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2287,6 +2595,7 @@ class AsyncWorkflowsClient:
             workspace_id=workspace_id,
             script_text=script_text,
             source_language=source_language,
+            dictionary=dictionary,
             request_options=request_options,
         )
         return _response.data
@@ -3087,9 +3396,9 @@ class AsyncWorkflowsClient:
         Create a copy of an existing workflow in the same workspace.
 
         The new workflow inherits the source's `name` (suffixed with " (Copy)"),
-        `description`, and `definition`. Runs from the original workflow are not
-        copied — the duplicate starts with zero runs. Requires at least `editor`
-        role. Returns 201 with the new workflow on success.
+        `description`, `definition`, and its dictionary exclusions. Runs from the
+        original workflow are not copied — the duplicate starts with zero runs.
+        Requires at least `editor` role. Returns 201 with the new workflow on success.
 
         Parameters
         ----------
