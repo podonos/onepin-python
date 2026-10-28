@@ -10,6 +10,7 @@ from ...core.jsonable_encoder import encode_path_param
 from ...core.parse_error import ParsingError
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
+from ...core.serialization import convert_and_respect_annotation_metadata
 from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.api_counted_list_response_workflow_run_list_item import ApiCountedListResponseWorkflowRunListItem
 from ...types.api_response_list_workflow_run_step_out import ApiResponseListWorkflowRunStepOut
@@ -17,6 +18,7 @@ from ...types.api_response_workflow_run_detail_out import ApiResponseWorkflowRun
 from ...types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ...types.api_response_workflow_run_status_out import ApiResponseWorkflowRunStatusOut
 from ...types.node_type import NodeType
+from ...types.run_dictionary_selection_in import RunDictionarySelectionIn
 from .types.list_runs_request_order import ListRunsRequestOrder
 from .types.list_runs_request_sort import ListRunsRequestSort
 from pydantic import ValidationError
@@ -144,6 +146,7 @@ class RawRunsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseWorkflowRunOut]:
         """
@@ -182,6 +185,9 @@ class RawRunsClient:
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -196,6 +202,9 @@ class RawRunsClient:
             json={
                 "script_text": script_text,
                 "source_language": source_language,
+                "dictionary": convert_and_respect_annotation_metadata(
+                    object_=dictionary, annotation=typing.Optional[RunDictionarySelectionIn], direction="write"
+                ),
             },
             headers={
                 "content-type": "application/json",
@@ -690,6 +699,7 @@ class AsyncRawRunsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseWorkflowRunOut]:
         """
@@ -728,6 +738,9 @@ class AsyncRawRunsClient:
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -742,6 +755,9 @@ class AsyncRawRunsClient:
             json={
                 "script_text": script_text,
                 "source_language": source_language,
+                "dictionary": convert_and_respect_annotation_metadata(
+                    object_=dictionary, annotation=typing.Optional[RunDictionarySelectionIn], direction="write"
+                ),
             },
             headers={
                 "content-type": "application/json",

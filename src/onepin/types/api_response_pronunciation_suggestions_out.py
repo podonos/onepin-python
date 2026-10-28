@@ -5,11 +5,11 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .meta import Meta
-from .pronunciation_suggestion import PronunciationSuggestion
+from .pronunciation_suggestions_out import PronunciationSuggestionsOut
 
 
-class ApiResponsePronunciationSuggestion(UniversalBaseModel):
-    data: PronunciationSuggestion
+class ApiResponsePronunciationSuggestionsOut(UniversalBaseModel):
+    data: PronunciationSuggestionsOut
     meta: Meta
 
     if IS_PYDANTIC_V2:
