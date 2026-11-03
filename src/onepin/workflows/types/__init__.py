@@ -6,9 +6,13 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .list_workflow_uploads_api_v1workflows_workflow_id_uploads_get_request_category import (
+        ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory,
+    )
     from .list_workflows_request_order_item import ListWorkflowsRequestOrderItem
     from .list_workflows_request_sort_item import ListWorkflowsRequestSortItem
 _dynamic_imports: typing.Dict[str, str] = {
+    "ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory": ".list_workflow_uploads_api_v1workflows_workflow_id_uploads_get_request_category",
     "ListWorkflowsRequestOrderItem": ".list_workflows_request_order_item",
     "ListWorkflowsRequestSortItem": ".list_workflows_request_sort_item",
 }
@@ -35,4 +39,8 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["ListWorkflowsRequestOrderItem", "ListWorkflowsRequestSortItem"]
+__all__ = [
+    "ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory",
+    "ListWorkflowsRequestOrderItem",
+    "ListWorkflowsRequestSortItem",
+]

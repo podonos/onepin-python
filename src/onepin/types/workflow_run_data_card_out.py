@@ -6,6 +6,7 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .workflow_run_data_audio_out import WorkflowRunDataAudioOut
 from .workflow_run_data_card_out_status import WorkflowRunDataCardOutStatus
+from .workflow_run_data_card_out_take_origin import WorkflowRunDataCardOutTakeOrigin
 from .workflow_run_data_card_out_waveform_status import WorkflowRunDataCardOutWaveformStatus
 from .workflow_run_data_dropped_out import WorkflowRunDataDroppedOut
 from .workflow_run_data_rejected_out import WorkflowRunDataRejectedOut
@@ -31,6 +32,7 @@ class WorkflowRunDataCardOut(UniversalBaseModel):
     status: typing.Optional[WorkflowRunDataCardOutStatus] = None
     dropped: typing.Optional[WorkflowRunDataDroppedOut] = None
     rejected: typing.Optional[WorkflowRunDataRejectedOut] = None
+    take_origin: typing.Optional[WorkflowRunDataCardOutTakeOrigin] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
