@@ -1,10 +1,56 @@
-........................................................................ [ 17%]
-..................................................................s..... [ 34%]
-........................................................................ [ 51%]
-.........F.............................................................. [ 68%]
-........................................................................ [ 85%]
-...............................................................          [100%]
+........................................................................ [ 16%]
+..................................................................s..... [ 33%]
+...........................................................F....F....... [ 50%]
+.........FF.....F....................................................... [ 66%]
+..........FF.....F...................................................... [ 83%]
+......................FF.............F................................   [100%]
 =================================== FAILURES ===================================
+_________________ test_no_unexposed_sdk_params[workflows.list] _________________
+
+cmd = Cmd(group='workflows', name='list', method='workflows.list', help='List workflows in the workspace.', subgroup=None, a...', 'last_run_status', 'updated_at'], success_msg=None, destructive=False, redact=False, fallback_methods=(), gate=None)
+
+    @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))
+    def test_no_unexposed_sdk_params(cmd: Cmd) -> None:
+        """Every param the SDK accepts is reachable from the CLI, or allowlisted with a reason.
+    
+        This is the drift check the regen PR runs: the generated client gains a param, no
+        hand-written flag gains with it, and this goes red naming the command and the param
+        instead of leaving the gap to be found in use months later.
+        """
+        missing = _unexposed_params(cmd) - set(_INTENTIONALLY_UNEXPOSED.get(cmd.path, {}))
+    
+>       assert not missing, (
+            f"{'.'.join(cmd.path)}: {cmd.method} accepts {sorted(missing)} but the CLI has no flag "
+            f"for it. Either add an Opt(...) to the row in _spec.py, or record the decision in "
+            f"_INTENTIONALLY_UNEXPOSED with the reason."
+        )
+E       AssertionError: workflows.list: workflows.list accepts ['exclude_empty'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+E       assert not {'exclude_empty'}
+
+tests/build/test_sdk_contract.py:233: AssertionError
+_______________ test_no_unexposed_sdk_params[workflows.uploads] ________________
+
+cmd = Cmd(group='workflows', name='uploads', method='workflows.list_workflow_uploads', help="List a workflow's uploads.", su...'category', 'status', 'size_bytes'], success_msg=None, destructive=False, redact=False, fallback_methods=(), gate=None)
+
+    @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))
+    def test_no_unexposed_sdk_params(cmd: Cmd) -> None:
+        """Every param the SDK accepts is reachable from the CLI, or allowlisted with a reason.
+    
+        This is the drift check the regen PR runs: the generated client gains a param, no
+        hand-written flag gains with it, and this goes red naming the command and the param
+        instead of leaving the gap to be found in use months later.
+        """
+        missing = _unexposed_params(cmd) - set(_INTENTIONALLY_UNEXPOSED.get(cmd.path, {}))
+    
+>       assert not missing, (
+            f"{'.'.join(cmd.path)}: {cmd.method} accepts {sorted(missing)} but the CLI has no flag "
+            f"for it. Either add an Opt(...) to the row in _spec.py, or record the decision in "
+            f"_INTENTIONALLY_UNEXPOSED with the reason."
+        )
+E       AssertionError: workflows.uploads: workflows.list_workflow_uploads accepts ['category'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+E       assert not {'category'}
+
+tests/build/test_sdk_contract.py:233: AssertionError
 __________________ test_no_unexposed_sdk_params[voices.list] ___________________
 
 cmd = Cmd(group='voices', name='list', method='voices.list', help='List available voices.', subgroup=None, args=[], options=...ider', 'gender', 'category'], success_msg=None, destructive=False, redact=False, fallback_methods=(), gate='buildable')
@@ -24,10 +70,238 @@ cmd = Cmd(group='voices', name='list', method='voices.list', help='List availabl
             f"for it. Either add an Opt(...) to the row in _spec.py, or record the decision in "
             f"_INTENTIONALLY_UNEXPOSED with the reason."
         )
-E       AssertionError: voices.list: voices.list accepts ['provider_voice_id'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
-E       assert not {'provider_voice_id'}
+E       AssertionError: voices.list: voices.list accepts ['min_naturalness'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+E       assert not {'min_naturalness'}
 
 tests/build/test_sdk_contract.py:233: AssertionError
+_________________ test_no_unexposed_sdk_params[voices.facets] __________________
+
+cmd = Cmd(group='voices', name='facets', method='voices.get_voice_facets', help='Show the voice filter values that exist and...onsts={}, unwrap='data', columns=[], success_msg=None, destructive=False, redact=False, fallback_methods=(), gate=None)
+
+    @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))
+    def test_no_unexposed_sdk_params(cmd: Cmd) -> None:
+        """Every param the SDK accepts is reachable from the CLI, or allowlisted with a reason.
+    
+        This is the drift check the regen PR runs: the generated client gains a param, no
+        hand-written flag gains with it, and this goes red naming the command and the param
+        instead of leaving the gap to be found in use months later.
+        """
+        missing = _unexposed_params(cmd) - set(_INTENTIONALLY_UNEXPOSED.get(cmd.path, {}))
+    
+>       assert not missing, (
+            f"{'.'.join(cmd.path)}: {cmd.method} accepts {sorted(missing)} but the CLI has no flag "
+            f"for it. Either add an Opt(...) to the row in _spec.py, or record the decision in "
+            f"_INTENTIONALLY_UNEXPOSED with the reason."
+        )
+E       AssertionError: voices.facets: voices.get_voice_facets accepts ['min_naturalness'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+E       assert not {'min_naturalness'}
+
+tests/build/test_sdk_contract.py:233: AssertionError
+_________________ test_no_unexposed_sdk_params[uploads.delete] _________________
+
+cmd = Cmd(group='uploads', name='delete', method='uploads.delete', help='Delete an upload.', subgroup=None, args=[('upload_i... columns=[], success_msg='Deleted upload {upload_id}.', destructive=True, redact=False, fallback_methods=(), gate=None)
+
+    @pytest.mark.parametrize("cmd", TABLE, ids=lambda c: ".".join(c.path))
+    def test_no_unexposed_sdk_params(cmd: Cmd) -> None:
+        """Every param the SDK accepts is reachable from the CLI, or allowlisted with a reason.
+    
+        This is the drift check the regen PR runs: the generated client gains a param, no
+        hand-written flag gains with it, and this goes red naming the command and the param
+        instead of leaving the gap to be found in use months later.
+        """
+        missing = _unexposed_params(cmd) - set(_INTENTIONALLY_UNEXPOSED.get(cmd.path, {}))
+    
+>       assert not missing, (
+            f"{'.'.join(cmd.path)}: {cmd.method} accepts {sorted(missing)} but the CLI has no flag "
+            f"for it. Either add an Opt(...) to the row in _spec.py, or record the decision in "
+            f"_INTENTIONALLY_UNEXPOSED with the reason."
+        )
+E       AssertionError: uploads.delete: uploads.delete accepts ['if_unreferenced'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+E       assert not {'if_unreferenced'}
+
+tests/build/test_sdk_contract.py:233: AssertionError
+________ test_no_unexposed_composite_sdk_params[workflows.preview_run] _________
+
+dotted = 'workflows.preview_run'
+
+    @pytest.mark.parametrize("dotted", sorted(_COMPOSITE_CALLS), ids=lambda d: d)
+    def test_no_unexposed_composite_sdk_params(dotted: str) -> None:
+        """Reverse drift for the composites: a param the SDK gains must reach the CLI or be excused."""
+        missing = _accepted_params(_resolve_composite_method(dotted)) - _cli_reachable(dotted)
+        missing -= set(_COMPOSITE_UNEXPOSED.get(dotted, {}))
+    
+>       assert not missing, (
+            f"{dotted}: accepts {sorted(missing)} but no CLI flag reaches it. Either add the option "
+            f"to the composite in commands/composites.py (and to _COMPOSITE_CALLS), or record the "
+            f"decision in _COMPOSITE_UNEXPOSED with the reason."
+        )
+E       AssertionError: workflows.preview_run: accepts ['dictionary'] but no CLI flag reaches it. Either add the option to the composite in commands/composites.py (and to _COMPOSITE_CALLS), or record the decision in _COMPOSITE_UNEXPOSED with the reason.
+E       assert not {'dictionary'}
+
+tests/build/test_sdk_contract.py:339: AssertionError
+_________ test_no_unexposed_composite_sdk_params[workflows.runs.start] _________
+
+dotted = 'workflows.runs.start'
+
+    @pytest.mark.parametrize("dotted", sorted(_COMPOSITE_CALLS), ids=lambda d: d)
+    def test_no_unexposed_composite_sdk_params(dotted: str) -> None:
+        """Reverse drift for the composites: a param the SDK gains must reach the CLI or be excused."""
+        missing = _accepted_params(_resolve_composite_method(dotted)) - _cli_reachable(dotted)
+        missing -= set(_COMPOSITE_UNEXPOSED.get(dotted, {}))
+    
+>       assert not missing, (
+            f"{dotted}: accepts {sorted(missing)} but no CLI flag reaches it. Either add the option "
+            f"to the composite in commands/composites.py (and to _COMPOSITE_CALLS), or record the "
+            f"decision in _COMPOSITE_UNEXPOSED with the reason."
+        )
+E       AssertionError: workflows.runs.start: accepts ['dictionary'] but no CLI flag reaches it. Either add the option to the composite in commands/composites.py (and to _COMPOSITE_CALLS), or record the decision in _COMPOSITE_UNEXPOSED with the reason.
+E       assert not {'dictionary'}
+
+tests/build/test_sdk_contract.py:339: AssertionError
+__ test_reference_params_match_signature[dictionary.create_dictionary_entry] ___
+
+dotted = 'dictionary.create_dictionary_entry'
+documented = ('request', 'workspace_id', 'request_options')
+
+    @pytest.mark.parametrize(
+        ("dotted", "documented"),
+        _REFERENCE_SECTIONS,
+        ids=[dotted for dotted, _ in _REFERENCE_SECTIONS],
+    )
+    def test_reference_params_match_signature(dotted: str, documented: tuple[str, ...]) -> None:
+        """Each parameter table must name exactly the params its method takes.
+    
+        Both directions are drift, but they are not equally bad: a param the table invents is a
+        documented call that raises, while one it omits is a capability users cannot discover.
+        """
+        invented, omitted = _reference_mismatch(dotted, documented)
+        excused = set(_REFERENCE_DEFECTS.get(dotted, {}))
+    
+>       assert not invented - excused, (
+            f"{dotted}: reference.md documents {sorted(invented - excused)}, which the method does not "
+            f"accept — following the docs raises TypeError. Fix the generator (reference.md is "
+            f"regenerated, so editing it here is lost), or record it in _REFERENCE_DEFECTS."
+        )
+E       AssertionError: dictionary.create_dictionary_entry: reference.md documents ['request'], which the method does not accept — following the docs raises TypeError. Fix the generator (reference.md is regenerated, so editing it here is lost), or record it in _REFERENCE_DEFECTS.
+E       assert not ({'request'} - set())
+
+tests/build/test_sdk_contract.py:467: AssertionError
+______ test_reference_params_match_signature[workflows.estimate_workflow] ______
+
+dotted = 'workflows.estimate_workflow'
+documented = ('workflow_id', 'request', 'workspace_id', 'request_options')
+
+    @pytest.mark.parametrize(
+        ("dotted", "documented"),
+        _REFERENCE_SECTIONS,
+        ids=[dotted for dotted, _ in _REFERENCE_SECTIONS],
+    )
+    def test_reference_params_match_signature(dotted: str, documented: tuple[str, ...]) -> None:
+        """Each parameter table must name exactly the params its method takes.
+    
+        Both directions are drift, but they are not equally bad: a param the table invents is a
+        documented call that raises, while one it omits is a capability users cannot discover.
+        """
+        invented, omitted = _reference_mismatch(dotted, documented)
+        excused = set(_REFERENCE_DEFECTS.get(dotted, {}))
+    
+        assert not invented - excused, (
+            f"{dotted}: reference.md documents {sorted(invented - excused)}, which the method does not "
+            f"accept — following the docs raises TypeError. Fix the generator (reference.md is "
+            f"regenerated, so editing it here is lost), or record it in _REFERENCE_DEFECTS."
+        )
+>       assert not omitted - excused, (
+            f"{dotted}: the method accepts {sorted(omitted - excused)} but reference.md's parameter "
+            f"table omits it. Same two options as above."
+        )
+E       AssertionError: workflows.estimate_workflow: the method accepts ['dictionary'] but reference.md's parameter table omits it. Same two options as above.
+E       assert not ({'dictionary', 'script_text', 'source_language'} - {'request', 'script_text', 'source_language'})
+
+tests/build/test_sdk_contract.py:472: AssertionError
+_________ test_reference_params_match_signature[workflows.preview_run] _________
+
+dotted = 'workflows.preview_run'
+documented = ('workflow_id', 'request', 'workspace_id', 'request_options')
+
+    @pytest.mark.parametrize(
+        ("dotted", "documented"),
+        _REFERENCE_SECTIONS,
+        ids=[dotted for dotted, _ in _REFERENCE_SECTIONS],
+    )
+    def test_reference_params_match_signature(dotted: str, documented: tuple[str, ...]) -> None:
+        """Each parameter table must name exactly the params its method takes.
+    
+        Both directions are drift, but they are not equally bad: a param the table invents is a
+        documented call that raises, while one it omits is a capability users cannot discover.
+        """
+        invented, omitted = _reference_mismatch(dotted, documented)
+        excused = set(_REFERENCE_DEFECTS.get(dotted, {}))
+    
+        assert not invented - excused, (
+            f"{dotted}: reference.md documents {sorted(invented - excused)}, which the method does not "
+            f"accept — following the docs raises TypeError. Fix the generator (reference.md is "
+            f"regenerated, so editing it here is lost), or record it in _REFERENCE_DEFECTS."
+        )
+>       assert not omitted - excused, (
+            f"{dotted}: the method accepts {sorted(omitted - excused)} but reference.md's parameter "
+            f"table omits it. Same two options as above."
+        )
+E       AssertionError: workflows.preview_run: the method accepts ['dictionary'] but reference.md's parameter table omits it. Same two options as above.
+E       assert not ({'dictionary', 'script_text', 'source_language'} - {'request', 'script_text', 'source_language'})
+
+tests/build/test_sdk_contract.py:472: AssertionError
+_________ test_reference_params_match_signature[workflows.runs.start] __________
+
+dotted = 'workflows.runs.start'
+documented = ('workflow_id', 'request', 'workspace_id', 'request_options')
+
+    @pytest.mark.parametrize(
+        ("dotted", "documented"),
+        _REFERENCE_SECTIONS,
+        ids=[dotted for dotted, _ in _REFERENCE_SECTIONS],
+    )
+    def test_reference_params_match_signature(dotted: str, documented: tuple[str, ...]) -> None:
+        """Each parameter table must name exactly the params its method takes.
+    
+        Both directions are drift, but they are not equally bad: a param the table invents is a
+        documented call that raises, while one it omits is a capability users cannot discover.
+        """
+        invented, omitted = _reference_mismatch(dotted, documented)
+        excused = set(_REFERENCE_DEFECTS.get(dotted, {}))
+    
+        assert not invented - excused, (
+            f"{dotted}: reference.md documents {sorted(invented - excused)}, which the method does not "
+            f"accept — following the docs raises TypeError. Fix the generator (reference.md is "
+            f"regenerated, so editing it here is lost), or record it in _REFERENCE_DEFECTS."
+        )
+>       assert not omitted - excused, (
+            f"{dotted}: the method accepts {sorted(omitted - excused)} but reference.md's parameter "
+            f"table omits it. Same two options as above."
+        )
+E       AssertionError: workflows.runs.start: the method accepts ['dictionary'] but reference.md's parameter table omits it. Same two options as above.
+E       assert not ({'dictionary', 'script_text', 'source_language'} - {'request', 'script_text', 'source_language'})
+
+tests/build/test_sdk_contract.py:472: AssertionError
 =========================== short test summary info ============================
-FAILED tests/build/test_sdk_contract.py::test_no_unexposed_sdk_params[voices.list] - AssertionError: voices.list: voices.list accepts ['provider_voice_id'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
-assert not {'provider_voice_id'}
+FAILED tests/build/test_sdk_contract.py::test_no_unexposed_sdk_params[workflows.list] - AssertionError: workflows.list: workflows.list accepts ['exclude_empty'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+assert not {'exclude_empty'}
+FAILED tests/build/test_sdk_contract.py::test_no_unexposed_sdk_params[workflows.uploads] - AssertionError: workflows.uploads: workflows.list_workflow_uploads accepts ['category'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+assert not {'category'}
+FAILED tests/build/test_sdk_contract.py::test_no_unexposed_sdk_params[voices.list] - AssertionError: voices.list: voices.list accepts ['min_naturalness'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+assert not {'min_naturalness'}
+FAILED tests/build/test_sdk_contract.py::test_no_unexposed_sdk_params[voices.facets] - AssertionError: voices.facets: voices.get_voice_facets accepts ['min_naturalness'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+assert not {'min_naturalness'}
+FAILED tests/build/test_sdk_contract.py::test_no_unexposed_sdk_params[uploads.delete] - AssertionError: uploads.delete: uploads.delete accepts ['if_unreferenced'] but the CLI has no flag for it. Either add an Opt(...) to the row in _spec.py, or record the decision in _INTENTIONALLY_UNEXPOSED with the reason.
+assert not {'if_unreferenced'}
+FAILED tests/build/test_sdk_contract.py::test_no_unexposed_composite_sdk_params[workflows.preview_run] - AssertionError: workflows.preview_run: accepts ['dictionary'] but no CLI flag reaches it. Either add the option to the composite in commands/composites.py (and to _COMPOSITE_CALLS), or record the decision in _COMPOSITE_UNEXPOSED with the reason.
+assert not {'dictionary'}
+FAILED tests/build/test_sdk_contract.py::test_no_unexposed_composite_sdk_params[workflows.runs.start] - AssertionError: workflows.runs.start: accepts ['dictionary'] but no CLI flag reaches it. Either add the option to the composite in commands/composites.py (and to _COMPOSITE_CALLS), or record the decision in _COMPOSITE_UNEXPOSED with the reason.
+assert not {'dictionary'}
+FAILED tests/build/test_sdk_contract.py::test_reference_params_match_signature[dictionary.create_dictionary_entry] - AssertionError: dictionary.create_dictionary_entry: reference.md documents ['request'], which the method does not accept — following the docs raises TypeError. Fix the generator (reference.md is regenerated, so editing it here is lost), or record it in _REFERENCE_DEFECTS.
+assert not ({'request'} - set())
+FAILED tests/build/test_sdk_contract.py::test_reference_params_match_signature[workflows.estimate_workflow] - AssertionError: workflows.estimate_workflow: the method accepts ['dictionary'] but reference.md's parameter table omits it. Same two options as above.
+assert not ({'dictionary', 'script_text', 'source_language'} - {'request', 'script_text', 'source_language'})
+FAILED tests/build/test_sdk_contract.py::test_reference_params_match_signature[workflows.preview_run] - AssertionError: workflows.preview_run: the method accepts ['dictionary'] but reference.md's parameter table omits it. Same two options as above.
+assert not ({'dictionary', 'script_text', 'source_language'} - {'request', 'script_text', 'source_language'})
+FAILED tests/build/test_sdk_contract.py::test_reference_params_match_signature[workflows.runs.start] - AssertionError: workflows.runs.start: the method accepts ['dictionary'] but reference.md's parameter table omits it. Same two options as above.
+assert not ({'dictionary', 'script_text', 'source_language'} - {'request', 'script_text', 'source_language'})

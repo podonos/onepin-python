@@ -10,6 +10,7 @@ from ...types.api_response_workflow_run_detail_out import ApiResponseWorkflowRun
 from ...types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ...types.api_response_workflow_run_status_out import ApiResponseWorkflowRunStatusOut
 from ...types.node_type import NodeType
+from ...types.run_dictionary_selection_in import RunDictionarySelectionIn
 from .raw_client import AsyncRawRunsClient, RawRunsClient
 from .types.list_runs_request_order import ListRunsRequestOrder
 from .types.list_runs_request_sort import ListRunsRequestSort
@@ -126,6 +127,7 @@ class RunsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseWorkflowRunOut:
         """
@@ -164,6 +166,9 @@ class RunsClient:
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -188,6 +193,7 @@ class RunsClient:
             workspace_id=workspace_id,
             script_text=script_text,
             source_language=source_language,
+            dictionary=dictionary,
             request_options=request_options,
         )
         return _response.data
@@ -562,6 +568,7 @@ class AsyncRunsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseWorkflowRunOut:
         """
@@ -600,6 +607,9 @@ class AsyncRunsClient:
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -632,6 +642,7 @@ class AsyncRunsClient:
             workspace_id=workspace_id,
             script_text=script_text,
             source_language=source_language,
+            dictionary=dictionary,
             request_options=request_options,
         )
         return _response.data
