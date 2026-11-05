@@ -7,18 +7,18 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
-        ListDictionaryEntriesApiV1DictionaryGetRequestLanguage,
+        ListDictionaryEntriesApiV1DictionaryGetRequestLocaleItem,
         ListDictionaryEntriesApiV1DictionaryGetRequestOrder,
         ListDictionaryEntriesApiV1DictionaryGetRequestSort,
-        SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem,
+        SearchDictionaryEntriesApiV1DictionarySearchGetRequestLocaleItem,
         SearchDictionaryEntriesApiV1DictionarySearchGetRequestOrder,
         SearchDictionaryEntriesApiV1DictionarySearchGetRequestSort,
     )
 _dynamic_imports: typing.Dict[str, str] = {
-    "ListDictionaryEntriesApiV1DictionaryGetRequestLanguage": ".types",
+    "ListDictionaryEntriesApiV1DictionaryGetRequestLocaleItem": ".types",
     "ListDictionaryEntriesApiV1DictionaryGetRequestOrder": ".types",
     "ListDictionaryEntriesApiV1DictionaryGetRequestSort": ".types",
-    "SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem": ".types",
+    "SearchDictionaryEntriesApiV1DictionarySearchGetRequestLocaleItem": ".types",
     "SearchDictionaryEntriesApiV1DictionarySearchGetRequestOrder": ".types",
     "SearchDictionaryEntriesApiV1DictionarySearchGetRequestSort": ".types",
 }
@@ -46,10 +46,10 @@ def __dir__():
 
 
 __all__ = [
-    "ListDictionaryEntriesApiV1DictionaryGetRequestLanguage",
+    "ListDictionaryEntriesApiV1DictionaryGetRequestLocaleItem",
     "ListDictionaryEntriesApiV1DictionaryGetRequestOrder",
     "ListDictionaryEntriesApiV1DictionaryGetRequestSort",
-    "SearchDictionaryEntriesApiV1DictionarySearchGetRequestLanguageItem",
+    "SearchDictionaryEntriesApiV1DictionarySearchGetRequestLocaleItem",
     "SearchDictionaryEntriesApiV1DictionarySearchGetRequestOrder",
     "SearchDictionaryEntriesApiV1DictionarySearchGetRequestSort",
 ]
