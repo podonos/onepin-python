@@ -4,18 +4,13 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .meta import Meta
+from .pronunciation_recognition_out import PronunciationRecognitionOut
 
 
-class PronunciationSuggestion(UniversalBaseModel):
-    pronunciation: str = pydantic.Field()
-    """
-    Suggested phonetic respelling, suitable for use as the `pronunciation` field when creating a `spelled`-method entry.
-    """
-
-    ipa: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    IPA transcription. Always `null` in this version; automatic generation is a planned enhancement.
-    """
+class ApiResponsePronunciationRecognitionOut(UniversalBaseModel):
+    data: PronunciationRecognitionOut
+    meta: Meta
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
