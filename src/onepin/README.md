@@ -43,8 +43,7 @@ client = OnePinClient(
 
 client.dictionary.create_dictionary_entry(
     word="word",
-    method="spelled",
-    language="language",
+    locale="locale",
 )
 ```
 
@@ -78,8 +77,7 @@ client = AsyncOnePinClient(
 async def main() -> None:
     await client.dictionary.create_dictionary_entry(
         word="word",
-        method="spelled",
-        language="language",
+        locale="locale",
     )
 
 

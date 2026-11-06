@@ -64,6 +64,11 @@ class WorkflowListItem(UniversalBaseModel):
     Raw RunStatus of the most recent run. One of: `pending`, `running`, `completed`, `failed`, `cancelled`, `paused`. Null if never run.
     """
 
+    last_activity_at: dt.datetime = pydantic.Field()
+    """
+    Latest of the last chat message (any role, the opener greeting excluded) and the last run; `created_at` when neither exists. What `sort=last_activity_at` orders by.
+    """
+
     run_status_counts: typing.Optional[RunStatusCounts] = pydantic.Field(default=None)
     """
     Number of runs per raw RunStatus, computed over ALL runs of this workflow (same population as `runs_count`; NOT affected by the list-level `status` filter). The sum of all values equals `runs_count`; statuses with no runs are 0.

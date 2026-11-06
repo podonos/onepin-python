@@ -280,9 +280,9 @@ class RawWorkspacesClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -825,9 +825,9 @@ class RawWorkspacesClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1123,9 +1123,9 @@ class AsyncRawWorkspacesClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1668,9 +1668,9 @@ class AsyncRawWorkspacesClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

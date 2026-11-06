@@ -14,6 +14,7 @@ from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.conflict_error import ConflictError
+from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_counted_list_response_workflow_list_item import ApiCountedListResponseWorkflowListItem
@@ -21,7 +22,10 @@ from ..types.api_list_response_upload_out import ApiListResponseUploadOut
 from ..types.api_response_dict import ApiResponseDict
 from ..types.api_response_download_url_out import ApiResponseDownloadUrlOut
 from ..types.api_response_estimate_response import ApiResponseEstimateResponse
+from ..types.api_response_run_facets_out import ApiResponseRunFacetsOut
 from ..types.api_response_runs_summary_out import ApiResponseRunsSummaryOut
+from ..types.api_response_workflow_dictionary_exclusions_out import ApiResponseWorkflowDictionaryExclusionsOut
+from ..types.api_response_workflow_facets_out import ApiResponseWorkflowFacetsOut
 from ..types.api_response_workflow_markdown_out import ApiResponseWorkflowMarkdownOut
 from ..types.api_response_workflow_name_availability_out import ApiResponseWorkflowNameAvailabilityOut
 from ..types.api_response_workflow_out import ApiResponseWorkflowOut
@@ -30,9 +34,16 @@ from ..types.api_response_workflow_run_out import ApiResponseWorkflowRunOut
 from ..types.api_response_workflow_run_outputs_out import ApiResponseWorkflowRunOutputsOut
 from ..types.api_response_workflow_run_overview_out import ApiResponseWorkflowRunOverviewOut
 from ..types.api_response_workflow_validate_out import ApiResponseWorkflowValidateOut
+from ..types.run_dictionary_selection_in import RunDictionarySelectionIn
 from ..types.workflow_definition_input import WorkflowDefinitionInput
 from ..types.workflow_list_status import WorkflowListStatus
 from ..types.workflow_run_data_response import WorkflowRunDataResponse
+from .types.download_run_api_v1workflows_workflow_id_runs_run_id_download_get_request_format import (
+    DownloadRunApiV1WorkflowsWorkflowIdRunsRunIdDownloadGetRequestFormat,
+)
+from .types.list_workflow_uploads_api_v1workflows_workflow_id_uploads_get_request_category import (
+    ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory,
+)
 from .types.list_workflows_request_order_item import ListWorkflowsRequestOrderItem
 from .types.list_workflows_request_sort_item import ListWorkflowsRequestSortItem
 from pydantic import ValidationError
@@ -52,10 +63,16 @@ class RawWorkflowsClient:
         search: typing.Optional[str] = None,
         sort: typing.Optional[typing.Sequence[ListWorkflowsRequestSortItem]] = None,
         order: typing.Optional[typing.Sequence[ListWorkflowsRequestOrderItem]] = None,
+        created_by: typing.Optional[str] = None,
+        touched_by: typing.Optional[str] = None,
+        ran_by: typing.Optional[str] = None,
         last_run_after: typing.Optional[dt.datetime] = None,
         last_run_before: typing.Optional[dt.datetime] = None,
+        created_after: typing.Optional[dt.datetime] = None,
+        created_before: typing.Optional[dt.datetime] = None,
         has_failed_run: typing.Optional[bool] = None,
         include_definition: typing.Optional[bool] = None,
+        exclude_empty: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -66,8 +83,9 @@ class RawWorkflowsClient:
 
         Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
         header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
-        `last_run_status`, `run_status_counts`) computed over all runs for that
-        workflow. `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
+        `last_run_status`, `run_status_counts`, `last_activity_at`) computed over all
+        runs (and, for `last_activity_at`, the chat) of that workflow.
+        `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
         `runs_count` and are NOT affected by the `status` filter below, so a collapsed
         row can render an accurate per-tab total without a separate runs query.
 
@@ -75,21 +93,56 @@ class RawWorkflowsClient:
         most recent run. `completed` matches only workflows whose latest run succeeded
         (completed-only), and `failed` matches only workflows whose latest run failed —
         the two buckets are disjoint. A workflow whose latest run was `cancelled` matches
-        neither bucket and surfaces only in the unfiltered list. `running` matches active
-        (running or paused) workflows. `draft` matches workflows with no runs yet.
-        `paused` is accepted but currently returns no results.
+        neither bucket and surfaces only in the unfiltered list. `running` matches a latest
+        run that is pending, running or paused; `active` matches pending or running only,
+        and `paused` matches paused only. `draft` matches workflows with no runs yet.
 
         **Multi-sort:** `sort` and `order` are parallel query lists.
         `?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
         `runs_count DESC`, then by `name ASC`. When `order` has fewer entries than
         `sort`, missing positions use per-field defaults (`name=asc`,
-        `updated_at=desc`, `runs_count=desc`). Omitting `sort` defaults to
+        `updated_at=desc`, `runs_count=desc`, `last_activity_at=desc`). Omitting `sort` defaults to
         `updated_at DESC`. A stable `id ASC` tiebreaker is always appended so
         offset/limit pagination is consistent when sort keys tie.
 
-        **Date range:** `last_run_after` / `last_run_before` filter by the time of
-        the most recent run. Both must be ISO 8601 with a UTC offset; a naive
-        datetime returns 422. An inverted range (`after > before`) also returns 422.
+        **Member filters — two axes, both additive.** `?created_by=<user_id>,<user_id>`
+        narrows to workflows *created by* those members; `?touched_by=<user_id>,<user_id>`
+        to workflows they *created or have run*. Both OR-match across values, AND with
+        each other and with every other filter, and are reflected in `pagination.total`.
+        `GET /workflows/facets` is the option source for both (`creators` / `members`)
+        and lists only members the list would actually return rows for, so neither
+        picker can offer an option that returns an empty page.
+
+        They answer different questions and neither replaces the other. `created_by` is
+        ownership ("whose workflows do we need to reassign"); picking the workspace's
+        most prolific author returns nearly the whole list, which is not a filter.
+        `touched_by` is involvement — "what is this person's work here" — and it is a
+        UNION because both halves fail alone and in opposite directions: `created_by` is
+        blind to the teammate who has run forty of this workspace's workflows and
+        authored none, while a runs-only axis is blind to the drafts someone authored and
+        has never run, which where `runs_count: 0` is the norm is most of their work. The
+        union is also not assemblable client-side: the two halves AND rather than OR, and
+        merging two paged requests gives a page that is page 1 of neither with a total
+        that double-counts the overlap. `touched_by` ignores run status (a failed,
+        cancelled or pending run still means that person ran it), matching `triggered_by`
+        on the runs list so the two screens cannot disagree about who touched a workflow.
+
+        `ran_by` is a **deprecated alias of `touched_by`** with identical behaviour — it
+        no longer means runs-only. Sending both names unions their values.
+
+        **Date ranges:** two independent windows, both inclusive, both ISO 8601 with
+        a UTC offset required (a naive datetime returns 422), and each rejecting its
+        own inverted range with a 422.
+
+        - `last_run_after` / `last_run_before` filter by the time of the most recent
+          run — "last used when". `last_run_at` is null until a workflow runs, so
+          this window never matches a draft.
+        - `created_after` / `created_before` filter by the workflow's own
+          `created_at` — "made when". Non-nullable, so this one does include a
+          workflow made this week and not yet run.
+
+        They AND together, so asking both narrows to workflows created in one window
+        whose latest run falls in the other.
 
         **Failure history:** `has_failed_run` is orthogonal to `status`. `status`
         keys off the latest run only; `has_failed_run=true` matches workflows with a
@@ -97,12 +150,15 @@ class RawWorkflowsClient:
         completed still matches if an earlier run failed. It composes with the other
         filters (AND). `cancelled` runs do not count as failures.
 
+        **Empty workflows:** `exclude_empty=true` hides workflows that are still
+        placeholder-named with no nodes, no user chat message and no runs.
+
         `pagination.total` reflects the filtered count for the current query.
 
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `running` matches a latest run that is pending, running or paused; `active` is the same minus paused, and `paused` is paused only.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -113,17 +169,35 @@ class RawWorkflowsClient:
         order : typing.Optional[typing.Sequence[ListWorkflowsRequestOrderItem]]
             Parallel to sort[]; shorter is padded with per-field defaults.
 
+        created_by : typing.Optional[str]
+            Comma-separated workspace member `user_id`s — the same ids carried by each row's `user_id` and offered, with counts, by `GET /workflows/facets`. Multiple values OR-match; the filter ANDs with every other filter here and is reflected in `pagination.total`. Empty tokens (e.g. `a,,b`) and unparseable ids return 422. A well-formed id that is not a member of this workspace is not an error — it simply matches nothing, so a shared link degrades to an empty page. Mirrors `triggered_by` on `GET /workflows/{workflow_id}/runs`.
+
+        touched_by : typing.Optional[str]
+            Comma-separated workspace member `user_id`s — keep workflows the member **created OR has at least one run on**, offered with counts by `GET /workflows/facets` as `members`. The involvement axis, beside `created_by`'s ownership axis: picking a teammate answers “what is this person's work here”, which neither half answers alone. `created_by` misses the workflows they run for months but did not author (a workflow is made once and run for months, often by someone other than its author); a runs-only axis misses the workflows they authored and have never run, which in a workspace where `runs_count: 0` is the norm is most of their work. **Run status is not considered** — a failed, cancelled or still-pending run still means that person ran it, the same rule `triggered_by` uses on the runs list. Multiple values OR-match; the two halves OR inside this axis, while the axis ANDs with every other filter here — so `created_by=A&touched_by=B` is “A's workflows that B made or has run”, which is narrower than either, not wider. Reflected in `pagination.total`. Same 422s as `created_by`, and a well-formed non-member id is an empty page, not an error. `ran_by` is a deprecated alias of this parameter; sending both unions their values.
+
+        ran_by : typing.Optional[str]
+            **Deprecated alias of `touched_by`** — identical behaviour, kept so a client that shipped against the runs-only reading keeps working without a release of its own. It now matches workflows the member CREATED or has RUN, which is WIDER than the “at least one run started by them” this name originally documented. Sending it alongside `touched_by` unions the two value lists (one parameter, two names), and a malformed value still reports `field: "ran_by"` so a 422 names what you sent. Move to `touched_by`; this name will be removed.
+
         last_run_after : typing.Optional[dt.datetime]
-            Filter workflows whose last_run_at is at or after this ISO datetime (ISO 8601 with UTC offset required).
+            Filter workflows whose last_run_at is at or after this ISO datetime (ISO 8601 with UTC offset required). `last_run_at` is null until a workflow runs, so this window excludes every draft — use `created_after` for “made when”.
 
         last_run_before : typing.Optional[dt.datetime]
-            Filter workflows whose last_run_at is at or before this ISO datetime (ISO 8601 with UTC offset required).
+            Filter workflows whose last_run_at is at or before this ISO datetime (ISO 8601 with UTC offset required). Excludes drafts, same as `last_run_after`.
+
+        created_after : typing.Optional[dt.datetime]
+            Filter workflows whose own `created_at` is at or after this ISO datetime (ISO 8601 with UTC offset required). Non-nullable, so unlike `last_run_after` this window includes workflows that have never run. ANDs with the `last_run_*` pair rather than replacing it.
+
+        created_before : typing.Optional[dt.datetime]
+            Filter workflows whose own `created_at` is at or before this ISO datetime (ISO 8601 with UTC offset required).
 
         has_failed_run : typing.Optional[bool]
             Filter by failure history — ORTHOGONAL to `status` (which is latest-run based). `true` returns only workflows with at least one run that ended in `failed` state anywhere in their history; a workflow whose latest run succeeded still matches if an earlier run failed. `false` returns only workflows that have never had a failed run. Composes (ANDs) with `status`/`search`/date filters. `cancelled` runs are not treated as failures.
 
         include_definition : typing.Optional[bool]
             Include each workflow's full `definition` graph in the response. Off by default because the graphs dominate the payload and a list view does not render them; turn it on to compare what the listed workflows do without a per-workflow GET.
+
+        exclude_empty : typing.Optional[bool]
+            Hide empty workflows: still placeholder-named, no nodes, no user message in the chat, and no runs. Any one of those ending lists the workflow again. Counted in `pagination.total`.
 
         offset : typing.Optional[int]
             Zero-based pagination offset.
@@ -149,10 +223,16 @@ class RawWorkflowsClient:
                 "search": search,
                 "sort": sort,
                 "order": order,
+                "created_by": created_by,
+                "touched_by": touched_by,
+                "ran_by": ran_by,
                 "last_run_after": serialize_datetime(last_run_after) if last_run_after is not None else None,
                 "last_run_before": serialize_datetime(last_run_before) if last_run_before is not None else None,
+                "created_after": serialize_datetime(created_after) if created_after is not None else None,
+                "created_before": serialize_datetime(created_before) if created_before is not None else None,
                 "has_failed_run": has_failed_run,
                 "include_definition": include_definition,
+                "exclude_empty": exclude_empty,
                 "offset": offset,
                 "limit": limit,
             },
@@ -261,6 +341,163 @@ class RawWorkflowsClient:
                     ApiResponseWorkflowOut,
                     parse_obj_as(
                         type_=ApiResponseWorkflowOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_workflow_facets(
+        self,
+        *,
+        status: typing.Optional[WorkflowListStatus] = None,
+        search: typing.Optional[str] = None,
+        last_run_after: typing.Optional[dt.datetime] = None,
+        last_run_before: typing.Optional[dt.datetime] = None,
+        created_after: typing.Optional[dt.datetime] = None,
+        created_before: typing.Optional[dt.datetime] = None,
+        has_failed_run: typing.Optional[bool] = None,
+        exclude_empty: typing.Optional[bool] = None,
+        created_by: typing.Optional[str] = None,
+        touched_by: typing.Optional[str] = None,
+        ran_by: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseWorkflowFacetsOut]:
+        """
+        Filter-bar options for the workspace's workflow list — the two member axes.
+
+        Every array is `[{user_id, user_name, workflow_count}]`, ordered `workflow_count`
+        DESC then `user_name` ASC (`user_id` ASC as a stable tiebreak):
+
+        - `creators` — members with at least one matching workflow they made. Feed a
+          `user_id` back as `GET /workflows?created_by=`.
+        - `members` — members with at least one matching workflow they **made or have
+          run**, counted as the size of that union: a workflow they both made and ran
+          counts once, and forty runs of one workflow is still 1. So the badge equals the
+          `pagination.total` of `GET /workflows?touched_by=<user_id>`.
+        - `runners` — **deprecated alias of `members`**, carrying the identical rows. It
+          is no longer runs-only; read `members`.
+
+        `user_name` is the same string the rows resolve (see `TriggeredByOut`), so a
+        control and the list never name one person two ways.
+
+        **Every option is live.** Each facet is computed from the workflows themselves
+        under the SAME filters the list is showing, so selecting one always returns at
+        least one row. Populating either control from `GET /workspaces/{id}/members`
+        instead is the mistake this endpoint exists to prevent: a workspace has members —
+        a viewer, or anyone who only ever ran someone else's workflow — who have created
+        nothing, and every one of them would be an option that returns an empty page,
+        which reads as "no workflows from this person" when it means "wrong question".
+
+        **Two axes, and each facet drops its OWN axis only** (faceted search, same rule as
+        `GET /voices/facets`). `creators` honours every parameter here except `created_by`;
+        `members` honours every one except `touched_by` — and therefore except `ran_by`
+        too, which is the same parameter under its old name. Narrowing a dimension by its
+        own selection would erase every other member from that control the moment one was
+        picked, leaving no way back to the full set — but the *other* member filter is an
+        ordinary filter, so "who authored the workflows Hana has touched" and "who has
+        touched Hana's workflows" both stay answerable, and one request can repopulate both
+        pickers no matter what the table has selected. Omit everything for the unfiltered
+        sets.
+
+        A member is absent rather than listed with `workflow_count: 0` — this dimension
+        has no closed value set to grey out, unlike the voice browser's enum chips. So a
+        member who has created nothing is simply not in `creators`, which is exactly why
+        the creator axis alone cannot describe a teammate who runs this workspace's work
+        and authored none of it — and why `members`, not `creators`, is the array to look
+        a person up in.
+
+        Parameters
+        ----------
+        status : typing.Optional[WorkflowListStatus]
+            Same values and semantics as `GET /workflows`.
+
+        search : typing.Optional[str]
+            Same case-insensitive name/description search as `GET /workflows`.
+
+        last_run_after : typing.Optional[dt.datetime]
+            Same as `GET /workflows` (ISO 8601 with UTC offset required).
+
+        last_run_before : typing.Optional[dt.datetime]
+            Same as `GET /workflows` (ISO 8601 with UTC offset required).
+
+        created_after : typing.Optional[dt.datetime]
+            Same as `GET /workflows` (ISO 8601 with UTC offset required).
+
+        created_before : typing.Optional[dt.datetime]
+            Same as `GET /workflows` (ISO 8601 with UTC offset required).
+
+        has_failed_run : typing.Optional[bool]
+            Same as `GET /workflows`.
+
+        exclude_empty : typing.Optional[bool]
+            Same as `GET /workflows`. Pass the value the table is using: with it on, a member whose only workflows are empty “New chat” leftovers is not an option, because selecting them would return an empty page.
+
+        created_by : typing.Optional[str]
+            Same as `GET /workflows`. Narrows `members`/`runners` only — `creators` is the axis this value selects on, and a facet never narrows by its own selection (see the endpoint description). Send it whenever the table has a creator selected and you are repopulating the member picker.
+
+        touched_by : typing.Optional[str]
+            Same as `GET /workflows`. Narrows `creators` only, mirroring `created_by` above: `members` (and its `runners` alias) drop it, so selecting a person never collapses the member picker to that one person. Under it, `creators` answers “who authored the workflows this person has touched”.
+
+        ran_by : typing.Optional[str]
+            **Deprecated alias of `touched_by`**, here as on `GET /workflows` — same predicate, same per-array exclusion, so a client sending this name and reading `runners` behaves exactly as one sending `touched_by` and reading `members`. Sending both unions their values. Move to `touched_by`; this name will be removed.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseWorkflowFacetsOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v1/workflows/facets",
+            method="GET",
+            params={
+                "status": status,
+                "search": search,
+                "last_run_after": serialize_datetime(last_run_after) if last_run_after is not None else None,
+                "last_run_before": serialize_datetime(last_run_before) if last_run_before is not None else None,
+                "created_after": serialize_datetime(created_after) if created_after is not None else None,
+                "created_before": serialize_datetime(created_before) if created_before is not None else None,
+                "has_failed_run": has_failed_run,
+                "exclude_empty": exclude_empty,
+                "created_by": created_by,
+                "touched_by": touched_by,
+                "ran_by": ran_by,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowFacetsOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowFacetsOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -764,6 +1001,7 @@ class RawWorkflowsClient:
         *,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
+        category: typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiListResponseUploadOut]:
@@ -777,6 +1015,10 @@ class RawWorkflowsClient:
         uploads are excluded. Each item includes a short-lived download URL for the
         uploaded file.
 
+        Pass `category` to list just one kind of upload. The filter is applied in
+        the query before pagination, so a single audio clip is still returned even
+        when it sits behind more than `limit` script or dictionary uploads.
+
         Parameters
         ----------
         workflow_id : str
@@ -786,6 +1028,9 @@ class RawWorkflowsClient:
 
         limit : typing.Optional[int]
             Maximum items to return (1–100).
+
+        category : typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory]
+            Restrict to one upload category (`script`, `dictionary`, or `audio`). Applied before pagination, so `limit` bounds the chosen category rather than the mixed total. Omit for all.
 
         workspace_id : typing.Optional[str]
 
@@ -803,6 +1048,7 @@ class RawWorkflowsClient:
             params={
                 "offset": offset,
                 "limit": limit,
+                "category": category,
             },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
@@ -839,6 +1085,167 @@ class RawWorkflowsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def get_workflow_dictionary_exclusions(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseWorkflowDictionaryExclusionsOut]:
+        """
+        Which of this workspace's dictionary entries this workflow will NOT apply.
+
+        The persisted answer to "all of them except this one" — the thing the phoneme injector's
+        `workspace_dictionary` policy (`all` / `none`) cannot say and a run-scoped `dictionary`
+        selection can only say for one run. Every run of this workflow that does not send its own
+        `dictionary` body applies every entry its script mentions EXCEPT these, and the same set is
+        what the assistant reports and pre-ticks its dictionary card from, so one answer comes out
+        of every surface.
+
+        Stored beside the definition rather than in it: entry ids inside a definition would be
+        published through templates and the node catalog, carrying one workspace's data into every
+        copy. Cloning a template therefore starts with an empty set.
+
+        Ids belonging to deleted entries are omitted (the write path refuses them, so echoing one
+        would hand back a payload this API would then reject). An empty list means every matching
+        entry applies. Membership is the whole gate; reads need the `workflows:read` scope.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseWorkflowDictionaryExclusionsOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/dictionary/exclusions",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowDictionaryExclusionsOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowDictionaryExclusionsOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def replace_workflow_dictionary_exclusions(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        entry_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseWorkflowDictionaryExclusionsOut]:
+        """
+        Replace the set of dictionary entries this workflow refuses.
+
+        `entry_ids` is the COMPLETE set, so an empty list clears it and a client never has to send
+        a diff — read the current set from the matching `GET`, change the ticks, send the result.
+        The workflow's `definition` is untouched: this is a setting beside the graph, so saving it
+        neither moves the definition hash nor invalidates a pending run approval.
+
+        Takes effect on the NEXT run; a run already started carries its own snapshot. A run that
+        sends its own `dictionary` body still wins outright for that run — a caller naming its own
+        selection means it.
+
+        Returns 422 naming any id this workspace does not have (an id from another workspace is
+        indistinguishable from one that never existed), and 404 for a workflow this workspace
+        cannot see. Requires at least `editor` role and the `workflows:write` scope.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        entry_ids : typing.Optional[typing.Sequence[str]]
+            Entry ids this workflow must NOT apply, even where the script says the word. The complete set — an empty list clears it. Every id must be a live entry in this workspace (422 otherwise).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseWorkflowDictionaryExclusionsOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/dictionary/exclusions",
+            method="PUT",
+            json={
+                "entry_ids": entry_ids,
+            },
+            headers={
+                "content-type": "application/json",
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowDictionaryExclusionsOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowDictionaryExclusionsOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def estimate_workflow(
         self,
         workflow_id: str,
@@ -846,6 +1253,8 @@ class RawWorkflowsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
+        max_outcome_rates: typing.Optional[typing.Dict[str, typing.Optional[float]]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseEstimateResponse]:
         """
@@ -872,6 +1281,12 @@ class RawWorkflowsClient:
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
+
+        max_outcome_rates : typing.Optional[typing.Dict[str, typing.Optional[float]]]
+            The per-unit rates of the estimate's `outcome_charges` that the user agreed to, as `{node_type: credits_per_unit}`. The run is refused with 409 if any current rate is higher. A ceiling only: it can stop a run, never lower what it is charged. Omit to start at the current rates. Ignored by the preview routes.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -886,6 +1301,10 @@ class RawWorkflowsClient:
             json={
                 "script_text": script_text,
                 "source_language": source_language,
+                "dictionary": convert_and_respect_annotation_metadata(
+                    object_=dictionary, annotation=typing.Optional[RunDictionarySelectionIn], direction="write"
+                ),
+                "max_outcome_rates": max_outcome_rates,
             },
             headers={
                 "content-type": "application/json",
@@ -931,6 +1350,8 @@ class RawWorkflowsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
+        max_outcome_rates: typing.Optional[typing.Dict[str, typing.Optional[float]]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseEstimateResponse]:
         """
@@ -957,6 +1378,12 @@ class RawWorkflowsClient:
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
+
+        max_outcome_rates : typing.Optional[typing.Dict[str, typing.Optional[float]]]
+            The per-unit rates of the estimate's `outcome_charges` that the user agreed to, as `{node_type: credits_per_unit}`. The run is refused with 409 if any current rate is higher. A ceiling only: it can stop a run, never lower what it is charged. Omit to start at the current rates. Ignored by the preview routes.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -971,6 +1398,10 @@ class RawWorkflowsClient:
             json={
                 "script_text": script_text,
                 "source_language": source_language,
+                "dictionary": convert_and_respect_annotation_metadata(
+                    object_=dictionary, annotation=typing.Optional[RunDictionarySelectionIn], direction="write"
+                ),
+                "max_outcome_rates": max_outcome_rates,
             },
             headers={
                 "content-type": "application/json",
@@ -1078,6 +1509,113 @@ class RawWorkflowsClient:
                     ApiResponseRunsSummaryOut,
                     parse_obj_as(
                         type_=ApiResponseRunsSummaryOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_run_facets(
+        self,
+        workflow_id: str,
+        *,
+        status: typing.Optional[str] = None,
+        search: typing.Optional[str] = None,
+        created_after: typing.Optional[dt.datetime] = None,
+        created_before: typing.Optional[dt.datetime] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiResponseRunFacetsOut]:
+        """
+        Filter-bar options for this workflow's runs list — currently the triggerers.
+
+        Returns `triggerers`: `[{user_id, user_name, run_count}]` for every member with
+        at least one matching run, ordered `run_count` DESC then `user_name` ASC.
+        `user_id` is passed straight back as `?triggered_by=`, and `user_name` is the
+        same string each row's `triggered_by.user_name` carries, so the control and the
+        rows never name one person two ways.
+
+        **Every option is live**, and over the workflow's WHOLE run history rather than
+        one page of it. The two option sources this replaces each fail differently:
+        `GET /workspaces/{id}/members` lists members who have never run this workflow —
+        a dead option that reads as "no runs from this person" when it means "wrong
+        question" — while deriving the set from one `?limit=100` page of runs buys a
+        horizon instead, hiding anyone whose runs are all older than that.
+
+        **Accepts the list's filters, except `triggered_by` itself** (faceted search,
+        same rule as `GET /voices/facets`): pass the page's current `status` / `search`
+        / date window and the offered set narrows with the list. The axis the facet
+        populates is deliberately not a parameter — narrowing by it would erase every
+        other member from the control the moment one was picked. Omit everything for
+        the unfiltered set.
+
+        `GET /workflows/{workflow_id}/runs/summary` stays the place for status counts
+        and health metrics; this endpoint is only the filter options.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        status : typing.Optional[str]
+            Same comma-separated raw RunStatus values as `GET /workflows/{workflow_id}/runs`.
+
+        search : typing.Optional[str]
+            Same three-axis search as `GET /workflows/{workflow_id}/runs`.
+
+        created_after : typing.Optional[dt.datetime]
+            Same as the runs list (ISO 8601 with UTC offset required).
+
+        created_before : typing.Optional[dt.datetime]
+            Same as the runs list (ISO 8601 with UTC offset required).
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseRunFacetsOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/facets",
+            method="GET",
+            params={
+                "status": status,
+                "search": search,
+                "created_after": serialize_datetime(created_after) if created_after is not None else None,
+                "created_before": serialize_datetime(created_before) if created_before is not None else None,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseRunFacetsOut,
+                    parse_obj_as(
+                        type_=ApiResponseRunFacetsOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1473,21 +2011,53 @@ class RawWorkflowsClient:
         workflow_id: str,
         run_id: str,
         *,
+        format: typing.Optional[DownloadRunApiV1WorkflowsWorkflowIdRunsRunIdDownloadGetRequestFormat] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseDownloadUrlOut]:
         """
         Create a temporary download URL for a complete workflow run export.
 
-        Returns a pre-signed URL pointing to a ZIP archive containing all audio
-        output files produced by the run. The URL is valid for 15 minutes
-        (`expires_at`). The archive is generated on first request and cached for
-        subsequent calls; re-calling this endpoint before expiry returns a new
-        URL for the same cached archive.
+        Returns a pre-signed URL valid for 15 minutes (`expires_at`). The artifact is
+        generated on first request and cached for subsequent calls; re-calling this endpoint
+        before expiry returns a new URL for the same cached artifact. Always check
+        `filename`'s extension rather than assuming one — see `format`.
+
+        With `format=zip` (default) the URL points at a ZIP archive containing all audio
+        output files produced by the run, one per line.
+
+        With `format=single` the run's lines are joined, in script order, into one continuous
+        audio file per language/output: a bare WAV when the run produced exactly one such
+        group, else a ZIP holding one joined file per group. Both packings are the same
+        paid-plan feature and the same audio; only the packing differs.
+
+        **The two are additive, not a choice.** Each is cached under its own key and neither
+        consumes the other, so fetching the joined file leaves the per-line ZIP exactly where it
+        was, and a caller may take both. Nothing about a run changes when it is joined.
+
+        **Joining happens in the background.** The first call for a run starts the work and
+        returns 409 with `details[0].reason = "join_pending"` and `details[0].retry_after` in
+        seconds; poll until it returns 200 (the same retriable-409 contract this endpoint already
+        uses for `provenance_pending`). A run whose audio cannot be joined returns a 409 that is
+        NOT retriable, and remains downloadable as a ZIP in every case:
+
+        - `join_failed` — a line synthesized to silence, a take cannot be decoded, or the join
+          failed repeatedly for an unrelated reason
+        - `join_too_long` — the run's declared duration is past what one join may take
+        - `join_too_large` — the joined output would be too much audio to build in one request
+        - `join_unsupported_run` — a take in this run does not record the sample rate and
+          channel count the join needs before it can write the first frame. Every path that
+          mints a take records them now, so this means the run (or, for an uploaded recording,
+          the upload) predates that: re-running the workflow produces a joinable run, and
+          re-uploading the clip makes an uploaded one joinable. This is the one of these
+          reasons the caller can act on. `details[0].outputs` names the outputs that refused
 
         Only available for runs in `completed` status — returns 409 for runs that
         are still active or ended in `failed`/`cancelled`. Returns 404 if the run
         produced no audio files.
+
+        `format=single` is being rolled out to internal accounts first and answers 403 for
+        everyone else; `format=zip` is unaffected.
 
         To download output from a single output node rather than the whole run,
         use `GET /runs/{run_id}/nodes/{node_id}/download`.
@@ -1497,6 +2067,9 @@ class RawWorkflowsClient:
         workflow_id : str
 
         run_id : str
+
+        format : typing.Optional[DownloadRunApiV1WorkflowsWorkflowIdRunsRunIdDownloadGetRequestFormat]
+            Which packing of this run's audio to fetch. `zip` (default) is one audio file per line. `single` joins the run's lines, in script order, into one continuous audio file per language/output: a bare WAV when the run has exactly one, else a ZIP holding one joined file for each. Asking for one does not replace or consume the other; both stay available for the life of the run, so a caller may fetch either or both.
 
         workspace_id : typing.Optional[str]
 
@@ -1511,6 +2084,9 @@ class RawWorkflowsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/download",
             method="GET",
+            params={
+                "format": format,
+            },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },
@@ -1526,6 +2102,17 @@ class RawWorkflowsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 404:
                 raise NotFoundError(
                     headers=dict(_response.headers),
@@ -2013,9 +2600,9 @@ class RawWorkflowsClient:
         Create a copy of an existing workflow in the same workspace.
 
         The new workflow inherits the source's `name` (suffixed with " (Copy)"),
-        `description`, and `definition`. Runs from the original workflow are not
-        copied — the duplicate starts with zero runs. Requires at least `editor`
-        role. Returns 201 with the new workflow on success.
+        `description`, `definition`, and its dictionary exclusions. Runs from the
+        original workflow are not copied — the duplicate starts with zero runs.
+        Requires at least `editor` role. Returns 201 with the new workflow on success.
 
         Parameters
         ----------
@@ -2081,10 +2668,16 @@ class AsyncRawWorkflowsClient:
         search: typing.Optional[str] = None,
         sort: typing.Optional[typing.Sequence[ListWorkflowsRequestSortItem]] = None,
         order: typing.Optional[typing.Sequence[ListWorkflowsRequestOrderItem]] = None,
+        created_by: typing.Optional[str] = None,
+        touched_by: typing.Optional[str] = None,
+        ran_by: typing.Optional[str] = None,
         last_run_after: typing.Optional[dt.datetime] = None,
         last_run_before: typing.Optional[dt.datetime] = None,
+        created_after: typing.Optional[dt.datetime] = None,
+        created_before: typing.Optional[dt.datetime] = None,
         has_failed_run: typing.Optional[bool] = None,
         include_definition: typing.Optional[bool] = None,
+        exclude_empty: typing.Optional[bool] = None,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         workspace_id: typing.Optional[str] = None,
@@ -2095,8 +2688,9 @@ class AsyncRawWorkflowsClient:
 
         Returns a counted, paginated list of workflows scoped to the `X-Workspace-Id`
         header. Each item includes aggregate stats (`runs_count`, `last_run_at`,
-        `last_run_status`, `run_status_counts`) computed over all runs for that
-        workflow. `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
+        `last_run_status`, `run_status_counts`, `last_activity_at`) computed over all
+        runs (and, for `last_activity_at`, the chat) of that workflow.
+        `run_status_counts` is a per-raw-`RunStatus` map whose values sum to
         `runs_count` and are NOT affected by the `status` filter below, so a collapsed
         row can render an accurate per-tab total without a separate runs query.
 
@@ -2104,21 +2698,56 @@ class AsyncRawWorkflowsClient:
         most recent run. `completed` matches only workflows whose latest run succeeded
         (completed-only), and `failed` matches only workflows whose latest run failed —
         the two buckets are disjoint. A workflow whose latest run was `cancelled` matches
-        neither bucket and surfaces only in the unfiltered list. `running` matches active
-        (running or paused) workflows. `draft` matches workflows with no runs yet.
-        `paused` is accepted but currently returns no results.
+        neither bucket and surfaces only in the unfiltered list. `running` matches a latest
+        run that is pending, running or paused; `active` matches pending or running only,
+        and `paused` matches paused only. `draft` matches workflows with no runs yet.
 
         **Multi-sort:** `sort` and `order` are parallel query lists.
         `?sort=runs_count&sort=name&order=desc&order=asc` orders primarily by
         `runs_count DESC`, then by `name ASC`. When `order` has fewer entries than
         `sort`, missing positions use per-field defaults (`name=asc`,
-        `updated_at=desc`, `runs_count=desc`). Omitting `sort` defaults to
+        `updated_at=desc`, `runs_count=desc`, `last_activity_at=desc`). Omitting `sort` defaults to
         `updated_at DESC`. A stable `id ASC` tiebreaker is always appended so
         offset/limit pagination is consistent when sort keys tie.
 
-        **Date range:** `last_run_after` / `last_run_before` filter by the time of
-        the most recent run. Both must be ISO 8601 with a UTC offset; a naive
-        datetime returns 422. An inverted range (`after > before`) also returns 422.
+        **Member filters — two axes, both additive.** `?created_by=<user_id>,<user_id>`
+        narrows to workflows *created by* those members; `?touched_by=<user_id>,<user_id>`
+        to workflows they *created or have run*. Both OR-match across values, AND with
+        each other and with every other filter, and are reflected in `pagination.total`.
+        `GET /workflows/facets` is the option source for both (`creators` / `members`)
+        and lists only members the list would actually return rows for, so neither
+        picker can offer an option that returns an empty page.
+
+        They answer different questions and neither replaces the other. `created_by` is
+        ownership ("whose workflows do we need to reassign"); picking the workspace's
+        most prolific author returns nearly the whole list, which is not a filter.
+        `touched_by` is involvement — "what is this person's work here" — and it is a
+        UNION because both halves fail alone and in opposite directions: `created_by` is
+        blind to the teammate who has run forty of this workspace's workflows and
+        authored none, while a runs-only axis is blind to the drafts someone authored and
+        has never run, which where `runs_count: 0` is the norm is most of their work. The
+        union is also not assemblable client-side: the two halves AND rather than OR, and
+        merging two paged requests gives a page that is page 1 of neither with a total
+        that double-counts the overlap. `touched_by` ignores run status (a failed,
+        cancelled or pending run still means that person ran it), matching `triggered_by`
+        on the runs list so the two screens cannot disagree about who touched a workflow.
+
+        `ran_by` is a **deprecated alias of `touched_by`** with identical behaviour — it
+        no longer means runs-only. Sending both names unions their values.
+
+        **Date ranges:** two independent windows, both inclusive, both ISO 8601 with
+        a UTC offset required (a naive datetime returns 422), and each rejecting its
+        own inverted range with a 422.
+
+        - `last_run_after` / `last_run_before` filter by the time of the most recent
+          run — "last used when". `last_run_at` is null until a workflow runs, so
+          this window never matches a draft.
+        - `created_after` / `created_before` filter by the workflow's own
+          `created_at` — "made when". Non-nullable, so this one does include a
+          workflow made this week and not yet run.
+
+        They AND together, so asking both narrows to workflows created in one window
+        whose latest run falls in the other.
 
         **Failure history:** `has_failed_run` is orthogonal to `status`. `status`
         keys off the latest run only; `has_failed_run=true` matches workflows with a
@@ -2126,12 +2755,15 @@ class AsyncRawWorkflowsClient:
         completed still matches if an earlier run failed. It composes with the other
         filters (AND). `cancelled` runs do not count as failures.
 
+        **Empty workflows:** `exclude_empty=true` hides workflows that are still
+        placeholder-named with no nodes, no user chat message and no runs.
+
         `pagination.total` reflects the filtered count for the current query.
 
         Parameters
         ----------
         status : typing.Optional[WorkflowListStatus]
-            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `paused` is accepted for forward compatibility and currently returns no rows.
+            UI workflow status filter. `completed` matches workflows whose latest run succeeded (completed-only); `failed` matches failed-only — the two are disjoint. A workflow whose latest run was cancelled matches neither and appears only in the unfiltered list. `running` matches a latest run that is pending, running or paused; `active` is the same minus paused, and `paused` is paused only.
 
         search : typing.Optional[str]
             Case-insensitive search over name and description.
@@ -2142,17 +2774,35 @@ class AsyncRawWorkflowsClient:
         order : typing.Optional[typing.Sequence[ListWorkflowsRequestOrderItem]]
             Parallel to sort[]; shorter is padded with per-field defaults.
 
+        created_by : typing.Optional[str]
+            Comma-separated workspace member `user_id`s — the same ids carried by each row's `user_id` and offered, with counts, by `GET /workflows/facets`. Multiple values OR-match; the filter ANDs with every other filter here and is reflected in `pagination.total`. Empty tokens (e.g. `a,,b`) and unparseable ids return 422. A well-formed id that is not a member of this workspace is not an error — it simply matches nothing, so a shared link degrades to an empty page. Mirrors `triggered_by` on `GET /workflows/{workflow_id}/runs`.
+
+        touched_by : typing.Optional[str]
+            Comma-separated workspace member `user_id`s — keep workflows the member **created OR has at least one run on**, offered with counts by `GET /workflows/facets` as `members`. The involvement axis, beside `created_by`'s ownership axis: picking a teammate answers “what is this person's work here”, which neither half answers alone. `created_by` misses the workflows they run for months but did not author (a workflow is made once and run for months, often by someone other than its author); a runs-only axis misses the workflows they authored and have never run, which in a workspace where `runs_count: 0` is the norm is most of their work. **Run status is not considered** — a failed, cancelled or still-pending run still means that person ran it, the same rule `triggered_by` uses on the runs list. Multiple values OR-match; the two halves OR inside this axis, while the axis ANDs with every other filter here — so `created_by=A&touched_by=B` is “A's workflows that B made or has run”, which is narrower than either, not wider. Reflected in `pagination.total`. Same 422s as `created_by`, and a well-formed non-member id is an empty page, not an error. `ran_by` is a deprecated alias of this parameter; sending both unions their values.
+
+        ran_by : typing.Optional[str]
+            **Deprecated alias of `touched_by`** — identical behaviour, kept so a client that shipped against the runs-only reading keeps working without a release of its own. It now matches workflows the member CREATED or has RUN, which is WIDER than the “at least one run started by them” this name originally documented. Sending it alongside `touched_by` unions the two value lists (one parameter, two names), and a malformed value still reports `field: "ran_by"` so a 422 names what you sent. Move to `touched_by`; this name will be removed.
+
         last_run_after : typing.Optional[dt.datetime]
-            Filter workflows whose last_run_at is at or after this ISO datetime (ISO 8601 with UTC offset required).
+            Filter workflows whose last_run_at is at or after this ISO datetime (ISO 8601 with UTC offset required). `last_run_at` is null until a workflow runs, so this window excludes every draft — use `created_after` for “made when”.
 
         last_run_before : typing.Optional[dt.datetime]
-            Filter workflows whose last_run_at is at or before this ISO datetime (ISO 8601 with UTC offset required).
+            Filter workflows whose last_run_at is at or before this ISO datetime (ISO 8601 with UTC offset required). Excludes drafts, same as `last_run_after`.
+
+        created_after : typing.Optional[dt.datetime]
+            Filter workflows whose own `created_at` is at or after this ISO datetime (ISO 8601 with UTC offset required). Non-nullable, so unlike `last_run_after` this window includes workflows that have never run. ANDs with the `last_run_*` pair rather than replacing it.
+
+        created_before : typing.Optional[dt.datetime]
+            Filter workflows whose own `created_at` is at or before this ISO datetime (ISO 8601 with UTC offset required).
 
         has_failed_run : typing.Optional[bool]
             Filter by failure history — ORTHOGONAL to `status` (which is latest-run based). `true` returns only workflows with at least one run that ended in `failed` state anywhere in their history; a workflow whose latest run succeeded still matches if an earlier run failed. `false` returns only workflows that have never had a failed run. Composes (ANDs) with `status`/`search`/date filters. `cancelled` runs are not treated as failures.
 
         include_definition : typing.Optional[bool]
             Include each workflow's full `definition` graph in the response. Off by default because the graphs dominate the payload and a list view does not render them; turn it on to compare what the listed workflows do without a per-workflow GET.
+
+        exclude_empty : typing.Optional[bool]
+            Hide empty workflows: still placeholder-named, no nodes, no user message in the chat, and no runs. Any one of those ending lists the workflow again. Counted in `pagination.total`.
 
         offset : typing.Optional[int]
             Zero-based pagination offset.
@@ -2178,10 +2828,16 @@ class AsyncRawWorkflowsClient:
                 "search": search,
                 "sort": sort,
                 "order": order,
+                "created_by": created_by,
+                "touched_by": touched_by,
+                "ran_by": ran_by,
                 "last_run_after": serialize_datetime(last_run_after) if last_run_after is not None else None,
                 "last_run_before": serialize_datetime(last_run_before) if last_run_before is not None else None,
+                "created_after": serialize_datetime(created_after) if created_after is not None else None,
+                "created_before": serialize_datetime(created_before) if created_before is not None else None,
                 "has_failed_run": has_failed_run,
                 "include_definition": include_definition,
+                "exclude_empty": exclude_empty,
                 "offset": offset,
                 "limit": limit,
             },
@@ -2290,6 +2946,163 @@ class AsyncRawWorkflowsClient:
                     ApiResponseWorkflowOut,
                     parse_obj_as(
                         type_=ApiResponseWorkflowOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_workflow_facets(
+        self,
+        *,
+        status: typing.Optional[WorkflowListStatus] = None,
+        search: typing.Optional[str] = None,
+        last_run_after: typing.Optional[dt.datetime] = None,
+        last_run_before: typing.Optional[dt.datetime] = None,
+        created_after: typing.Optional[dt.datetime] = None,
+        created_before: typing.Optional[dt.datetime] = None,
+        has_failed_run: typing.Optional[bool] = None,
+        exclude_empty: typing.Optional[bool] = None,
+        created_by: typing.Optional[str] = None,
+        touched_by: typing.Optional[str] = None,
+        ran_by: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseWorkflowFacetsOut]:
+        """
+        Filter-bar options for the workspace's workflow list — the two member axes.
+
+        Every array is `[{user_id, user_name, workflow_count}]`, ordered `workflow_count`
+        DESC then `user_name` ASC (`user_id` ASC as a stable tiebreak):
+
+        - `creators` — members with at least one matching workflow they made. Feed a
+          `user_id` back as `GET /workflows?created_by=`.
+        - `members` — members with at least one matching workflow they **made or have
+          run**, counted as the size of that union: a workflow they both made and ran
+          counts once, and forty runs of one workflow is still 1. So the badge equals the
+          `pagination.total` of `GET /workflows?touched_by=<user_id>`.
+        - `runners` — **deprecated alias of `members`**, carrying the identical rows. It
+          is no longer runs-only; read `members`.
+
+        `user_name` is the same string the rows resolve (see `TriggeredByOut`), so a
+        control and the list never name one person two ways.
+
+        **Every option is live.** Each facet is computed from the workflows themselves
+        under the SAME filters the list is showing, so selecting one always returns at
+        least one row. Populating either control from `GET /workspaces/{id}/members`
+        instead is the mistake this endpoint exists to prevent: a workspace has members —
+        a viewer, or anyone who only ever ran someone else's workflow — who have created
+        nothing, and every one of them would be an option that returns an empty page,
+        which reads as "no workflows from this person" when it means "wrong question".
+
+        **Two axes, and each facet drops its OWN axis only** (faceted search, same rule as
+        `GET /voices/facets`). `creators` honours every parameter here except `created_by`;
+        `members` honours every one except `touched_by` — and therefore except `ran_by`
+        too, which is the same parameter under its old name. Narrowing a dimension by its
+        own selection would erase every other member from that control the moment one was
+        picked, leaving no way back to the full set — but the *other* member filter is an
+        ordinary filter, so "who authored the workflows Hana has touched" and "who has
+        touched Hana's workflows" both stay answerable, and one request can repopulate both
+        pickers no matter what the table has selected. Omit everything for the unfiltered
+        sets.
+
+        A member is absent rather than listed with `workflow_count: 0` — this dimension
+        has no closed value set to grey out, unlike the voice browser's enum chips. So a
+        member who has created nothing is simply not in `creators`, which is exactly why
+        the creator axis alone cannot describe a teammate who runs this workspace's work
+        and authored none of it — and why `members`, not `creators`, is the array to look
+        a person up in.
+
+        Parameters
+        ----------
+        status : typing.Optional[WorkflowListStatus]
+            Same values and semantics as `GET /workflows`.
+
+        search : typing.Optional[str]
+            Same case-insensitive name/description search as `GET /workflows`.
+
+        last_run_after : typing.Optional[dt.datetime]
+            Same as `GET /workflows` (ISO 8601 with UTC offset required).
+
+        last_run_before : typing.Optional[dt.datetime]
+            Same as `GET /workflows` (ISO 8601 with UTC offset required).
+
+        created_after : typing.Optional[dt.datetime]
+            Same as `GET /workflows` (ISO 8601 with UTC offset required).
+
+        created_before : typing.Optional[dt.datetime]
+            Same as `GET /workflows` (ISO 8601 with UTC offset required).
+
+        has_failed_run : typing.Optional[bool]
+            Same as `GET /workflows`.
+
+        exclude_empty : typing.Optional[bool]
+            Same as `GET /workflows`. Pass the value the table is using: with it on, a member whose only workflows are empty “New chat” leftovers is not an option, because selecting them would return an empty page.
+
+        created_by : typing.Optional[str]
+            Same as `GET /workflows`. Narrows `members`/`runners` only — `creators` is the axis this value selects on, and a facet never narrows by its own selection (see the endpoint description). Send it whenever the table has a creator selected and you are repopulating the member picker.
+
+        touched_by : typing.Optional[str]
+            Same as `GET /workflows`. Narrows `creators` only, mirroring `created_by` above: `members` (and its `runners` alias) drop it, so selecting a person never collapses the member picker to that one person. Under it, `creators` answers “who authored the workflows this person has touched”.
+
+        ran_by : typing.Optional[str]
+            **Deprecated alias of `touched_by`**, here as on `GET /workflows` — same predicate, same per-array exclusion, so a client sending this name and reading `runners` behaves exactly as one sending `touched_by` and reading `members`. Sending both unions their values. Move to `touched_by`; this name will be removed.
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseWorkflowFacetsOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v1/workflows/facets",
+            method="GET",
+            params={
+                "status": status,
+                "search": search,
+                "last_run_after": serialize_datetime(last_run_after) if last_run_after is not None else None,
+                "last_run_before": serialize_datetime(last_run_before) if last_run_before is not None else None,
+                "created_after": serialize_datetime(created_after) if created_after is not None else None,
+                "created_before": serialize_datetime(created_before) if created_before is not None else None,
+                "has_failed_run": has_failed_run,
+                "exclude_empty": exclude_empty,
+                "created_by": created_by,
+                "touched_by": touched_by,
+                "ran_by": ran_by,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowFacetsOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowFacetsOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -2793,6 +3606,7 @@ class AsyncRawWorkflowsClient:
         *,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
+        category: typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiListResponseUploadOut]:
@@ -2806,6 +3620,10 @@ class AsyncRawWorkflowsClient:
         uploads are excluded. Each item includes a short-lived download URL for the
         uploaded file.
 
+        Pass `category` to list just one kind of upload. The filter is applied in
+        the query before pagination, so a single audio clip is still returned even
+        when it sits behind more than `limit` script or dictionary uploads.
+
         Parameters
         ----------
         workflow_id : str
@@ -2815,6 +3633,9 @@ class AsyncRawWorkflowsClient:
 
         limit : typing.Optional[int]
             Maximum items to return (1–100).
+
+        category : typing.Optional[ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory]
+            Restrict to one upload category (`script`, `dictionary`, or `audio`). Applied before pagination, so `limit` bounds the chosen category rather than the mixed total. Omit for all.
 
         workspace_id : typing.Optional[str]
 
@@ -2832,6 +3653,7 @@ class AsyncRawWorkflowsClient:
             params={
                 "offset": offset,
                 "limit": limit,
+                "category": category,
             },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
@@ -2868,6 +3690,167 @@ class AsyncRawWorkflowsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def get_workflow_dictionary_exclusions(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseWorkflowDictionaryExclusionsOut]:
+        """
+        Which of this workspace's dictionary entries this workflow will NOT apply.
+
+        The persisted answer to "all of them except this one" — the thing the phoneme injector's
+        `workspace_dictionary` policy (`all` / `none`) cannot say and a run-scoped `dictionary`
+        selection can only say for one run. Every run of this workflow that does not send its own
+        `dictionary` body applies every entry its script mentions EXCEPT these, and the same set is
+        what the assistant reports and pre-ticks its dictionary card from, so one answer comes out
+        of every surface.
+
+        Stored beside the definition rather than in it: entry ids inside a definition would be
+        published through templates and the node catalog, carrying one workspace's data into every
+        copy. Cloning a template therefore starts with an empty set.
+
+        Ids belonging to deleted entries are omitted (the write path refuses them, so echoing one
+        would hand back a payload this API would then reject). An empty list means every matching
+        entry applies. Membership is the whole gate; reads need the `workflows:read` scope.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseWorkflowDictionaryExclusionsOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/dictionary/exclusions",
+            method="GET",
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowDictionaryExclusionsOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowDictionaryExclusionsOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def replace_workflow_dictionary_exclusions(
+        self,
+        workflow_id: str,
+        *,
+        workspace_id: typing.Optional[str] = None,
+        entry_ids: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseWorkflowDictionaryExclusionsOut]:
+        """
+        Replace the set of dictionary entries this workflow refuses.
+
+        `entry_ids` is the COMPLETE set, so an empty list clears it and a client never has to send
+        a diff — read the current set from the matching `GET`, change the ticks, send the result.
+        The workflow's `definition` is untouched: this is a setting beside the graph, so saving it
+        neither moves the definition hash nor invalidates a pending run approval.
+
+        Takes effect on the NEXT run; a run already started carries its own snapshot. A run that
+        sends its own `dictionary` body still wins outright for that run — a caller naming its own
+        selection means it.
+
+        Returns 422 naming any id this workspace does not have (an id from another workspace is
+        indistinguishable from one that never existed), and 404 for a workflow this workspace
+        cannot see. Requires at least `editor` role and the `workflows:write` scope.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        workspace_id : typing.Optional[str]
+
+        entry_ids : typing.Optional[typing.Sequence[str]]
+            Entry ids this workflow must NOT apply, even where the script says the word. The complete set — an empty list clears it. Every id must be a live entry in this workspace (422 otherwise).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseWorkflowDictionaryExclusionsOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/dictionary/exclusions",
+            method="PUT",
+            json={
+                "entry_ids": entry_ids,
+            },
+            headers={
+                "content-type": "application/json",
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseWorkflowDictionaryExclusionsOut,
+                    parse_obj_as(
+                        type_=ApiResponseWorkflowDictionaryExclusionsOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def estimate_workflow(
         self,
         workflow_id: str,
@@ -2875,6 +3858,8 @@ class AsyncRawWorkflowsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
+        max_outcome_rates: typing.Optional[typing.Dict[str, typing.Optional[float]]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseEstimateResponse]:
         """
@@ -2901,6 +3886,12 @@ class AsyncRawWorkflowsClient:
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
+
+        max_outcome_rates : typing.Optional[typing.Dict[str, typing.Optional[float]]]
+            The per-unit rates of the estimate's `outcome_charges` that the user agreed to, as `{node_type: credits_per_unit}`. The run is refused with 409 if any current rate is higher. A ceiling only: it can stop a run, never lower what it is charged. Omit to start at the current rates. Ignored by the preview routes.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2915,6 +3906,10 @@ class AsyncRawWorkflowsClient:
             json={
                 "script_text": script_text,
                 "source_language": source_language,
+                "dictionary": convert_and_respect_annotation_metadata(
+                    object_=dictionary, annotation=typing.Optional[RunDictionarySelectionIn], direction="write"
+                ),
+                "max_outcome_rates": max_outcome_rates,
             },
             headers={
                 "content-type": "application/json",
@@ -2960,6 +3955,8 @@ class AsyncRawWorkflowsClient:
         workspace_id: typing.Optional[str] = None,
         script_text: typing.Optional[str] = OMIT,
         source_language: typing.Optional[str] = OMIT,
+        dictionary: typing.Optional[RunDictionarySelectionIn] = OMIT,
+        max_outcome_rates: typing.Optional[typing.Dict[str, typing.Optional[float]]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseEstimateResponse]:
         """
@@ -2986,6 +3983,12 @@ class AsyncRawWorkflowsClient:
         source_language : typing.Optional[str]
             BCP-47 language of script_text (e.g. en-us). Optional; when omitted the saved source_language (or automatic detection) applies.
 
+        dictionary : typing.Optional[RunDictionarySelectionIn]
+            Which workspace dictionary entries this run may apply. Omit to use the workflow's own settings: every entry whose word appears in the script, minus the ones stored at `GET /workflows/{id}/dictionary/exclusions`. Sending this overrides both for this run only. Rejected with 422 when the workflow has no phoneme injector to consume it.
+
+        max_outcome_rates : typing.Optional[typing.Dict[str, typing.Optional[float]]]
+            The per-unit rates of the estimate's `outcome_charges` that the user agreed to, as `{node_type: credits_per_unit}`. The run is refused with 409 if any current rate is higher. A ceiling only: it can stop a run, never lower what it is charged. Omit to start at the current rates. Ignored by the preview routes.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -3000,6 +4003,10 @@ class AsyncRawWorkflowsClient:
             json={
                 "script_text": script_text,
                 "source_language": source_language,
+                "dictionary": convert_and_respect_annotation_metadata(
+                    object_=dictionary, annotation=typing.Optional[RunDictionarySelectionIn], direction="write"
+                ),
+                "max_outcome_rates": max_outcome_rates,
             },
             headers={
                 "content-type": "application/json",
@@ -3107,6 +4114,113 @@ class AsyncRawWorkflowsClient:
                     ApiResponseRunsSummaryOut,
                     parse_obj_as(
                         type_=ApiResponseRunsSummaryOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_run_facets(
+        self,
+        workflow_id: str,
+        *,
+        status: typing.Optional[str] = None,
+        search: typing.Optional[str] = None,
+        created_after: typing.Optional[dt.datetime] = None,
+        created_before: typing.Optional[dt.datetime] = None,
+        workspace_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiResponseRunFacetsOut]:
+        """
+        Filter-bar options for this workflow's runs list — currently the triggerers.
+
+        Returns `triggerers`: `[{user_id, user_name, run_count}]` for every member with
+        at least one matching run, ordered `run_count` DESC then `user_name` ASC.
+        `user_id` is passed straight back as `?triggered_by=`, and `user_name` is the
+        same string each row's `triggered_by.user_name` carries, so the control and the
+        rows never name one person two ways.
+
+        **Every option is live**, and over the workflow's WHOLE run history rather than
+        one page of it. The two option sources this replaces each fail differently:
+        `GET /workspaces/{id}/members` lists members who have never run this workflow —
+        a dead option that reads as "no runs from this person" when it means "wrong
+        question" — while deriving the set from one `?limit=100` page of runs buys a
+        horizon instead, hiding anyone whose runs are all older than that.
+
+        **Accepts the list's filters, except `triggered_by` itself** (faceted search,
+        same rule as `GET /voices/facets`): pass the page's current `status` / `search`
+        / date window and the offered set narrows with the list. The axis the facet
+        populates is deliberately not a parameter — narrowing by it would erase every
+        other member from the control the moment one was picked. Omit everything for
+        the unfiltered set.
+
+        `GET /workflows/{workflow_id}/runs/summary` stays the place for status counts
+        and health metrics; this endpoint is only the filter options.
+
+        Parameters
+        ----------
+        workflow_id : str
+
+        status : typing.Optional[str]
+            Same comma-separated raw RunStatus values as `GET /workflows/{workflow_id}/runs`.
+
+        search : typing.Optional[str]
+            Same three-axis search as `GET /workflows/{workflow_id}/runs`.
+
+        created_after : typing.Optional[dt.datetime]
+            Same as the runs list (ISO 8601 with UTC offset required).
+
+        created_before : typing.Optional[dt.datetime]
+            Same as the runs list (ISO 8601 with UTC offset required).
+
+        workspace_id : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseRunFacetsOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/facets",
+            method="GET",
+            params={
+                "status": status,
+                "search": search,
+                "created_after": serialize_datetime(created_after) if created_after is not None else None,
+                "created_before": serialize_datetime(created_before) if created_before is not None else None,
+            },
+            headers={
+                "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseRunFacetsOut,
+                    parse_obj_as(
+                        type_=ApiResponseRunFacetsOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -3502,21 +4616,53 @@ class AsyncRawWorkflowsClient:
         workflow_id: str,
         run_id: str,
         *,
+        format: typing.Optional[DownloadRunApiV1WorkflowsWorkflowIdRunsRunIdDownloadGetRequestFormat] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseDownloadUrlOut]:
         """
         Create a temporary download URL for a complete workflow run export.
 
-        Returns a pre-signed URL pointing to a ZIP archive containing all audio
-        output files produced by the run. The URL is valid for 15 minutes
-        (`expires_at`). The archive is generated on first request and cached for
-        subsequent calls; re-calling this endpoint before expiry returns a new
-        URL for the same cached archive.
+        Returns a pre-signed URL valid for 15 minutes (`expires_at`). The artifact is
+        generated on first request and cached for subsequent calls; re-calling this endpoint
+        before expiry returns a new URL for the same cached artifact. Always check
+        `filename`'s extension rather than assuming one — see `format`.
+
+        With `format=zip` (default) the URL points at a ZIP archive containing all audio
+        output files produced by the run, one per line.
+
+        With `format=single` the run's lines are joined, in script order, into one continuous
+        audio file per language/output: a bare WAV when the run produced exactly one such
+        group, else a ZIP holding one joined file per group. Both packings are the same
+        paid-plan feature and the same audio; only the packing differs.
+
+        **The two are additive, not a choice.** Each is cached under its own key and neither
+        consumes the other, so fetching the joined file leaves the per-line ZIP exactly where it
+        was, and a caller may take both. Nothing about a run changes when it is joined.
+
+        **Joining happens in the background.** The first call for a run starts the work and
+        returns 409 with `details[0].reason = "join_pending"` and `details[0].retry_after` in
+        seconds; poll until it returns 200 (the same retriable-409 contract this endpoint already
+        uses for `provenance_pending`). A run whose audio cannot be joined returns a 409 that is
+        NOT retriable, and remains downloadable as a ZIP in every case:
+
+        - `join_failed` — a line synthesized to silence, a take cannot be decoded, or the join
+          failed repeatedly for an unrelated reason
+        - `join_too_long` — the run's declared duration is past what one join may take
+        - `join_too_large` — the joined output would be too much audio to build in one request
+        - `join_unsupported_run` — a take in this run does not record the sample rate and
+          channel count the join needs before it can write the first frame. Every path that
+          mints a take records them now, so this means the run (or, for an uploaded recording,
+          the upload) predates that: re-running the workflow produces a joinable run, and
+          re-uploading the clip makes an uploaded one joinable. This is the one of these
+          reasons the caller can act on. `details[0].outputs` names the outputs that refused
 
         Only available for runs in `completed` status — returns 409 for runs that
         are still active or ended in `failed`/`cancelled`. Returns 404 if the run
         produced no audio files.
+
+        `format=single` is being rolled out to internal accounts first and answers 403 for
+        everyone else; `format=zip` is unaffected.
 
         To download output from a single output node rather than the whole run,
         use `GET /runs/{run_id}/nodes/{node_id}/download`.
@@ -3526,6 +4672,9 @@ class AsyncRawWorkflowsClient:
         workflow_id : str
 
         run_id : str
+
+        format : typing.Optional[DownloadRunApiV1WorkflowsWorkflowIdRunsRunIdDownloadGetRequestFormat]
+            Which packing of this run's audio to fetch. `zip` (default) is one audio file per line. `single` joins the run's lines, in script order, into one continuous audio file per language/output: a bare WAV when the run has exactly one, else a ZIP holding one joined file for each. Asking for one does not replace or consume the other; both stay available for the life of the run, so a caller may fetch either or both.
 
         workspace_id : typing.Optional[str]
 
@@ -3540,6 +4689,9 @@ class AsyncRawWorkflowsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/workflows/{encode_path_param(workflow_id)}/runs/{encode_path_param(run_id)}/download",
             method="GET",
+            params={
+                "format": format,
+            },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },
@@ -3555,6 +4707,17 @@ class AsyncRawWorkflowsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 404:
                 raise NotFoundError(
                     headers=dict(_response.headers),
@@ -4042,9 +5205,9 @@ class AsyncRawWorkflowsClient:
         Create a copy of an existing workflow in the same workspace.
 
         The new workflow inherits the source's `name` (suffixed with " (Copy)"),
-        `description`, and `definition`. Runs from the original workflow are not
-        copied — the duplicate starts with zero runs. Requires at least `editor`
-        role. Returns 201 with the new workflow on success.
+        `description`, `definition`, and its dictionary exclusions. Runs from the
+        original workflow are not copied — the duplicate starts with zero runs.
+        Requires at least `editor` role. Returns 201 with the new workflow on success.
 
         Parameters
         ----------
