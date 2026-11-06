@@ -14,6 +14,7 @@ from ..types.api_list_response_template_out import ApiListResponseTemplateOut
 from ..types.api_response_balance_response import ApiResponseBalanceResponse
 from ..types.api_response_email_notification_preferences_out import ApiResponseEmailNotificationPreferencesOut
 from ..types.api_response_plan_limits import ApiResponsePlanLimits
+from ..types.api_response_user_timezone_out import ApiResponseUserTimezoneOut
 from ..types.template_category import TemplateCategory
 from .types.list_my_templates_api_v1users_me_templates_get_request_sort import (
     ListMyTemplatesApiV1UsersMeTemplatesGetRequestSort,
@@ -253,6 +254,71 @@ class RawUsersClient:
                     ApiResponseEmailNotificationPreferencesOut,
                     parse_obj_as(
                         type_=ApiResponseEmailNotificationPreferencesOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def update_current_timezone(
+        self, *, timezone: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ApiResponseUserTimezoneOut]:
+        """
+        Store the caller's IANA timezone, as reported by their browser.
+
+        Onepin uses it to deliver email at a sensible local hour (for example the product
+        update at 9am). Idempotent: sending the stored value again changes nothing. An unknown
+        or malformed timezone name is rejected with a 422 on the `timezone` field.
+
+        Parameters
+        ----------
+        timezone : str
+            IANA timezone name, e.g. `Asia/Seoul` or `America/New_York`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseUserTimezoneOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v1/users/me/timezone",
+            method="PUT",
+            json={
+                "timezone": timezone,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseUserTimezoneOut,
+                    parse_obj_as(
+                        type_=ApiResponseUserTimezoneOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -603,6 +669,71 @@ class AsyncRawUsersClient:
                     ApiResponseEmailNotificationPreferencesOut,
                     parse_obj_as(
                         type_=ApiResponseEmailNotificationPreferencesOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def update_current_timezone(
+        self, *, timezone: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ApiResponseUserTimezoneOut]:
+        """
+        Store the caller's IANA timezone, as reported by their browser.
+
+        Onepin uses it to deliver email at a sensible local hour (for example the product
+        update at 9am). Idempotent: sending the stored value again changes nothing. An unknown
+        or malformed timezone name is rejected with a 422 on the `timezone` field.
+
+        Parameters
+        ----------
+        timezone : str
+            IANA timezone name, e.g. `Asia/Seoul` or `America/New_York`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseUserTimezoneOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v1/users/me/timezone",
+            method="PUT",
+            json={
+                "timezone": timezone,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseUserTimezoneOut,
+                    parse_obj_as(
+                        type_=ApiResponseUserTimezoneOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
