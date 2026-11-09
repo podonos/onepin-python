@@ -15,7 +15,6 @@ from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
-from ..types.api_error_response import ApiErrorResponse
 from ..types.api_list_response_workspace_out import ApiListResponseWorkspaceOut
 from ..types.api_response_balance_response import ApiResponseBalanceResponse
 from ..types.api_response_checkout_response import ApiResponseCheckoutResponse
@@ -269,9 +268,9 @@ class RawWorkspacesClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -280,9 +279,9 @@ class RawWorkspacesClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -814,9 +813,9 @@ class RawWorkspacesClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -825,9 +824,9 @@ class RawWorkspacesClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1112,9 +1111,9 @@ class AsyncRawWorkspacesClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1123,9 +1122,9 @@ class AsyncRawWorkspacesClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1657,9 +1656,9 @@ class AsyncRawWorkspacesClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1668,9 +1667,9 @@ class AsyncRawWorkspacesClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ApiErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ApiErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
