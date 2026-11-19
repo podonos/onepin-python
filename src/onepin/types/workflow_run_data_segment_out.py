@@ -47,6 +47,11 @@ class WorkflowRunDataSegmentOut(UniversalBaseModel):
     validator recorded the type — never guessed, so absence stays absence. ``status``
     is deliberately unchanged, so a client that ignores this field renders exactly as
     before.
+
+    ``heard`` / ``ipa_intended`` / ``ipa_heard`` / ``ipa_curated`` carry the per-span
+    DETAIL — what was expected here, what the take did instead, and (for a repair) where
+    the spliced reading came from. A highlight on its own names a position and explains
+    nothing; these are what a per-word popup reads. Each is documented at its field below.
     """
 
     text: str
@@ -56,6 +61,10 @@ class WorkflowRunDataSegmentOut(UniversalBaseModel):
     severity: typing.Optional[WorkflowRunDataSegmentOutSeverity] = None
     error_type: typing.Optional[WorkflowRunDataSegmentOutErrorType] = None
     advisory: typing.Optional[bool] = None
+    heard: typing.Optional[str] = None
+    ipa_intended: typing.Optional[str] = None
+    ipa_heard: typing.Optional[str] = None
+    ipa_curated: typing.Optional[bool] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

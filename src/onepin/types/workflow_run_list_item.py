@@ -42,6 +42,30 @@ class WorkflowRunListItem(UniversalBaseModel):
     triggered_by: typing.Optional[TriggeredByOut] = None
     output_line_count: typing.Optional[int] = None
     delivered_audio_ms: typing.Optional[int] = None
+    dropped_line_count: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Takes this run produced that no output node accepted — discarded by a quality check whose `fail` port is unwired. They are charged audio, so the run download packs them in their own `_dropped/` directory, and a run with `output_line_count == 0` and a non-zero count here still has a download. Use it to warn before downloading that the archive contains audio that did not meet its threshold. Null on runs that never reached a terminal state, and on runs that finished before this counter shipped.
+    """
+
+    has_export: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether `GET /runs/{run_id}/download` can serve this run. Same rule as the run detail.
+    """
+
+    script_first_line: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The run's first script line, cut at 500 characters. Null until the run's source step has parsed the script.
+    """
+
+    redo_of_run_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Set when this run is a per-line REDO: the run whose line it re-synthesized, and whose output the new take was grafted into. Null on an ordinary run, which is nearly all of them. A redo appears in this list like any other run and consumes a run_number, so render it as a redo rather than as separate work — it did not produce a new result, it corrected one line of an existing one. It is also charged separately: the original run's settled cost is never recalculated.
+    """
+
+    redo_line_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The line_id this redo regenerated, paired with redo_of_run_id (both set or both null). Matches the line_id on the run-data rows of the parent run, so a client can point at the row that changed.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

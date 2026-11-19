@@ -12,6 +12,7 @@ from .voice_category import VoiceCategory
 from .voice_gender import VoiceGender
 from .voice_import_state import VoiceImportState
 from .voice_model_capability_out import VoiceModelCapabilityOut
+from .voice_naturalness_rating_out import VoiceNaturalnessRatingOut
 from .voice_source import VoiceSource
 
 
@@ -139,6 +140,16 @@ class VoiceSimilarOut(UniversalBaseModel):
     model_capabilities: typing.Optional[typing.List[VoiceModelCapabilityOut]] = pydantic.Field(default=None)
     """
     Authoritative model-to-language observations after a successful full provider sync. Empty means no authoritative pair observation is available yet.
+    """
+
+    naturalness_ratings: typing.Optional[typing.List[VoiceNaturalnessRatingOut]] = pydantic.Field(default=None)
+    """
+    Per-locale naturalness bands (1-5), highest first. Only measured locales appear; an empty list means the voice is not rated (always the case for voices your workspace owns). When the request filters by `model`, each band reflects the best of the selected models; otherwise the voice's best model in that locale. Recommendations rate their `recommended_model`.
+    """
+
+    naturalness_match: typing.Optional[VoiceNaturalnessRatingOut] = pydantic.Field(default=None)
+    """
+    Set only when the request sorts by `naturalness` or filters with `min_naturalness`: the considered locale this voice ranked or qualified on (its best rating among the requested `language` values, or among all its locales when none were requested). Show this locale's band beside the voice so the list never pairs a qualifying voice with a weaker locale's band. Null when the voice is unrated in every considered locale.
     """
 
     is_favorite: typing.Optional[bool] = pydantic.Field(default=None)

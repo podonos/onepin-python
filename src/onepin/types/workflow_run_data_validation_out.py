@@ -6,6 +6,7 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .workflow_run_data_error_counts_out import WorkflowRunDataErrorCountsOut
 from .workflow_run_data_segment_out import WorkflowRunDataSegmentOut
+from .workflow_run_data_validation_out_lookup_coverage import WorkflowRunDataValidationOutLookupCoverage
 from .workflow_run_data_validation_out_status import WorkflowRunDataValidationOutStatus
 
 
@@ -80,6 +81,15 @@ class WorkflowRunDataValidationOut(UniversalBaseModel):
     entries whose stored envelope carries it; ``None`` for every other kind, and for an
     envelope that predates the field (older runs, and split lines whose sublines were
     scored before it). Also additive/optional.
+
+    ``unverified_count`` / ``unverified_words`` / ``lookup_coverage`` are the pronunciation
+    kind's answer to "what does this score NOT cover". A score is computed over the words
+    the detector could grade, and a curated name with no dictionary reading is not one of
+    them — it has no reference to compare against, so it never becomes a finding and the
+    rate has nothing to deduct. The entry therefore reads 100 with that word unmeasured,
+    which is honest but indistinguishable from a clean pass until these three say otherwise.
+    A client rendering ``lookup_coverage == "none"`` as a plain pass is making a claim the
+    run data does not support.
     """
 
     kind: str
@@ -93,6 +103,21 @@ class WorkflowRunDataValidationOut(UniversalBaseModel):
     scored_on: typing.Optional[str] = None
     segments: typing.Optional[typing.List[WorkflowRunDataSegmentOut]] = None
     error_counts: typing.Optional[WorkflowRunDataErrorCountsOut] = None
+    unverified_count: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Pronunciation only: how many script positions this verdict could NOT check — a curated name with no dictionary reading, a reading nobody disambiguated, a word the recogniser could not place. A pronunciation score is a score over the words the detector could grade and says nothing about these, so a line can publish 100 with the very name the dictionary was set up for unchecked. 0 means the verdict checked everything it was given; null means there is no verdict to read, or the line is a split (over-cap) one whose positions are subline-local.
+    """
+
+    unverified_words: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    The `script` tokens behind `unverified_count`, in script order. A SUBSET of that count — an unplaceable word or an unprocessed segment has no position to name — so render the count and treat these as the part that can be pointed at. `[]` with a non-zero count means nothing could be located; null tracks `unverified_count`.
+    """
+
+    lookup_coverage: typing.Optional[WorkflowRunDataValidationOutLookupCoverage] = pydantic.Field(default=None)
+    """
+    Pronunciation only: how much of what the phoneme injector LOOKED UP this verdict actually graded. `none` is the state to surface — every name the injector was added for went unchecked, so the score describes only the ordinary words around them and must not read as a clean pass. `full` is the positive confirmation that makes the other two meaningful. null when the detector does not report it (the Gemini detector judges an unserved surface against its own proposal, so it has no lookup to miss) or there was no injector upstream.
+    """
+
     inherited_from_take: typing.Optional[int] = pydantic.Field(default=None)
     """
     1-based attempt number (retry_count + 1, generator-local — the same basis as the take chips) of the take this entry was actually measured on, set only when it differs from the card's own take. The winner is picked with validator verdicts carried forward onto corrector splices, so the delivered card can carry a score no validator re-measured on its audio — this names where the measurement came from instead of letting it read as a fresh one. None everywhere else, including when the source take's own attempt number is unknowable.

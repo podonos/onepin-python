@@ -24,6 +24,11 @@ class TemplateEstimateResponse(UniversalBaseModel):
     Character count of the synthetic input used to compute the per-unit rates. Divide your expected script length by this value and multiply by the per-unit credit fields to project total cost.
     """
 
+    variable_cost_is_character_complete: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    True when the per-`unit_chars` variable credits are a complete script-length framing. False when at least one variable node bills on audio duration (seconds), so its cost does not scale with script characters and a 'per N characters' line would mislead.
+    """
+
     variable_min_credits_per_unit: int = pydantic.Field()
     """
     Minimum variable credits per `unit_chars` characters (best-case pricing, scales with script length).

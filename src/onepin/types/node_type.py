@@ -5,6 +5,7 @@ import typing
 NodeType = typing.Union[
     typing.Literal[
         "source_script",
+        "source_audio",
         "operator_translator",
         "operator_normalizer",
         "operator_generator",
