@@ -50,6 +50,15 @@ class WorkflowRunStatusOut(UniversalBaseModel):
     error: typing.Optional[str] = None
     has_export: typing.Optional[bool] = None
     triggered_by: typing.Optional[TriggeredByOut] = None
+    redo_of_run_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Set when this run is a per-line REDO: the run whose line it re-synthesized, and whose output the new take was grafted into. Null on an ordinary run, which is nearly all of them. A redo appears in the run list like any other run and consumes a run_number, so render it as a redo rather than as separate work — it did not produce a new result, it corrected one line of an existing one. It is also charged separately: the original run's settled cost is never recalculated.
+    """
+
+    redo_line_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The line_id this redo regenerated, paired with redo_of_run_id (both set or both null). Matches the line_id on the run-data rows of the parent run, so a client can point at the row that changed.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

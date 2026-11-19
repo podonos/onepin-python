@@ -2,4 +2,4 @@
 
 import typing
 
-UploadRequestCategory = typing.Union[typing.Literal["script", "dictionary"], typing.Any]
+UploadRequestCategory = typing.Union[typing.Literal["script", "dictionary", "audio"], typing.Any]

@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .node_estimate import NodeEstimate
+from .outcome_charge import OutcomeCharge
 
 
 class EstimateResponse(UniversalBaseModel):
@@ -25,6 +26,7 @@ class EstimateResponse(UniversalBaseModel):
     overage_rate_cents_per_credit: typing.Optional[float] = None
     will_incur_overage: typing.Optional[bool] = None
     estimated_overage_cents: typing.Optional[int] = None
+    outcome_charges: typing.Optional[typing.List[OutcomeCharge]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

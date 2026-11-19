@@ -3,5 +3,8 @@
 import typing
 
 PauseReason = typing.Union[
-    typing.Literal["user", "provider_outage", "provider_rate_limited", "provider_billing", "node_timeout"], typing.Any
+    typing.Literal[
+        "user", "provider_outage", "provider_rate_limited", "provider_billing", "node_timeout", "insufficient_credits"
+    ],
+    typing.Any,
 ]
