@@ -2,4 +2,6 @@
 
 import typing
 
-ListWorkflowsRequestSortItem = typing.Union[typing.Literal["name", "updated_at", "runs_count"], typing.Any]
+ListWorkflowsRequestSortItem = typing.Union[
+    typing.Literal["name", "updated_at", "runs_count", "last_activity_at"], typing.Any
+]
