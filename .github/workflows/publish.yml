@@ -110,7 +110,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with: { name: dist, path: dist }
       - id: publish
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@v1.14.3
         # Tolerated, not ignored -- the next step decides what the failure meant. The two
         # failures that land here are not remotely the same thing: "Warehouse refused this
         # artifact" is the finding this whole lane exists to surface, and "TestPyPI was not
