@@ -381,7 +381,7 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: 'dist/*'
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@v1.14.3
       - name: Verify provenance attestation
         # Repo-scoped query: org-level endpoint returns 404 even when the
         # attestation exists on the repo. `--repo` resolves correctly.
