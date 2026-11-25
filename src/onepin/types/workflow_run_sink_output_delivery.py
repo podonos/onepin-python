@@ -5,11 +5,13 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .workflow_run_sink_output_delivery_check import WorkflowRunSinkOutputDeliveryCheck
+from .workflow_run_sink_output_delivery_unverified import WorkflowRunSinkOutputDeliveryUnverified
 
 
 class WorkflowRunSinkOutputDelivery(UniversalBaseModel):
     passed: bool
     failing_checks: typing.List[WorkflowRunSinkOutputDeliveryCheck]
+    unverified: typing.Optional[WorkflowRunSinkOutputDeliveryUnverified] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

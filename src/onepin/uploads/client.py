@@ -5,6 +5,7 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.api_response_dict import ApiResponseDict
+from ..types.api_response_download_url_out import ApiResponseDownloadUrlOut
 from ..types.api_response_upload_create_response import ApiResponseUploadCreateResponse
 from ..types.api_response_upload_out import ApiResponseUploadOut
 from .raw_client import AsyncRawUploadsClient, RawUploadsClient
@@ -50,7 +51,9 @@ class UploadsClient:
 
         `category` controls which file formats are accepted:
         - `script` — text-based formats (txt, pdf)
-        - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+        - `dictionary` — pronunciation audio (mp3, wav, m4a, ogg, webm): a recording read
+          once by `POST /dictionary/recognitions` (`upload_id`), then deleted; not confirmed
+        - `audio` — bring-your-own-audio source clips (wav, mp3, flac)
 
         The presigned URL expires within a short window (see `upload_url` TTL in the
         response). If the URL expires before the PUT completes, discard this upload
@@ -67,7 +70,7 @@ class UploadsClient:
             Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
-            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for pronunciation audio (mp3, wav, m4a, ogg, webm); `audio` for bring-your-own-audio source clips (wav, mp3, flac).
 
         workspace_id : typing.Optional[str]
 
@@ -227,6 +230,7 @@ class UploadsClient:
         self,
         upload_id: str,
         *,
+        if_unreferenced: typing.Optional[bool] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseDict:
@@ -236,6 +240,11 @@ class UploadsClient:
         Permanently removes the upload record and schedules the stored file for
         deletion. The record is removed first; the file is cleaned up asynchronously
         after the response so storage removal only happens after a successful commit.
+
+        An Audio Input run keeps its own copy of each clip it used, so deleting the upload
+        does not delete those copies: past runs keep playing their original recording. The
+        copies, and any corrected splice of them, are erased when the uploader's account is
+        purged (`services/gdpr.py`).
 
         If the upload was previously confirmed against a workspace-scoped resource,
         the consumed storage bytes are released back to the workspace quota, keeping
@@ -249,11 +258,27 @@ class UploadsClient:
         workspace-role gate applies — a caller can only remove their own upload, never another
         member's workspace content.
 
+        Pass `if_unreferenced=true` to make the delete reference-aware: if any live
+        (non-deleted) workflow in the upload's workspace, or any in-flight (pending, running
+        or paused) run's frozen definition, still names the upload, it is retained and the
+        response is `{"deleted": false, "retained": "referenced"}` with no storage change;
+        otherwise it is deleted as above and the response is `{"deleted": true}`. Without
+        the flag the behavior and the empty `{}` response are unchanged.
+
+        Unlike the plain delete, the flagged path additionally requires the `editor` role in
+        the upload's workspace (non-members get 404, checked first; members below editor get
+        403), since it reads the workspace's workflow definitions and runs. API-key callers
+        are workspace-scoped already and bypass the role check. An upload not bound to any
+        workspace has no role to check and is deleted as before.
+
         Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------
         upload_id : str
+
+        if_unreferenced : typing.Optional[bool]
+            When true, delete only if nothing in the upload's workspace still uses it: no live workflow and no in-flight (pending, running or paused) run references it (a `source_audio` line's `audio_upload_id` or a `source_script` node's `upload_ids`). A referenced upload is kept: nothing is deleted and no storage is released. Default false deletes unconditionally.
 
         workspace_id : typing.Optional[str]
 
@@ -276,7 +301,53 @@ class UploadsClient:
             upload_id="upload_id",
         )
         """
-        _response = self._raw_client.delete(upload_id, workspace_id=workspace_id, request_options=request_options)
+        _response = self._raw_client.delete(
+            upload_id, if_unreferenced=if_unreferenced, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    def playback(
+        self, upload_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponseDownloadUrlOut:
+        """
+        Get a short-lived link that plays an uploaded audio file.
+
+        The link is signed `inline`, so opening it plays the audio in a browser, and it works
+        as the source of an audio player. Only `audio` uploads that finished uploading can be
+        played. The link stops working at `expires_at`; ask again for a fresh one.
+
+        Access follows the upload's own workspace, not the `X-Workspace-Id` header: any member
+        of that workspace may listen, and an API key may listen to its own user's uploads in
+        its own workspace. An upload bound to no workspace plays only for its owner, signed in.
+        Any other caller, including one asking for an upload in a deleted workspace, gets 404,
+        the same response as an id that does not exist.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
+
+        Parameters
+        ----------
+        upload_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseDownloadUrlOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.uploads.playback(
+            upload_id="upload_id",
+        )
+        """
+        _response = self._raw_client.playback(upload_id, request_options=request_options)
         return _response.data
 
 
@@ -315,7 +386,9 @@ class AsyncUploadsClient:
 
         `category` controls which file formats are accepted:
         - `script` — text-based formats (txt, pdf)
-        - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+        - `dictionary` — pronunciation audio (mp3, wav, m4a, ogg, webm): a recording read
+          once by `POST /dictionary/recognitions` (`upload_id`), then deleted; not confirmed
+        - `audio` — bring-your-own-audio source clips (wav, mp3, flac)
 
         The presigned URL expires within a short window (see `upload_url` TTL in the
         response). If the URL expires before the PUT completes, discard this upload
@@ -332,7 +405,7 @@ class AsyncUploadsClient:
             Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
-            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for pronunciation audio (mp3, wav, m4a, ogg, webm); `audio` for bring-your-own-audio source clips (wav, mp3, flac).
 
         workspace_id : typing.Optional[str]
 
@@ -516,6 +589,7 @@ class AsyncUploadsClient:
         self,
         upload_id: str,
         *,
+        if_unreferenced: typing.Optional[bool] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiResponseDict:
@@ -525,6 +599,11 @@ class AsyncUploadsClient:
         Permanently removes the upload record and schedules the stored file for
         deletion. The record is removed first; the file is cleaned up asynchronously
         after the response so storage removal only happens after a successful commit.
+
+        An Audio Input run keeps its own copy of each clip it used, so deleting the upload
+        does not delete those copies: past runs keep playing their original recording. The
+        copies, and any corrected splice of them, are erased when the uploader's account is
+        purged (`services/gdpr.py`).
 
         If the upload was previously confirmed against a workspace-scoped resource,
         the consumed storage bytes are released back to the workspace quota, keeping
@@ -538,11 +617,27 @@ class AsyncUploadsClient:
         workspace-role gate applies — a caller can only remove their own upload, never another
         member's workspace content.
 
+        Pass `if_unreferenced=true` to make the delete reference-aware: if any live
+        (non-deleted) workflow in the upload's workspace, or any in-flight (pending, running
+        or paused) run's frozen definition, still names the upload, it is retained and the
+        response is `{"deleted": false, "retained": "referenced"}` with no storage change;
+        otherwise it is deleted as above and the response is `{"deleted": true}`. Without
+        the flag the behavior and the empty `{}` response are unchanged.
+
+        Unlike the plain delete, the flagged path additionally requires the `editor` role in
+        the upload's workspace (non-members get 404, checked first; members below editor get
+        403), since it reads the workspace's workflow definitions and runs. API-key callers
+        are workspace-scoped already and bypass the role check. An upload not bound to any
+        workspace has no role to check and is deleted as before.
+
         Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------
         upload_id : str
+
+        if_unreferenced : typing.Optional[bool]
+            When true, delete only if nothing in the upload's workspace still uses it: no live workflow and no in-flight (pending, running or paused) run references it (a `source_audio` line's `audio_upload_id` or a `source_script` node's `upload_ids`). A referenced upload is kept: nothing is deleted and no storage is released. Default false deletes unconditionally.
 
         workspace_id : typing.Optional[str]
 
@@ -573,5 +668,59 @@ class AsyncUploadsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.delete(upload_id, workspace_id=workspace_id, request_options=request_options)
+        _response = await self._raw_client.delete(
+            upload_id, if_unreferenced=if_unreferenced, workspace_id=workspace_id, request_options=request_options
+        )
+        return _response.data
+
+    async def playback(
+        self, upload_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponseDownloadUrlOut:
+        """
+        Get a short-lived link that plays an uploaded audio file.
+
+        The link is signed `inline`, so opening it plays the audio in a browser, and it works
+        as the source of an audio player. Only `audio` uploads that finished uploading can be
+        played. The link stops working at `expires_at`; ask again for a fresh one.
+
+        Access follows the upload's own workspace, not the `X-Workspace-Id` header: any member
+        of that workspace may listen, and an API key may listen to its own user's uploads in
+        its own workspace. An upload bound to no workspace plays only for its owner, signed in.
+        Any other caller, including one asking for an upload in a deleted workspace, gets 404,
+        the same response as an id that does not exist.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
+
+        Parameters
+        ----------
+        upload_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseDownloadUrlOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.uploads.playback(
+                upload_id="upload_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.playback(upload_id, request_options=request_options)
         return _response.data

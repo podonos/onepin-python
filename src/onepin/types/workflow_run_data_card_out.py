@@ -5,12 +5,15 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .workflow_run_data_audio_out import WorkflowRunDataAudioOut
+from .workflow_run_data_card_out_my_feedback import WorkflowRunDataCardOutMyFeedback
 from .workflow_run_data_card_out_status import WorkflowRunDataCardOutStatus
+from .workflow_run_data_card_out_take_origin import WorkflowRunDataCardOutTakeOrigin
 from .workflow_run_data_card_out_waveform_status import WorkflowRunDataCardOutWaveformStatus
 from .workflow_run_data_dropped_out import WorkflowRunDataDroppedOut
 from .workflow_run_data_rejected_out import WorkflowRunDataRejectedOut
 from .workflow_run_data_validation_out import WorkflowRunDataValidationOut
 from .workflow_run_data_voice_out import WorkflowRunDataVoiceOut
+from .workflow_run_data_word_timings_out import WorkflowRunDataWordTimingsOut
 
 
 class WorkflowRunDataCardOut(UniversalBaseModel):
@@ -31,6 +34,21 @@ class WorkflowRunDataCardOut(UniversalBaseModel):
     status: typing.Optional[WorkflowRunDataCardOutStatus] = None
     dropped: typing.Optional[WorkflowRunDataDroppedOut] = None
     rejected: typing.Optional[WorkflowRunDataRejectedOut] = None
+    take_origin: typing.Optional[WorkflowRunDataCardOutTakeOrigin] = None
+    my_feedback: typing.Optional[WorkflowRunDataCardOutMyFeedback] = pydantic.Field(default=None)
+    """
+    The caller's own rating of this take; for API-key callers, the key owner's.
+    """
+
+    rateable: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether a member can rate this take in the web app: a generated or corrected take in the run's final output. False for uploaded recordings, dropped attempts, and takes of a run whose final output is not ready.
+    """
+
+    word_timings: typing.Optional[WorkflowRunDataWordTimingsOut] = pydantic.Field(default=None)
+    """
+    Where each word of this card's `script` sits in its audio, for highlighting and click-to-seek. Delivered takes only; see the status/reason table on the type.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
