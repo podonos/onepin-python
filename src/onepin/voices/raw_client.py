@@ -10,6 +10,7 @@ from ..core.jsonable_encoder import encode_path_param
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_counted_list_response_voice_out import ApiCountedListResponseVoiceOut
 from ..types.api_list_response_voice_recommended_out import ApiListResponseVoiceRecommendedOut
@@ -30,7 +31,11 @@ from .types.list_voices_request_order_item import ListVoicesRequestOrderItem
 from .types.list_voices_request_sort_item import ListVoicesRequestSortItem
 from .types.list_voices_request_source_item import ListVoicesRequestSourceItem
 from .types.preview_voices_request_language import PreviewVoicesRequestLanguage
+from .types.preview_voices_request_model import PreviewVoicesRequestModel
 from pydantic import ValidationError
+
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
 
 
 class RawVoicesClient:
@@ -53,6 +58,7 @@ class RawVoicesClient:
         sort: typing.Optional[typing.Sequence[ListVoicesRequestSortItem]] = None,
         order: typing.Optional[typing.Sequence[ListVoicesRequestOrderItem]] = None,
         buildable: typing.Optional[bool] = None,
+        min_naturalness: typing.Optional[int] = None,
         provider: typing.Optional[typing.Sequence[str]] = None,
         model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
@@ -186,6 +192,9 @@ class RawVoicesClient:
         buildable : typing.Optional[bool]
             Return only voices that can actually be synthesized for `language`: the measured quality floors, a provider/model that is enabled AND currently routable, and a billable rate (or your own BYOK key). Requires `language`; each repeated value is judged on its own. Voices your workspace owns are always returned.
 
+        min_naturalness : typing.Optional[int]
+            Keep only voices rated at least this naturalness band (1-5) in ANY of the requested `language` values — or in any of their languages when no `language` is given — rated on the requested `model`(s) when set. Unrated voices (including every voice your workspace owns) are excluded. Rows then carry `naturalness_match`, the locale each voice qualified on.
+
         provider : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
@@ -222,6 +231,7 @@ class RawVoicesClient:
                 "sort": sort,
                 "order": order,
                 "buildable": buildable,
+                "min_naturalness": min_naturalness,
                 "provider": provider,
                 "model": model,
                 "language": language,
@@ -271,6 +281,7 @@ class RawVoicesClient:
         category: typing.Optional[typing.Sequence[VoiceCategory]] = None,
         accent: typing.Optional[typing.Sequence[VoiceAccent]] = None,
         search: typing.Optional[str] = None,
+        min_naturalness: typing.Optional[int] = None,
         provider: typing.Optional[typing.Sequence[str]] = None,
         model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[str]] = None,
@@ -365,6 +376,9 @@ class RawVoicesClient:
 
         search : typing.Optional[str]
 
+        min_naturalness : typing.Optional[int]
+            Keep only voices rated at least this naturalness band (1-5) in ANY of the requested `language` values — or in any of their languages when no `language` is given — rated on the requested `model`(s) when set. Unrated voices (including every voice your workspace owns) are excluded. Rows then carry `naturalness_match`, the locale each voice qualified on.
+
         provider : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
@@ -395,6 +409,7 @@ class RawVoicesClient:
                 "category": category,
                 "accent": accent,
                 "search": search,
+                "min_naturalness": min_naturalness,
                 "provider": provider,
                 "model": model,
                 "language": language,
@@ -589,6 +604,117 @@ class RawVoicesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def find_voices_similar_to_audio(
+        self,
+        *,
+        request: typing.Union[bytes, typing.Iterator[bytes], typing.AsyncIterator[bytes]],
+        limit: typing.Optional[int] = None,
+        language: typing.Optional[typing.Sequence[str]] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ApiListResponseVoiceSimilarOut]:
+        """
+        Find the catalog voices that sound most like a clip you upload.
+
+        `GET /voices/{id}/similar` answers "more voices like this one", and can only start
+        from a voice already in the catalog. This one starts from a recording: send a few
+        seconds of someone speaking and it returns the closest catalog voices, ranked, with
+        previews — for the customer who liked a voice they heard somewhere else.
+
+        Send the clip as the **raw request body**, not multipart and not base64. `Content-Type`
+        is a hint only: the format is decided by the file's own magic bytes, so a browser
+        recording's `audio/webm;codecs=opus` and a mislabelled `.wav` both work, and something
+        that is not audio at all is a 415 rather than a confidently wrong answer. MP3, M4A/AAC,
+        OGG and FLAC are taken as-is. WAV, and a browser recording's WebM or MP4, are
+        re-encoded on the way through.
+
+        Keep it short — a few seconds of clear speech is ideal, and a speaker fingerprint stops
+        improving well before the limit. A clip under a second, one that is mostly silence, or
+        one with no speech in it is refused with a message saying which, because each is
+        fixable by the person who sent it.
+
+        **The clip is not stored.** It exists in this API process for the length of this
+        request and is then dropped: there is no upload row, no object in storage, and so
+        nothing to retain or delete. What is briefly kept is the 256-number voice fingerprint
+        derived from it, cached for a few minutes against the clip's content hash, so narrowing
+        by `language` or asking for a different `limit` does not re-analyze the same file.
+
+        The results, their scoping and their `similarity_score` are exactly
+        `GET /voices/{id}/similar`'s: platform voices plus your own workspace's, restricted to
+        officially supported locales, with voices from providers your account cannot use left
+        out. `similarity_score` is the raw cosine similarity. **Do not render it as a
+        percentage match.** The catalog's fingerprints come from clean studio previews, so a
+        phone recording or a clip with music under it scores structurally lower than a
+        catalog-to-catalog comparison would — the ORDER is meaningful, the absolute number is
+        not comparable to the sibling endpoint's.
+
+        Returns 503 when voice matching is not configured in this environment or the
+        fingerprint service is failing; retry after the indicated `Retry-After`. Rate limited
+        per user, more tightly than the general API, because each call runs a fingerprint
+        analysis. Sets `Cache-Control: no-store` — the response bakes in short-lived presigned
+        preview URLs.
+
+        Parameters
+        ----------
+        request : typing.Union[bytes, typing.Iterator[bytes], typing.AsyncIterator[bytes]]
+
+        limit : typing.Optional[int]
+            Number of similar voices to return (1–50).
+
+        language : typing.Optional[typing.Sequence[str]]
+            Repeat for OR, e.g. ?language=en-us&language=ko-kr
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiListResponseVoiceSimilarOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v1/voices/similar-by-audio",
+            method="POST",
+            params={
+                "limit": limit,
+                "language": language,
+            },
+            content=request,
+            headers={
+                "content-type": "audio/mpeg",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiListResponseVoiceSimilarOut,
+                    parse_obj_as(
+                        type_=ApiListResponseVoiceSimilarOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def get(
         self,
         voice_id: str,
@@ -602,8 +728,10 @@ class RawVoicesClient:
         Returns both platform (system-wide) voices and voices that belong to the
         caller's workspace. Returns 404 when the voice does not exist, is not
         accessible to the caller's workspace, or is a platform voice from a provider
-        that is not available to your account. Voices your workspace owns stay
-        readable regardless of provider availability. The `sample_url` field is a
+        that is not available to your account. When buying a currently offered plan
+        would make that provider available, the 404 carries the error code
+        `VOICE_PLAN_REQUIRED` instead of `NOT_FOUND`; every other miss is `NOT_FOUND`. Voices your workspace
+        owns stay readable regardless of provider availability. The `sample_url` field is a
         time-limited presigned URL valid for 1 hour; regenerate it by calling this
         endpoint again rather than caching it long-term. This endpoint sets
         `Cache-Control: no-store` because the response bakes in that short-lived
@@ -686,8 +814,9 @@ class RawVoicesClient:
         "voices like this" recommendation UI.
 
         Platform voices from providers that are not available to your account are
-        rejected as a reference (404) and omitted from the results; voices your
-        workspace owns are unaffected. This endpoint sets `Cache-Control: no-store`
+        rejected as a reference (404; error code `VOICE_PLAN_REQUIRED` when buying an
+        available plan would unlock the provider, `NOT_FOUND` otherwise) and omitted from
+        the results; voices your workspace owns are unaffected. This endpoint sets `Cache-Control: no-store`
         because the response bakes in short-lived presigned sample URLs — server-side
         (Redis) caching still applies underneath for the default `limit`/`language` shape.
 
@@ -758,7 +887,7 @@ class RawVoicesClient:
         voice_id: str,
         *,
         language: PreviewVoicesRequestLanguage,
-        model: typing.Optional[str] = None,
+        model: typing.Optional[PreviewVoicesRequestModel] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseVoicePreviewOut]:
@@ -769,8 +898,13 @@ class RawVoicesClient:
         synthesized with, its stored `content_type`, and a `sample_url` — a
         time-limited presigned URL valid for 1 hour; regenerate it by calling this
         endpoint again rather than caching it long-term. Pass `model` to prefer a
-        specific TTS model; a preview from another model is still returned when
-        that model has none.
+        specific TTS model; repeat it to pass several, and the one with the best
+        naturalness rating in that language is preferred, then the next best, then
+        the newest clip among the unrated ones. The order you pass them in does not
+        matter. A preview from a model you did not pass is returned only when none
+        of yours has one. Without `model`, the preview prefers the voice's
+        best-rated model in that language. Either way the clip matches the one the
+        voice list links for the same filter.
 
         `language` accepts a bare family (`ko`, `en`) as well as an exact locale
         (`ko-kr`, `en-gb`). A bare family expands to every supported locale in it,
@@ -783,7 +917,9 @@ class RawVoicesClient:
         voice is the claim about what it can speak; `preview_locales` is the list
         of locales this endpoint will succeed for. 404 is also returned when the
         voice does not exist, is not accessible to the caller's workspace, or is a
-        platform voice from a provider that is not available to your account.
+        platform voice from a provider that is not available to your account; the
+        last case carries error code `VOICE_PLAN_REQUIRED` when buying an available
+        plan would unlock the provider.
 
         Parameters
         ----------
@@ -792,8 +928,8 @@ class RawVoicesClient:
         language : PreviewVoicesRequestLanguage
             BCP-47 language code, e.g. en-us, ko-kr
 
-        model : typing.Optional[str]
-            TTS model id, e.g. sonic-2
+        model : typing.Optional[PreviewVoicesRequestModel]
+            TTS model id(s) to prefer, e.g. sonic-2. Repeat to pass several (?model=sonic-2&model=eleven_v3): the one with the best naturalness rating in the requested language is preferred.
 
         workspace_id : typing.Optional[str]
 
@@ -810,7 +946,9 @@ class RawVoicesClient:
             method="GET",
             params={
                 "language": language,
-                "model": model,
+                "model": convert_and_respect_annotation_metadata(
+                    object_=model, annotation=typing.Optional[PreviewVoicesRequestModel], direction="write"
+                ),
             },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
@@ -867,7 +1005,8 @@ class RawVoicesClient:
         favorited succeeds without error. Returns the voice with `is_favorite=true`.
         Requires the caller to have at least editor role in the workspace. Returns
         404 for a platform voice from a provider that is not available to your
-        account; voices your workspace owns can always be favorited.
+        account (error code `VOICE_PLAN_REQUIRED` when buying an available plan would
+        unlock it); voices your workspace owns can always be favorited.
 
         Parameters
         ----------
@@ -1008,6 +1147,7 @@ class AsyncRawVoicesClient:
         sort: typing.Optional[typing.Sequence[ListVoicesRequestSortItem]] = None,
         order: typing.Optional[typing.Sequence[ListVoicesRequestOrderItem]] = None,
         buildable: typing.Optional[bool] = None,
+        min_naturalness: typing.Optional[int] = None,
         provider: typing.Optional[typing.Sequence[str]] = None,
         model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[ListVoicesRequestLanguageItem]] = None,
@@ -1141,6 +1281,9 @@ class AsyncRawVoicesClient:
         buildable : typing.Optional[bool]
             Return only voices that can actually be synthesized for `language`: the measured quality floors, a provider/model that is enabled AND currently routable, and a billable rate (or your own BYOK key). Requires `language`; each repeated value is judged on its own. Voices your workspace owns are always returned.
 
+        min_naturalness : typing.Optional[int]
+            Keep only voices rated at least this naturalness band (1-5) in ANY of the requested `language` values — or in any of their languages when no `language` is given — rated on the requested `model`(s) when set. Unrated voices (including every voice your workspace owns) are excluded. Rows then carry `naturalness_match`, the locale each voice qualified on.
+
         provider : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
@@ -1177,6 +1320,7 @@ class AsyncRawVoicesClient:
                 "sort": sort,
                 "order": order,
                 "buildable": buildable,
+                "min_naturalness": min_naturalness,
                 "provider": provider,
                 "model": model,
                 "language": language,
@@ -1226,6 +1370,7 @@ class AsyncRawVoicesClient:
         category: typing.Optional[typing.Sequence[VoiceCategory]] = None,
         accent: typing.Optional[typing.Sequence[VoiceAccent]] = None,
         search: typing.Optional[str] = None,
+        min_naturalness: typing.Optional[int] = None,
         provider: typing.Optional[typing.Sequence[str]] = None,
         model: typing.Optional[typing.Sequence[str]] = None,
         language: typing.Optional[typing.Sequence[str]] = None,
@@ -1320,6 +1465,9 @@ class AsyncRawVoicesClient:
 
         search : typing.Optional[str]
 
+        min_naturalness : typing.Optional[int]
+            Keep only voices rated at least this naturalness band (1-5) in ANY of the requested `language` values — or in any of their languages when no `language` is given — rated on the requested `model`(s) when set. Unrated voices (including every voice your workspace owns) are excluded. Rows then carry `naturalness_match`, the locale each voice qualified on.
+
         provider : typing.Optional[typing.Sequence[str]]
             Repeat for OR, e.g. ?provider=elevenlabs&provider=rime
 
@@ -1350,6 +1498,7 @@ class AsyncRawVoicesClient:
                 "category": category,
                 "accent": accent,
                 "search": search,
+                "min_naturalness": min_naturalness,
                 "provider": provider,
                 "model": model,
                 "language": language,
@@ -1544,6 +1693,117 @@ class AsyncRawVoicesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def find_voices_similar_to_audio(
+        self,
+        *,
+        request: typing.Union[bytes, typing.Iterator[bytes], typing.AsyncIterator[bytes]],
+        limit: typing.Optional[int] = None,
+        language: typing.Optional[typing.Sequence[str]] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ApiListResponseVoiceSimilarOut]:
+        """
+        Find the catalog voices that sound most like a clip you upload.
+
+        `GET /voices/{id}/similar` answers "more voices like this one", and can only start
+        from a voice already in the catalog. This one starts from a recording: send a few
+        seconds of someone speaking and it returns the closest catalog voices, ranked, with
+        previews — for the customer who liked a voice they heard somewhere else.
+
+        Send the clip as the **raw request body**, not multipart and not base64. `Content-Type`
+        is a hint only: the format is decided by the file's own magic bytes, so a browser
+        recording's `audio/webm;codecs=opus` and a mislabelled `.wav` both work, and something
+        that is not audio at all is a 415 rather than a confidently wrong answer. MP3, M4A/AAC,
+        OGG and FLAC are taken as-is. WAV, and a browser recording's WebM or MP4, are
+        re-encoded on the way through.
+
+        Keep it short — a few seconds of clear speech is ideal, and a speaker fingerprint stops
+        improving well before the limit. A clip under a second, one that is mostly silence, or
+        one with no speech in it is refused with a message saying which, because each is
+        fixable by the person who sent it.
+
+        **The clip is not stored.** It exists in this API process for the length of this
+        request and is then dropped: there is no upload row, no object in storage, and so
+        nothing to retain or delete. What is briefly kept is the 256-number voice fingerprint
+        derived from it, cached for a few minutes against the clip's content hash, so narrowing
+        by `language` or asking for a different `limit` does not re-analyze the same file.
+
+        The results, their scoping and their `similarity_score` are exactly
+        `GET /voices/{id}/similar`'s: platform voices plus your own workspace's, restricted to
+        officially supported locales, with voices from providers your account cannot use left
+        out. `similarity_score` is the raw cosine similarity. **Do not render it as a
+        percentage match.** The catalog's fingerprints come from clean studio previews, so a
+        phone recording or a clip with music under it scores structurally lower than a
+        catalog-to-catalog comparison would — the ORDER is meaningful, the absolute number is
+        not comparable to the sibling endpoint's.
+
+        Returns 503 when voice matching is not configured in this environment or the
+        fingerprint service is failing; retry after the indicated `Retry-After`. Rate limited
+        per user, more tightly than the general API, because each call runs a fingerprint
+        analysis. Sets `Cache-Control: no-store` — the response bakes in short-lived presigned
+        preview URLs.
+
+        Parameters
+        ----------
+        request : typing.Union[bytes, typing.Iterator[bytes], typing.AsyncIterator[bytes]]
+
+        limit : typing.Optional[int]
+            Number of similar voices to return (1–50).
+
+        language : typing.Optional[typing.Sequence[str]]
+            Repeat for OR, e.g. ?language=en-us&language=ko-kr
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiListResponseVoiceSimilarOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v1/voices/similar-by-audio",
+            method="POST",
+            params={
+                "limit": limit,
+                "language": language,
+            },
+            content=request,
+            headers={
+                "content-type": "audio/mpeg",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiListResponseVoiceSimilarOut,
+                    parse_obj_as(
+                        type_=ApiListResponseVoiceSimilarOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def get(
         self,
         voice_id: str,
@@ -1557,8 +1817,10 @@ class AsyncRawVoicesClient:
         Returns both platform (system-wide) voices and voices that belong to the
         caller's workspace. Returns 404 when the voice does not exist, is not
         accessible to the caller's workspace, or is a platform voice from a provider
-        that is not available to your account. Voices your workspace owns stay
-        readable regardless of provider availability. The `sample_url` field is a
+        that is not available to your account. When buying a currently offered plan
+        would make that provider available, the 404 carries the error code
+        `VOICE_PLAN_REQUIRED` instead of `NOT_FOUND`; every other miss is `NOT_FOUND`. Voices your workspace
+        owns stay readable regardless of provider availability. The `sample_url` field is a
         time-limited presigned URL valid for 1 hour; regenerate it by calling this
         endpoint again rather than caching it long-term. This endpoint sets
         `Cache-Control: no-store` because the response bakes in that short-lived
@@ -1641,8 +1903,9 @@ class AsyncRawVoicesClient:
         "voices like this" recommendation UI.
 
         Platform voices from providers that are not available to your account are
-        rejected as a reference (404) and omitted from the results; voices your
-        workspace owns are unaffected. This endpoint sets `Cache-Control: no-store`
+        rejected as a reference (404; error code `VOICE_PLAN_REQUIRED` when buying an
+        available plan would unlock the provider, `NOT_FOUND` otherwise) and omitted from
+        the results; voices your workspace owns are unaffected. This endpoint sets `Cache-Control: no-store`
         because the response bakes in short-lived presigned sample URLs — server-side
         (Redis) caching still applies underneath for the default `limit`/`language` shape.
 
@@ -1713,7 +1976,7 @@ class AsyncRawVoicesClient:
         voice_id: str,
         *,
         language: PreviewVoicesRequestLanguage,
-        model: typing.Optional[str] = None,
+        model: typing.Optional[PreviewVoicesRequestModel] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseVoicePreviewOut]:
@@ -1724,8 +1987,13 @@ class AsyncRawVoicesClient:
         synthesized with, its stored `content_type`, and a `sample_url` — a
         time-limited presigned URL valid for 1 hour; regenerate it by calling this
         endpoint again rather than caching it long-term. Pass `model` to prefer a
-        specific TTS model; a preview from another model is still returned when
-        that model has none.
+        specific TTS model; repeat it to pass several, and the one with the best
+        naturalness rating in that language is preferred, then the next best, then
+        the newest clip among the unrated ones. The order you pass them in does not
+        matter. A preview from a model you did not pass is returned only when none
+        of yours has one. Without `model`, the preview prefers the voice's
+        best-rated model in that language. Either way the clip matches the one the
+        voice list links for the same filter.
 
         `language` accepts a bare family (`ko`, `en`) as well as an exact locale
         (`ko-kr`, `en-gb`). A bare family expands to every supported locale in it,
@@ -1738,7 +2006,9 @@ class AsyncRawVoicesClient:
         voice is the claim about what it can speak; `preview_locales` is the list
         of locales this endpoint will succeed for. 404 is also returned when the
         voice does not exist, is not accessible to the caller's workspace, or is a
-        platform voice from a provider that is not available to your account.
+        platform voice from a provider that is not available to your account; the
+        last case carries error code `VOICE_PLAN_REQUIRED` when buying an available
+        plan would unlock the provider.
 
         Parameters
         ----------
@@ -1747,8 +2017,8 @@ class AsyncRawVoicesClient:
         language : PreviewVoicesRequestLanguage
             BCP-47 language code, e.g. en-us, ko-kr
 
-        model : typing.Optional[str]
-            TTS model id, e.g. sonic-2
+        model : typing.Optional[PreviewVoicesRequestModel]
+            TTS model id(s) to prefer, e.g. sonic-2. Repeat to pass several (?model=sonic-2&model=eleven_v3): the one with the best naturalness rating in the requested language is preferred.
 
         workspace_id : typing.Optional[str]
 
@@ -1765,7 +2035,9 @@ class AsyncRawVoicesClient:
             method="GET",
             params={
                 "language": language,
-                "model": model,
+                "model": convert_and_respect_annotation_metadata(
+                    object_=model, annotation=typing.Optional[PreviewVoicesRequestModel], direction="write"
+                ),
             },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
@@ -1822,7 +2094,8 @@ class AsyncRawVoicesClient:
         favorited succeeds without error. Returns the voice with `is_favorite=true`.
         Requires the caller to have at least editor role in the workspace. Returns
         404 for a platform voice from a provider that is not available to your
-        account; voices your workspace owns can always be favorited.
+        account (error code `VOICE_PLAN_REQUIRED` when buying an available plan would
+        unlock it); voices your workspace owns can always be favorited.
 
         Parameters
         ----------

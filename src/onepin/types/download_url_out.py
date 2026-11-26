@@ -15,12 +15,12 @@ class DownloadUrlOut(UniversalBaseModel):
 
     filename: str = pydantic.Field()
     """
-    Suggested filename for the downloaded ZIP archive.
+    Suggested filename for the download. Read its extension rather than assuming one: the run download is a `.zip` of per-line files by default, and `format=single` returns a `.wav` when the run joins to one file, else a `.zip` of joined files.
     """
 
     expires_at: dt.datetime = pydantic.Field()
     """
-    UTC datetime after which the URL is no longer valid (15 minutes from generation).
+    UTC datetime after which the URL is no longer valid; request a fresh one after that.
     """
 
     if IS_PYDANTIC_V2:

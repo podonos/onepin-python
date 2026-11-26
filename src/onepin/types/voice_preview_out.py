@@ -27,6 +27,11 @@ class VoicePreviewOut(UniversalBaseModel):
     Time-limited presigned URL for the audio preview sample. Valid for 1 hour; regenerate by fetching the preview again.
     """
 
+    long_sample_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Time-limited presigned URL for the 10-second clip of the same voice, model and locale, when `sample_url` is a 5-second sample clip read from a script matched to the voice's use case. Null for any other preview, and when no 10-second clip exists. Valid for 1 hour; regenerate by fetching the preview again.
+    """
+
     content_type: typing.Optional[str] = pydantic.Field(default=None)
     """
     The selected row's stored `preview_content_type`, read from the database row — not a guarantee that the object in S3 is playable. May be null.
