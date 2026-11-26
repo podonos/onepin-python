@@ -12,6 +12,7 @@ from .voice_category import VoiceCategory
 from .voice_gender import VoiceGender
 from .voice_import_state import VoiceImportState
 from .voice_model_capability_out import VoiceModelCapabilityOut
+from .voice_naturalness_rating_out import VoiceNaturalnessRatingOut
 from .voice_source import VoiceSource
 
 
@@ -103,12 +104,17 @@ class VoiceRecommendedOut(UniversalBaseModel):
 
     duration_seconds: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Duration of the audio sample in seconds, if available.
+    Duration in seconds of the clip `sample_url` plays, if known. When `sample_model` is set this is that sample clip's measured duration; otherwise it describes the voice's default clip.
     """
 
     sample_url: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Time-limited presigned URL for the audio preview sample. For a voice that declares no English locale this is one of its `preview_locales` clips when any exists, so the sample is never in a language the voice cannot speak; otherwise it is the voice's default clip, whose spoken language is not guaranteed. It does not vary with the `language` filter — read `language_sample_url` (same response, no extra request) or GET /voices/{voice_id}/preview for that. Valid for 1 hour; regenerate by fetching the voice again.
+    Time-limited presigned URL for the audio preview sample. When the voice has a 5-second sample clip this is that clip, read from a script matched to the voice's use case: in `en-us`, else `en-gb`, for a voice that declares English, otherwise in the first of its own locales that has one, on its best-rated model there. `sample_model` is then set. Without one, for a voice that declares no English locale this is one of its `preview_locales` clips when any exists, so the sample is never in a language the voice cannot speak; otherwise it is the voice's default clip, whose spoken language is not guaranteed. It does not vary with the `language` filter — read `language_sample_url` (same response, no extra request) or GET /voices/{voice_id}/preview for that. Valid for 1 hour; regenerate by fetching the voice again.
+    """
+
+    sample_model: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The TTS model the 5-second sample clip in `sample_url` was synthesized with. Null when `sample_url` plays any other clip, including the voice's default one.
     """
 
     language_sample_url: typing.Optional[str] = pydantic.Field(default=None)
@@ -119,6 +125,16 @@ class VoiceRecommendedOut(UniversalBaseModel):
     language_sample_locale: typing.Optional[str] = pydantic.Field(default=None)
     """
     The actual regioned locale `language_sample_url` was served from, never a reflection of the request. A bare-family filter like `?language=en` expands to both `en-us` and `en-gb` and which one wins is deterministic but arbitrary, so label the clip from this and not from what you asked for. Null exactly when `language_sample_url` is.
+    """
+
+    language_sample_model: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The TTS model `language_sample_url` was synthesized with, when that is a 5-second sample clip. Null when `language_sample_url` is null or plays any other clip. It can differ from `sample_model`, because `sample_url` follows none of the request's filters.
+    """
+
+    language_sample_long_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Time-limited presigned URL for the 10-second clip of the same voice, model and locale as `language_sample_url`, read from the longer script. Null when `language_sample_url` is not a 5-second sample clip or no 10-second clip exists. Valid for 1 hour; regenerate by fetching the list again.
     """
 
     supported_languages: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
@@ -139,6 +155,16 @@ class VoiceRecommendedOut(UniversalBaseModel):
     model_capabilities: typing.Optional[typing.List[VoiceModelCapabilityOut]] = pydantic.Field(default=None)
     """
     Authoritative model-to-language observations after a successful full provider sync. Empty means no authoritative pair observation is available yet.
+    """
+
+    naturalness_ratings: typing.Optional[typing.List[VoiceNaturalnessRatingOut]] = pydantic.Field(default=None)
+    """
+    Per-locale naturalness bands (1-5), highest first. Only measured locales appear; an empty list means the voice is not rated (always the case for voices your workspace owns). When the request filters by `model`, each band reflects the best of the selected models; otherwise the voice's best model in that locale. Recommendations rate their `recommended_model`.
+    """
+
+    naturalness_match: typing.Optional[VoiceNaturalnessRatingOut] = pydantic.Field(default=None)
+    """
+    Set only when the request sorts by `naturalness` or filters with `min_naturalness`: the considered locale this voice ranked or qualified on (its best rating among the requested `language` values, or among all its locales when none were requested). Show this locale's band beside the voice so the list never pairs a qualifying voice with a weaker locale's band. Null when the voice is unrated in every considered locale.
     """
 
     is_favorite: typing.Optional[bool] = pydantic.Field(default=None)

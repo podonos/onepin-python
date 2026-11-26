@@ -6,12 +6,19 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .types import ListWorkflowsRequestOrderItem, ListWorkflowsRequestSortItem
+    from .types import (
+        DownloadRunApiV1WorkflowsWorkflowIdRunsRunIdDownloadGetRequestFormat,
+        ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory,
+        ListWorkflowsRequestOrderItem,
+        ListWorkflowsRequestSortItem,
+    )
     from . import runs
     from .runs import ListRunsRequestOrder, ListRunsRequestSort
 _dynamic_imports: typing.Dict[str, str] = {
+    "DownloadRunApiV1WorkflowsWorkflowIdRunsRunIdDownloadGetRequestFormat": ".types",
     "ListRunsRequestOrder": ".runs",
     "ListRunsRequestSort": ".runs",
+    "ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory": ".types",
     "ListWorkflowsRequestOrderItem": ".types",
     "ListWorkflowsRequestSortItem": ".types",
     "runs": ".runs",
@@ -40,8 +47,10 @@ def __dir__():
 
 
 __all__ = [
+    "DownloadRunApiV1WorkflowsWorkflowIdRunsRunIdDownloadGetRequestFormat",
     "ListRunsRequestOrder",
     "ListRunsRequestSort",
+    "ListWorkflowUploadsApiV1WorkflowsWorkflowIdUploadsGetRequestCategory",
     "ListWorkflowsRequestOrderItem",
     "ListWorkflowsRequestSortItem",
     "runs",

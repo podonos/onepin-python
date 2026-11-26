@@ -10,8 +10,10 @@ from ..core.jsonable_encoder import encode_path_param
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from ..errors.not_found_error import NotFoundError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.api_response_dict import ApiResponseDict
+from ..types.api_response_download_url_out import ApiResponseDownloadUrlOut
 from ..types.api_response_upload_create_response import ApiResponseUploadCreateResponse
 from ..types.api_response_upload_out import ApiResponseUploadOut
 from .types.upload_confirm_request_context_type import UploadConfirmRequestContextType
@@ -46,7 +48,9 @@ class RawUploadsClient:
 
         `category` controls which file formats are accepted:
         - `script` — text-based formats (txt, pdf)
-        - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+        - `dictionary` — pronunciation audio (mp3, wav, m4a, ogg, webm): a recording read
+          once by `POST /dictionary/recognitions` (`upload_id`), then deleted; not confirmed
+        - `audio` — bring-your-own-audio source clips (wav, mp3, flac)
 
         The presigned URL expires within a short window (see `upload_url` TTL in the
         response). If the URL expires before the PUT completes, discard this upload
@@ -63,7 +67,7 @@ class RawUploadsClient:
             Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
-            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for pronunciation audio (mp3, wav, m4a, ogg, webm); `audio` for bring-your-own-audio source clips (wav, mp3, flac).
 
         workspace_id : typing.Optional[str]
 
@@ -293,6 +297,7 @@ class RawUploadsClient:
         self,
         upload_id: str,
         *,
+        if_unreferenced: typing.Optional[bool] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ApiResponseDict]:
@@ -302,6 +307,11 @@ class RawUploadsClient:
         Permanently removes the upload record and schedules the stored file for
         deletion. The record is removed first; the file is cleaned up asynchronously
         after the response so storage removal only happens after a successful commit.
+
+        An Audio Input run keeps its own copy of each clip it used, so deleting the upload
+        does not delete those copies: past runs keep playing their original recording. The
+        copies, and any corrected splice of them, are erased when the uploader's account is
+        purged (`services/gdpr.py`).
 
         If the upload was previously confirmed against a workspace-scoped resource,
         the consumed storage bytes are released back to the workspace quota, keeping
@@ -315,11 +325,27 @@ class RawUploadsClient:
         workspace-role gate applies — a caller can only remove their own upload, never another
         member's workspace content.
 
+        Pass `if_unreferenced=true` to make the delete reference-aware: if any live
+        (non-deleted) workflow in the upload's workspace, or any in-flight (pending, running
+        or paused) run's frozen definition, still names the upload, it is retained and the
+        response is `{"deleted": false, "retained": "referenced"}` with no storage change;
+        otherwise it is deleted as above and the response is `{"deleted": true}`. Without
+        the flag the behavior and the empty `{}` response are unchanged.
+
+        Unlike the plain delete, the flagged path additionally requires the `editor` role in
+        the upload's workspace (non-members get 404, checked first; members below editor get
+        403), since it reads the workspace's workflow definitions and runs. API-key callers
+        are workspace-scoped already and bypass the role check. An upload not bound to any
+        workspace has no role to check and is deleted as before.
+
         Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------
         upload_id : str
+
+        if_unreferenced : typing.Optional[bool]
+            When true, delete only if nothing in the upload's workspace still uses it: no live workflow and no in-flight (pending, running or paused) run references it (a `source_audio` line's `audio_upload_id` or a `source_script` node's `upload_ids`). A referenced upload is kept: nothing is deleted and no storage is released. Default false deletes unconditionally.
 
         workspace_id : typing.Optional[str]
 
@@ -334,6 +360,9 @@ class RawUploadsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/uploads/{encode_path_param(upload_id)}",
             method="DELETE",
+            params={
+                "if_unreferenced": if_unreferenced,
+            },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },
@@ -349,6 +378,82 @@ class RawUploadsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def playback(
+        self, upload_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ApiResponseDownloadUrlOut]:
+        """
+        Get a short-lived link that plays an uploaded audio file.
+
+        The link is signed `inline`, so opening it plays the audio in a browser, and it works
+        as the source of an audio player. Only `audio` uploads that finished uploading can be
+        played. The link stops working at `expires_at`; ask again for a fresh one.
+
+        Access follows the upload's own workspace, not the `X-Workspace-Id` header: any member
+        of that workspace may listen, and an API key may listen to its own user's uploads in
+        its own workspace. An upload bound to no workspace plays only for its owner, signed in.
+        Any other caller, including one asking for an upload in a deleted workspace, gets 404,
+        the same response as an id that does not exist.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
+
+        Parameters
+        ----------
+        upload_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ApiResponseDownloadUrlOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/uploads/{encode_path_param(upload_id)}/playback",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseDownloadUrlOut,
+                    parse_obj_as(
+                        type_=ApiResponseDownloadUrlOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -394,7 +499,9 @@ class AsyncRawUploadsClient:
 
         `category` controls which file formats are accepted:
         - `script` — text-based formats (txt, pdf)
-        - `dictionary` — audio formats (mp3, wav, m4a, ogg, webm)
+        - `dictionary` — pronunciation audio (mp3, wav, m4a, ogg, webm): a recording read
+          once by `POST /dictionary/recognitions` (`upload_id`), then deleted; not confirmed
+        - `audio` — bring-your-own-audio source clips (wav, mp3, flac)
 
         The presigned URL expires within a short window (see `upload_url` TTL in the
         response). If the URL expires before the PUT completes, discard this upload
@@ -411,7 +518,7 @@ class AsyncRawUploadsClient:
             Original filename including extension (e.g. `script.txt`). Must include a file extension.
 
         category : UploadRequestCategory
-            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for audio formats (mp3, wav, m4a, ogg, webm).
+            File category. Determines which formats are accepted: `script` for text formats (txt, pdf); `dictionary` for pronunciation audio (mp3, wav, m4a, ogg, webm); `audio` for bring-your-own-audio source clips (wav, mp3, flac).
 
         workspace_id : typing.Optional[str]
 
@@ -641,6 +748,7 @@ class AsyncRawUploadsClient:
         self,
         upload_id: str,
         *,
+        if_unreferenced: typing.Optional[bool] = None,
         workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ApiResponseDict]:
@@ -650,6 +758,11 @@ class AsyncRawUploadsClient:
         Permanently removes the upload record and schedules the stored file for
         deletion. The record is removed first; the file is cleaned up asynchronously
         after the response so storage removal only happens after a successful commit.
+
+        An Audio Input run keeps its own copy of each clip it used, so deleting the upload
+        does not delete those copies: past runs keep playing their original recording. The
+        copies, and any corrected splice of them, are erased when the uploader's account is
+        purged (`services/gdpr.py`).
 
         If the upload was previously confirmed against a workspace-scoped resource,
         the consumed storage bytes are released back to the workspace quota, keeping
@@ -663,11 +776,27 @@ class AsyncRawUploadsClient:
         workspace-role gate applies — a caller can only remove their own upload, never another
         member's workspace content.
 
+        Pass `if_unreferenced=true` to make the delete reference-aware: if any live
+        (non-deleted) workflow in the upload's workspace, or any in-flight (pending, running
+        or paused) run's frozen definition, still names the upload, it is retained and the
+        response is `{"deleted": false, "retained": "referenced"}` with no storage change;
+        otherwise it is deleted as above and the response is `{"deleted": true}`. Without
+        the flag the behavior and the empty `{}` response are unchanged.
+
+        Unlike the plain delete, the flagged path additionally requires the `editor` role in
+        the upload's workspace (non-members get 404, checked first; members below editor get
+        403), since it reads the workspace's workflow definitions and runs. API-key callers
+        are workspace-scoped already and bypass the role check. An upload not bound to any
+        workspace has no role to check and is deleted as before.
+
         Dual-auth: Bearer JWT or API key (scope `uploads:write`).
 
         Parameters
         ----------
         upload_id : str
+
+        if_unreferenced : typing.Optional[bool]
+            When true, delete only if nothing in the upload's workspace still uses it: no live workflow and no in-flight (pending, running or paused) run references it (a `source_audio` line's `audio_upload_id` or a `source_script` node's `upload_ids`). A referenced upload is kept: nothing is deleted and no storage is released. Default false deletes unconditionally.
 
         workspace_id : typing.Optional[str]
 
@@ -682,6 +811,9 @@ class AsyncRawUploadsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/uploads/{encode_path_param(upload_id)}",
             method="DELETE",
+            params={
+                "if_unreferenced": if_unreferenced,
+            },
             headers={
                 "X-Workspace-Id": str(workspace_id) if workspace_id is not None else None,
             },
@@ -697,6 +829,82 @@ class AsyncRawUploadsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def playback(
+        self, upload_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ApiResponseDownloadUrlOut]:
+        """
+        Get a short-lived link that plays an uploaded audio file.
+
+        The link is signed `inline`, so opening it plays the audio in a browser, and it works
+        as the source of an audio player. Only `audio` uploads that finished uploading can be
+        played. The link stops working at `expires_at`; ask again for a fresh one.
+
+        Access follows the upload's own workspace, not the `X-Workspace-Id` header: any member
+        of that workspace may listen, and an API key may listen to its own user's uploads in
+        its own workspace. An upload bound to no workspace plays only for its owner, signed in.
+        Any other caller, including one asking for an upload in a deleted workspace, gets 404,
+        the same response as an id that does not exist.
+
+        Dual-auth: Bearer JWT or API key (scope `uploads:write`).
+
+        Parameters
+        ----------
+        upload_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ApiResponseDownloadUrlOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/uploads/{encode_path_param(upload_id)}/playback",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ApiResponseDownloadUrlOut,
+                    parse_obj_as(
+                        type_=ApiResponseDownloadUrlOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),

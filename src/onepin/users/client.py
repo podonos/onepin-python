@@ -8,6 +8,7 @@ from ..types.api_list_response_template_out import ApiListResponseTemplateOut
 from ..types.api_response_balance_response import ApiResponseBalanceResponse
 from ..types.api_response_email_notification_preferences_out import ApiResponseEmailNotificationPreferencesOut
 from ..types.api_response_plan_limits import ApiResponsePlanLimits
+from ..types.api_response_user_timezone_out import ApiResponseUserTimezoneOut
 from ..types.template_category import TemplateCategory
 from .raw_client import AsyncRawUsersClient, RawUsersClient
 from .types.list_my_templates_api_v1users_me_templates_get_request_sort import (
@@ -180,6 +181,43 @@ class UsersClient:
             failed_generation_email=failed_generation_email,
             request_options=request_options,
         )
+        return _response.data
+
+    def update_current_timezone(
+        self, *, timezone: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponseUserTimezoneOut:
+        """
+        Store the caller's IANA timezone, as reported by their browser.
+
+        Onepin uses it to deliver email at a sensible local hour (for example the product
+        update at 9am). Idempotent: sending the stored value again changes nothing. An unknown
+        or malformed timezone name is rejected with a 422 on the `timezone` field.
+
+        Parameters
+        ----------
+        timezone : str
+            IANA timezone name, e.g. `Asia/Seoul` or `America/New_York`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseUserTimezoneOut
+            Successful Response
+
+        Examples
+        --------
+        from onepin import OnePinClient
+
+        client = OnePinClient(
+            token="YOUR_TOKEN",
+        )
+        client.users.update_current_timezone(
+            timezone="timezone",
+        )
+        """
+        _response = self._raw_client.update_current_timezone(timezone=timezone, request_options=request_options)
         return _response.data
 
     def list_my_templates(
@@ -452,6 +490,51 @@ class AsyncUsersClient:
             failed_generation_email=failed_generation_email,
             request_options=request_options,
         )
+        return _response.data
+
+    async def update_current_timezone(
+        self, *, timezone: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> ApiResponseUserTimezoneOut:
+        """
+        Store the caller's IANA timezone, as reported by their browser.
+
+        Onepin uses it to deliver email at a sensible local hour (for example the product
+        update at 9am). Idempotent: sending the stored value again changes nothing. An unknown
+        or malformed timezone name is rejected with a 422 on the `timezone` field.
+
+        Parameters
+        ----------
+        timezone : str
+            IANA timezone name, e.g. `Asia/Seoul` or `America/New_York`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ApiResponseUserTimezoneOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from onepin import AsyncOnePinClient
+
+        client = AsyncOnePinClient(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.users.update_current_timezone(
+                timezone="timezone",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.update_current_timezone(timezone=timezone, request_options=request_options)
         return _response.data
 
     async def list_my_templates(
